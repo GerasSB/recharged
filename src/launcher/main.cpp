@@ -1232,7 +1232,11 @@ private:
         BeginCard("##window", "Window", nullptr, Icon::Display);
         if (BeginRows("##window_rows"))
         {
-            Row("Mode", "Fullscreen covers the whole display without changing its resolution.");
+            const std::string native = FullscreenResolution();
+            Row("Mode", native.empty()
+                    ? "Fullscreen covers the whole display at its own resolution, without a mode change."
+                    : ("Fullscreen covers the whole display at its own resolution, " + native
+                       + " here, without a mode change.").c_str());
             int mode = draft_.fullscreen ? 1 : 0;
             if (Segmented("##mode", &mode, {"Windowed", "Fullscreen"}, ImGui::GetContentRegionAvail().x))
             { draft_.fullscreen = mode == 1; dirty_ = true; }
@@ -1500,6 +1504,18 @@ private:
                 + " x " + std::to_string(shrunk.height) + ".";
             TextWrappedColored(CurrentFonts().caption, color::warning, note.c_str());
         }
+    }
+
+    // Pixel size of the display the game opens on, as fullscreen uses it
+    // (the default display when none is chosen); empty if unknown.
+    std::string FullscreenResolution() const
+    {
+        SDL_DisplayID display = SDL_GetPrimaryDisplay();
+        if (draft_.monitor > 0 && draft_.monitor <= int(display_ids_.size())) display = display_ids_[size_t(draft_.monitor - 1)];
+        const SDL_DisplayMode* mode = display ? SDL_GetDesktopDisplayMode(display) : nullptr;
+        if (!mode || mode->w <= 0 || mode->h <= 0) return {};
+        const float density = mode->pixel_density > 0 ? mode->pixel_density : 1.0f;
+        return std::to_string(std::lround(mode->w * density)) + " x " + std::to_string(std::lround(mode->h * density));
     }
 
     void DisplayChoice()
