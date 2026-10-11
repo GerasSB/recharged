@@ -49,11 +49,26 @@ the reconstructed source, unchanged.
   levels stay in the game's own options.
 - **Screenshots** with the P key.
 
+## Optional tweaks
+
+Off by default; with all of them off the game plays exactly as on the Wii.
+The launcher's **Gameplay** page (or `[gameplay]` in `mscharged.ini`) turns them on:
+
+- **Skip intro**: start at the main menu, without the notice screens, studio
+  logo, intro movie and title screen.
+- **Fast menus**: skip menu transitions (matches, movies and credits unchanged).
+- **No Mega Strikes** for both teams (Striker Challenges and Strikers 101 keep
+  their own rules).
+- **Unlock everything**: all characters, stadiums and cheats, through the
+  game's own unlock switch; the save is not changed.
+
+`--no-tweaks` turns them off for one run.
+
 ## Launcher
 
 A start window that checks your disc, explains what is missing, and keeps every
 setting in one place: players and controllers, keyboard keys, gamepad
-profiles, Wii Remote calibration, display, audio and advanced options. It asks before playing with
+profiles, Wii Remote calibration, display, audio, gameplay tweaks and advanced options. It asks before playing with
 unsaved changes.
 
 ## Not supported (yet)
