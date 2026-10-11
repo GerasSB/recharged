@@ -561,6 +561,17 @@ int mscharged::RunOriginalMainCredits(int argc, char** argv,
                 reinterpret_cast<void(*)()>(mscharged::platform::FindNativeModuleSymbol(module,"charged_toggle_debug_layers")),
                 reinterpret_cast<void(*)()>(mscharged::platform::FindNativeModuleSymbol(module,"charged_cycle_debug_layer")));
         }
+        // [gameplay] tweaks (frontend module only): the enabled set, before original main.
+        {
+            const unsigned tweaks=launch.settings.GameTweakMask();
+            auto* configureTweaks=reinterpret_cast<void(*)(unsigned)>(
+                mscharged::platform::FindNativeModuleSymbol(module,"charged_configure_tweaks"));
+            if(configureTweaks) configureTweaks(tweaks);
+            const auto line="Tweaks: "+(configureTweaks || !tweaks ? mscharged::DescribeGameTweaks(tweaks)
+                : "none (this build's game module has no tweaks)");
+            mscharged::platform::SessionLogLine(line.c_str());
+            std::fprintf(stderr,"%s\n",line.c_str());
+        }
         if(axModuleMemory)axModuleMemory->ConfirmLoaded(module);
 #if defined(MSCHARGED_HAS_ORIGINAL_GAME_AUDIO_INITIALIZE)
         if(sourceAudio)
