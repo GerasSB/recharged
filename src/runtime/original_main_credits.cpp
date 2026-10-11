@@ -798,16 +798,18 @@ int mscharged::RunOriginalMainCredits(int argc, char** argv,
                     const auto& efb=aurora::webgpu::g_frameBuffer;
                     const unsigned expectedWidth=resizeStage==1?1280:resizeStage==2?600:windowWidth;
                     const unsigned expectedHeight=resizeStage==1?720:resizeStage==2?900:windowHeight;
-                    Check(launch.settings.fullscreen || (size.width==expectedWidth && size.height==expectedHeight),
+                    // Only the controlled --resize-check run owns the window size;
+                    // in play the player may resize or maximize it at any time.
+                    Check(!resizeCheck || (size.width==expectedWidth && size.height==expectedHeight),
                           "Controlled native window resize did not reach its requested actual size");
                     // A fixed resolution keeps one EFB through resizes; "window"
                     // follows the window, at least the Wii's 640x448.
                     const auto efbWidth=efbScale>0.0f?unsigned(std::lround(640.0f*efbScale)):size.fb_width;
                     const auto efbHeight=efbScale>0.0f?unsigned(std::lround(448.0f*efbScale)):size.fb_height;
-                    Check(size.fb_width==efbWidth && size.fb_height==efbHeight && efbWidth>=640 && efbHeight>=448 &&
-                          efb.size.width==efbWidth && efb.size.height==efbHeight,
+                    Check(!resizeCheck || (size.fb_width==efbWidth && size.fb_height==efbHeight && efbWidth>=640 &&
+                          efbHeight>=448 && efb.size.width==efbWidth && efb.size.height==efbHeight),
                           "Window resize changed original source EFB geometry");
-                    if(efbScale>0.0f) {
+                    if(resizeCheck && efbScale>0.0f) {
                         if(retainedEFB) Check(efb.texture.Get()==retainedEFB.Get(),
                                              "Output resize replaced the original source EFB texture");
                         else retainedEFB=efb.texture;
