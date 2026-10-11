@@ -16,8 +16,9 @@ vsync = true
 backend = auto
 # Game layout: auto (by window shape), 4:3 or 16:9.
 aspect = 16:9
-# Picture: soft (the original TV signal), clean (drawn straight into the window
-# without the TV flicker filter) or sharp (clean with square pixels).
+# Picture: soft (the original TV signal, with its empty border), clean (the
+# game's picture drawn straight into the window, without the TV flicker filter
+# and the border) or sharp (clean with square pixels).
 picture = sharp
 # Antialiasing of the game's 3D edges: off or 4x (more GPU time).
 antialiasing = 4x
