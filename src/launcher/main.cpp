@@ -179,8 +179,6 @@ std::string Quote(const std::string& text)
 class Launcher
 {
 public:
-    const std::optional<ResolvedLaunch>& StartupLaunch() const { return startup_launch_; }
-    const std::optional<ResolvedLaunch>& CreditsLaunch() const { return credits_launch_; }
     const std::optional<ResolvedLaunch>& FrontendLaunch() const { return frontend_launch_; }
 
     ResolvedLaunch EffectiveLaunch() const { return ResolveLaunch(file_, options_.launch, &draft_); }
@@ -733,7 +731,7 @@ private:
             case PageAudio: AudioPage(); break;
             case PageControls: ControlsPage(); break;
             case PageGameplay: GameplayPage(); break;
-            case PageAdvanced: AdvancedPage(quit); break;
+            case PageAdvanced: AdvancedPage(); break;
             default: AboutPage(); break;
             }
             ImGui::EndDisabled();
@@ -2640,7 +2638,7 @@ private:
         EndCard();
     }
 
-    void AdvancedPage(bool& quit)
+    void AdvancedPage()
     {
         PageHeader("Advanced", "Troubleshooting and development options. The defaults suit most players.");
         BeginCard("##interface", "Interface", nullptr, Icon::Sliders);
@@ -2708,28 +2706,6 @@ private:
             EndRows();
         }
         EndCard();
-
-#if defined(MSCHARGED_HAS_ORIGINAL_CREDITS) || defined(MSCHARGED_HAS_GAME_STARTUP)
-        BeginCard("##developer", "Developer tests", "Run a single original scene for testing. Settings are used without saving.", Icon::Play);
-        if (BeginRows("##developer_rows"))
-        {
-            const bool ready = DiscReady() && SupportedRelease(*check_.info);
-#ifdef MSCHARGED_HAS_ORIGINAL_CREDITS
-            Row("Original Credits", "Runs the original Credits scene with its movie and music.");
-            if (SecondaryButton("credits_test", "Run Credits", {ImGui::GetContentRegionAvail().x, Dp(40)}, ready, Icon::Play))
-            { credits_launch_ = EffectiveLaunch(); quit = true; }
-#endif
-#ifdef MSCHARGED_HAS_GAME_STARTUP
-            Row("Original initialization", "Runs the original startup prefix and reports its first missing service.");
-            if (SecondaryButton("startup_test", "Run startup", {ImGui::GetContentRegionAvail().x, Dp(40)}, ready, Icon::Play))
-            { startup_launch_ = EffectiveLaunch(); quit = true; }
-#endif
-            EndRows();
-        }
-        EndCard();
-#else
-        (void)quit;
-#endif
 
         BeginCard("##reset", "Reset", nullptr, Icon::Refresh);
         if (BeginRows("##reset_rows"))
@@ -2840,8 +2816,6 @@ private:
     std::string font_path_;
     bool capture_ = false;
     UiMetrics metrics_{};
-    std::optional<ResolvedLaunch> startup_launch_;
-    std::optional<ResolvedLaunch> credits_launch_;
     std::optional<ResolvedLaunch> frontend_launch_;
     SDL_Window* window_ = nullptr;
     SDL_Renderer* renderer_ = nullptr;
@@ -3210,25 +3184,16 @@ int main(int argc, char** argv)
             return 2;
 #endif
         }
-        std::optional<ResolvedLaunch> startup_launch, credits_launch, frontend_launch;
+        std::optional<ResolvedLaunch> frontend_launch;
         int result;
         {
             Launcher launcher;
             result = launcher.Run(std::move(options));
-            startup_launch = launcher.StartupLaunch();
-            credits_launch = launcher.CreditsLaunch();
             frontend_launch = launcher.FrontendLaunch();
         } // Destroy the launcher/ImGui/SDL session before Aurora initializes.
-#ifdef MSCHARGED_HAS_ORIGINAL_CREDITS
-        if (credits_launch) return RunOriginalMainCredits(argc, argv, &*credits_launch, true,
-            OriginalMainScene::Credits, GameTitle().c_str());
-#endif
 #ifdef MSCHARGED_HAS_ORIGINAL_FRONTEND
         if (frontend_launch) return RunOriginalMainCredits(argc, argv, &*frontend_launch, true,
             OriginalMainScene::FrontendSequence, GameTitle().c_str());
-#endif
-#ifdef MSCHARGED_HAS_GAME_STARTUP
-        if (startup_launch) return RunGameStartup(argc, argv, *startup_launch);
 #endif
         return result;
     }
