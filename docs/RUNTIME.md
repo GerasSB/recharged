@@ -62,12 +62,14 @@ transition is unfinished. Host focus and menu input remain under validation.
 
 ## Wii Remote
 
-Experimental, Linux. Wii Remotes (or Wii Remote Plus) with a Nunchuk play
+Experimental: tested on Linux, connecting over Bluetooth also on Windows. Wii Remotes (or Wii Remote Plus) with a Nunchuk play
 either through a Mayflash DolphinBar in mode 4 or paired directly over
 Bluetooth. Pair with the bar by pressing SYNC on the bar, then SYNC under the
-Remote's battery cover. To pair over Bluetooth, press SYNC under the battery
-cover and connect "Nintendo RVL-CNT-01" in your system's Bluetooth settings
-(no PIN). Over Bluetooth the Remote needs a separate sensor bar for its
+Remote's battery cover. On Windows, the launcher's Controls page connects
+Remotes over Bluetooth while it is open: press 1+2 or the SYNC button on the
+Remote (some connect more easily with SYNC); `controls.bluetooth_search`
+switches this off. Elsewhere, press SYNC and connect "Nintendo RVL-CNT-01" in
+your system's Bluetooth settings (no PIN). Over Bluetooth the Remote needs a separate sensor bar for its
 pointer. The Remote speaker, MotionPlus and other extensions are not supported.
 
 Choose who plays on the launcher's Controls page. Each of players 1-4 is
@@ -79,8 +81,6 @@ and keyboard & mouse is player 1 when nobody is left. The page also shows
 each Remote's battery level. `controls.sensor_bar` is `bottom` or `top` of the
 screen, and `controls.rumble` switches rumble. The bar must be in view of the
 Remote's camera: sit about 1 m or more away when it is on top of the screen.
-To make the pointer land where you aim, press the target button next to a
-Remote and aim at the five targets that follow, pressing A at each (B cancels).
 
 If a Remote is connected but cannot be opened, the Controls page says so and
 copies these commands. Run them once, then reconnect the bar or Remote:

@@ -57,6 +57,9 @@ player4 = off
 # When player 1 is a Wii Remote or gamepad and plays alone, the mouse also
 # points for it (left click A, right click B); the controller keeps working.
 mouse_pointer = true
+# Windows: while the launcher's Controls page is open it connects Wii Remotes
+# over Bluetooth when you press 1+2 or the SYNC button on them.
+bluetooth_search = true
 deadzone = 15
 rumble = true
 # Where the sensor bar or DolphinBar sits: bottom or top of the screen.

@@ -49,6 +49,7 @@ Values Encode(const Settings& s)
             {"controls.deadzone", std::to_string(s.deadzone)},
             {"controls.rumble", s.rumble ? "true" : "false"},
             {"controls.mouse_pointer", s.mouse_pointer ? "true" : "false"},
+            {"controls.bluetooth_search", s.bluetooth_search ? "true" : "false"},
             {"controls.sensor_bar", s.sensor_bar},
             {"display.show_fps", s.show_fps ? "true" : "false"},
             {"display.monitor", std::to_string(s.monitor)},
@@ -210,6 +211,7 @@ Settings Decode(const Values& values)
     number("controls.deadzone", s.deadzone, 0, 50);
     boolean("controls.rumble", s.rumble);
     boolean("controls.mouse_pointer", s.mouse_pointer);
+    boolean("controls.bluetooth_search", s.bluetooth_search);
     choice("controls.sensor_bar", s.sensor_bar, {"bottom", "top"});
     boolean("display.show_fps", s.show_fps);
     number("display.monitor", s.monitor, 0, 15);

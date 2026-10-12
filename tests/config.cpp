@@ -179,6 +179,12 @@ int main()
             changed.players[2] = "remote-001122334455";
             SaveConfig(bluetooth, changed);
             Require(LoadConfig(path).settings.players == changed.players, "Bluetooth remotes round trip");
+            Require(Settings{}.bluetooth_search && LoadConfig(path).settings.bluetooth_search, "Bluetooth search is on");
+            auto off = LoadConfig(path);
+            auto searchless = off.settings;
+            searchless.bluetooth_search = false;
+            SaveConfig(off, searchless);
+            Require(!LoadConfig(path).settings.bluetooth_search, "Bluetooth search off round trips");
             std::ofstream(path) << "[controls]\nplayer1 = remote-9CE635C69076\n";
             Reject([&] { LoadConfig(path); });
             std::ofstream(path) << "[controls]\nplayer1 = remote-9ce635c69076\nplayer2 = remote-9ce635c69076\n";

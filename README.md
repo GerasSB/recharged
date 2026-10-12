@@ -121,9 +121,11 @@ Press **P** for a screenshot.
 
 Real Wii Remotes (with Nunchuk) work in two ways:
 
-- **Bluetooth:** press the red **SYNC** button under the battery cover and
-  connect *Nintendo RVL-CNT-01* in your system's Bluetooth settings (no PIN).
-  The pointer needs a separate Wii sensor bar.
+- **Bluetooth:** on Windows, open the launcher's **Controls** page and press
+  **1+2** or the red **SYNC** button (under the battery cover) on the Remote; the
+  launcher connects it. Elsewhere, press SYNC and connect *Nintendo RVL-CNT-01*
+  in your system's Bluetooth settings (no PIN). The pointer needs a separate
+  Wii sensor bar.
 - **Mayflash DolphinBar** in mode 4: press SYNC on the bar, then on the Remote.
   The bar is also the sensor bar.
 

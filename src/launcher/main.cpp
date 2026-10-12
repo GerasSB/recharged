@@ -21,6 +21,7 @@
 #include "platform/session_log.h"
 #include "platform/gamepad_bindings.h"
 #include "platform/key_bindings.h"
+#include "platform/wiimote_bluetooth.h"
 #include "platform/wiimote_hid.h"
 #ifdef MSCHARGED_HAS_GAME_STARTUP
 #include "runtime/startup.h"
@@ -708,6 +709,9 @@ private:
     {
         if (page_ != PageControls && keyboard_view_) CloseKeyboardView();
         if (page_ != PageControls && gamepad_view_) CloseGamepadView();
+        // Bluetooth inquiries can disturb other Bluetooth devices: search only
+        // while the Controls page is open (never in development captures).
+        bluetooth_search_.SetActive(page_ == PageControls && config_ok_ && draft_.bluetooth_search && !capture_);
         const float bar = Dp(74);
         const ImVec2 content{size.x, size.y - bar};
         ImGui::SetCursorPos(origin);
@@ -1774,6 +1778,24 @@ private:
         return model + " (Bluetooth " + (address.size() > 8 ? address.substr(address.size() - 8) : address) + ")";
     }
 
+    // Windows: connect Wii Remotes over Bluetooth with 1+2 or SYNC.
+    void BluetoothSearchRow()
+    {
+        const auto search = bluetooth_search_.Status();
+        if (!search.supported || !BeginRows("##bluetooth_search_rows")) return;
+        std::string description = !draft_.bluetooth_search
+            ? "Off: pair Wii Remotes in the Windows Bluetooth settings instead."
+            : !search.adapter ? "No Bluetooth adapter found."
+            : "Press 1+2 / SYNC on a Wii Remote to connect it.";
+        if (draft_.bluetooth_search && !search.last.empty()) description += " Last: " + search.last + ".";
+        Row("Connect Wii Remotes", description.c_str());
+        if (Toggle("##bluetooth_search", &draft_.bluetooth_search)) dirty_ = true;
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Searching can briefly disturb other Bluetooth devices, such as headphones.\n"
+                              "Wii Remotes Windows remembers but can't reconnect are removed, so 1+2 works again.");
+        EndRows();
+    }
+
     // controls.player1-4: keyboard & mouse, a Wii Remote (in a DolphinBar
     // slot or paired over Bluetooth), a gamepad or off. Players fill in order
     // and each device plays once. Controllers missing when the game starts
@@ -1918,6 +1940,7 @@ private:
             if (Toggle("##mouse_pointer", &draft_.mouse_pointer)) dirty_ = true;
             EndRows();
         }
+        BluetoothSearchRow();
         if (status.no_permission && BeginRows("##wiimote_access_rows"))
         {
 #if defined(__linux__)
@@ -2835,6 +2858,8 @@ private:
     std::map<SDL_JoystickID, std::array<bool, 2>> trigger_held_;
     // Wii Remote / DolphinBar detection for the Controls page (non-blocking).
     platform::WiimoteHidProbe wii_probe_;
+    // Windows: connects Wii Remotes over Bluetooth while Controls is open.
+    platform::WiimoteBluetoothSearch bluetooth_search_;
     platform::WiimoteHidStatus wii_status_{};
     // Controls: keyboard & mouse keys view, and the keycap waiting for a key.
     bool keyboard_view_ = false;
