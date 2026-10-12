@@ -1,12 +1,11 @@
 #pragma once
 
-#include "platform/wiimote_calibration.h"
+#include "platform/wiimote_ir.h"
 #include "platform/wiimote_ids.h"
 
 #include <array>
 #include <cstddef>
 #include <cstdint>
-#include <initializer_list>
 #include <map>
 #include <optional>
 
@@ -32,10 +31,6 @@ struct WiimoteHidSettings {
     // remote plays, DolphinBar slots first.
     bool fixed_players = false;
     std::map<std::string, int> channels;
-    // Pointer calibration by remote id (controls.<remote>_calibration), and
-    // the Wii sensor-bar position it is applied for (0 below, 1 above).
-    std::map<std::string, WiimoteCalibration> calibrations;
-    std::uint8_t sensor_bar_position = 0;
 };
 
 struct WiimoteHidRemote {
@@ -100,35 +95,6 @@ private:
 };
 WiimoteHidStatus ScanWiimoteHid(int timeout_ms = 400);
 
-// A live Wii Remote for the launcher's pointer calibration (no game input
-// owner): turns the remote's camera on like the game's driver and reads its
-// camera objects and buttons. Lives in wiimote_scan.cpp.
-class WiimoteHidLive {
-public:
-    WiimoteHidLive() = default;
-    WiimoteHidLive(const WiimoteHidLive&) = delete;
-    WiimoteHidLive& operator=(const WiimoteHidLive&) = delete;
-    ~WiimoteHidLive();
-    // The remote with this id (wiimote_ids.h); false when it does not answer.
-    bool Open(const std::string& id);
-    void Close();
-    // Reads waiting reports; never blocks.
-    void Poll();
-    bool Connected() const;
-    // Core buttons as in report bytes 1-2: 0x0008 A, 0x0004 B, 0x0080 HOME.
-    std::uint16_t Buttons() const { return buttons_; }
-    const NativeDpdObservation& Dots() const { return dots_; }
-
-private:
-    bool Send(std::initializer_list<std::uint8_t> report);
-    bool Write(std::uint32_t address, const std::uint8_t* data, int size);
-    void Handle(const std::uint8_t* report, int size);
-    SDL_hid_device* hid_ = nullptr;
-    bool initialized_ = false;
-    std::uint16_t buttons_ = 0;
-    NativeDpdObservation dots_{};
-    std::uint64_t last_report_ns_ = 0;
-};
 bool IsWiimoteHid(const SDL_hid_device_info* info);
 bool IsDolphinBarHid(const SDL_hid_device_info* info);
 // Detailed Wii Remote output: with advanced.verbose_console or the

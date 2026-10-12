@@ -69,8 +69,8 @@ Highlights:
 
 - Keyboard & mouse with freely assignable keys
 - Xbox, PlayStation and other gamepads
-- Real Wii Remotes with Nunchuk, paired over Bluetooth or through a Mayflash
-  DolphinBar, with pointer calibration
+- Real Wii Remotes with Nunchuk and pointer, paired over Bluetooth or through
+  a Mayflash DolphinBar
 - Sharp picture, 4:3 or 16:9, optional antialiasing, any window size or
   fullscreen
 - A launcher for disc, players, controls, display and audio
@@ -128,8 +128,7 @@ Real Wii Remotes (with Nunchuk) work in two ways:
   The bar is also the sensor bar.
 
 Connected Remotes appear on the launcher's **Controls** page with their battery
-level. Assign them to players there and calibrate the pointer with the target
-button.
+level. Assign them to players there; the pointer works without any setup.
 
 **Linux:** if the launcher says a Wii Remote is connected but can't be opened,
 allow your user to access Wii Remotes once (the launcher's **Copy commands**

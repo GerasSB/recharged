@@ -57,13 +57,6 @@ player4 = off
 # When player 1 is a Wii Remote or gamepad and plays alone, the mouse also
 # points for it (left click A, right click B); the controller keeps working.
 mouse_pointer = true
-# Pointer calibration of the Wii Remote in each DolphinBar slot, made on the
-# launcher's Controls page (none = uncalibrated). A Bluetooth remote's is
-# remote-<address>_calibration.
-remote1_calibration = none
-remote2_calibration = none
-remote3_calibration = none
-remote4_calibration = none
 deadzone = 15
 rumble = true
 # Where the sensor bar or DolphinBar sits: bottom or top of the screen.

@@ -46,15 +46,6 @@ struct Settings
     // Bluetooth, e.g. remote-9ce635c69076), gamepad1-gamepad4 or off.
     // Players fill in order; each device plays once.
     std::array<std::string, 4> players{"keyboard", "off", "off", "off"};
-    // controls.remote1-4_calibration: pointer calibration of the Wii Remote
-    // in that DolphinBar slot (six numbers from the launcher) or none.
-    std::array<std::string, 4> remote_calibration{"none", "none", "none", "none"};
-    // controls.remote-<address>_calibration: the same for a Wii Remote paired
-    // over Bluetooth, by its id (remote-9ce635c69076).
-    std::map<std::string, std::string> bluetooth_calibration;
-    // Pointer calibration of any Wii Remote id (platform/wiimote_ids.h), "none" without one.
-    std::string RemoteCalibration(const std::string& id) const;
-    void SetRemoteCalibration(const std::string& id, const std::string& value);
     // [keyboard]: keys of each keyboard & mouse action ("Return | Space").
     std::array<std::string, KeyActionCount> keys = DefaultKeys();
     static std::array<std::string, KeyActionCount> DefaultKeys()

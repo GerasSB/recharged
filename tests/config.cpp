@@ -169,42 +169,36 @@ int main()
                     && !mscharged::ValidPadProfileName("a|b") && !mscharged::ValidPadProfileName("")
                     && !mscharged::ValidPadProfileName("DEFAULT"),
                 "Profile name rules");
-        // Pointer calibration: none or six numbers from the launcher.
-        Require(Settings{}.remote_calibration[2] == "none", "Remotes start uncalibrated");
-        std::ofstream(path) << "[controls]\nremote2_calibration = -0.0024 1e-05 1.68 0 -0.0026 1.58\n";
-        Require(LoadConfig(path).settings.remote_calibration[1] == "-0.0024 1e-05 1.68 0 -0.0026 1.58",
-                "A calibration loads");
-        std::ofstream(path) << "[controls]\nremote1_calibration = 1 2 3\n";
-        Reject([&] { LoadConfig(path); });
-        // Wii Remotes paired over Bluetooth: players and calibration by address.
+        // Wii Remotes paired over Bluetooth play by their address.
         {
-            std::ofstream(path) << "[controls]\nplayer1 = remote-9ce635c69076\nplayer2 = remote1\n"
-                                   "remote-9ce635c69076_calibration = 1 0 0 0 1 0\n";
+            std::ofstream(path) << "[controls]\nplayer1 = remote-9ce635c69076\nplayer2 = remote1\n";
             auto bluetooth = LoadConfig(path);
-            Require(bluetooth.settings.players[0] == "remote-9ce635c69076"
-                    && bluetooth.settings.RemoteCalibration("remote-9ce635c69076") == "1 0 0 0 1 0"
-                    && bluetooth.settings.RemoteCalibration("remote-001122334455") == "none"
-                    && bluetooth.settings.RemoteCalibration("remote1") == "none", "A Bluetooth remote loads");
+            Require(bluetooth.settings.players[0] == "remote-9ce635c69076" && bluetooth.settings.players[1] == "remote1",
+                    "A Bluetooth remote loads");
             auto changed = bluetooth.settings;
-            changed.SetRemoteCalibration("remote-001122334455", "2 0 0 0 2 0");
-            changed.SetRemoteCalibration("remote2", "3 0 0 0 3 0");
             changed.players[2] = "remote-001122334455";
             SaveConfig(bluetooth, changed);
-            const auto again = LoadConfig(path).settings;
-            Require(again.RemoteCalibration("remote-001122334455") == "2 0 0 0 2 0"
-                    && again.remote_calibration[1] == "3 0 0 0 3 0" && again.players == changed.players,
-                    "Bluetooth remotes round trip");
+            Require(LoadConfig(path).settings.players == changed.players, "Bluetooth remotes round trip");
             std::ofstream(path) << "[controls]\nplayer1 = remote-9CE635C69076\n";
-            Reject([&] { LoadConfig(path); });
-            std::ofstream(path) << "[controls]\nremote-12345_calibration = none\n";
-            Reject([&] { LoadConfig(path); });
-            std::ofstream(path) << "[controls]\nremote-9ce635c69076_calibration = 1 2\n";
             Reject([&] { LoadConfig(path); });
             std::ofstream(path) << "[controls]\nplayer1 = remote-9ce635c69076\nplayer2 = remote-9ce635c69076\n";
             Reject([&] { LoadConfig(path); });
         }
-        std::ofstream(path) << "[controls]\nremote1_calibration = 1 2 3 4 5 6 x\n";
-        Reject([&] { LoadConfig(path); });
+        // Pointer calibrations of earlier versions still load; they are kept
+        // in the file untouched and no longer used.
+        {
+            const std::string old = "[controls]\nremote2_calibration = -0.0024 1e-05 1.68 0 -0.0026 1.58\n"
+                                    "remote-9ce635c69076_calibration = 1 0 0 0 1 0\n";
+            std::ofstream(path) << old;
+            auto file = LoadConfig(path);
+            auto changed = file.settings;
+            changed.rumble = !changed.rumble;
+            SaveConfig(file, changed);
+            const auto saved = LoadConfig(path).contents;
+            Require(saved.find("remote2_calibration = -0.0024 1e-05 1.68 0 -0.0026 1.58") != std::string::npos
+                    && saved.find("remote-9ce635c69076_calibration = 1 0 0 0 1 0") != std::string::npos,
+                    "An old calibration is kept in the file");
+        }
         // Save folder: empty is the default next to the executable; a relative
         // folder counts from the settings file and is written in quotes.
         {
