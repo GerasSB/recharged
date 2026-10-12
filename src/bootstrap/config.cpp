@@ -34,7 +34,7 @@ std::string Trim(const std::string& value)
 
 Values Encode(const Settings& s)
 {
-    Values values{{"game.disc", s.disc}, {"game.language", s.language},
+    Values values{{"game.disc", s.disc}, {"game.save_folder", s.save_folder}, {"game.language", s.language},
             {"display.width", std::to_string(s.width)}, {"display.height", std::to_string(s.height)},
             {"display.fullscreen", s.fullscreen ? "true" : "false"},
             {"display.vsync", s.vsync ? "true" : "false"},
@@ -113,6 +113,9 @@ Settings Decode(const Values& values)
     if (const auto it = values.find("game.disc"); it != values.end()) s.disc = it->second;
     if (s.disc.find_first_of("\r\n") != std::string::npos || s.disc.find('\0') != std::string::npos)
         throw std::runtime_error("Invalid configuration: the disc path contains a line break or NUL");
+    if (const auto it = values.find("game.save_folder"); it != values.end()) s.save_folder = it->second;
+    if (s.save_folder.find_first_of("\r\n") != std::string::npos || s.save_folder.find('\0') != std::string::npos)
+        throw std::runtime_error("Invalid configuration: the save folder contains a line break or NUL");
     choice("game.language", s.language, {"auto", "english", "french", "spanish", "german", "italian", "japanese"});
     number("display.width", s.width, 1, 16384);
     number("display.height", s.height, 1, 16384);
@@ -272,6 +275,9 @@ bool OwnedSection(const std::string& section)
                        [](unsigned char c) { return std::isdigit(c); });
 }
 
+// Paths are written in quotes.
+bool QuotedKey(const std::string& key) { return key == "game.disc" || key == "game.save_folder"; }
+
 Values Parse(const std::string& contents, std::string* updated = nullptr, Values replacements = {})
 {
     Values values;
@@ -317,7 +323,7 @@ Values Parse(const std::string& contents, std::string* updated = nullptr, Values
                 {
                     if (it->second != value)
                         line = line.substr(0, equals + 1) + " "
-                            + (full_key == "game.disc" ? "\"" + it->second + "\"" : it->second);
+                            + (QuotedKey(full_key) ? "\"" + it->second + "\"" : it->second);
                     replacements.erase(it);
                 }
             }
@@ -345,7 +351,7 @@ Values Parse(const std::string& contents, std::string* updated = nullptr, Values
             const auto next = full_key.substr(0, dot);
             if (next != section) { *updated += newline + "[" + next + "]" + newline; section = next; }
             *updated += full_key.substr(dot + 1) + " = "
-                + (full_key == "game.disc" ? "\"" + value + "\"" : value) + newline;
+                + (QuotedKey(full_key) ? "\"" + value + "\"" : value) + newline;
         }
     }
     return values;
@@ -474,6 +480,19 @@ std::filesystem::path ResolveDiscPath(const Settings& settings, const std::files
     if (settings.disc.empty())
         throw std::runtime_error("Set [game] disc to an ISO or RVZ path in " + PathUtf8(config));
     const auto path = PathFromUtf8(settings.disc);
+    return path.is_absolute() ? path : config.parent_path() / path;
+}
+
+std::filesystem::path DefaultSaveFolder(const std::filesystem::path& executable_directory)
+{
+    return executable_directory / "original-main-credits-data" / "nand";
+}
+
+std::filesystem::path ResolveSaveFolder(const Settings& settings, const std::filesystem::path& config,
+                                        const std::filesystem::path& executable_directory)
+{
+    if (settings.save_folder.empty()) return DefaultSaveFolder(executable_directory);
+    const auto path = PathFromUtf8(settings.save_folder);
     return path.is_absolute() ? path : config.parent_path() / path;
 }
 

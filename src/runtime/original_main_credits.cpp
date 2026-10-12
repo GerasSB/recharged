@@ -489,7 +489,7 @@ int mscharged::RunOriginalMainCredits(int argc, char** argv,
             // One isolated native title profile. UID is an explicit native IOS
             // process identity, independent of the host account/retail console.
             discBootIdentity=mscharged::platform::InitializeNativeFilesystemForDisc(
-                {launch.disc_path, dataDirectory / "nand", 0x1001});
+                {launch.disc_path, mscharged::ResolveSaveFolder(launch.settings, launch.config.path, executableDirectory), 0x1001});
         }
         mscharged::platform::InitializeNativeSTMDevice();
         // Report this live host IOS provider, not the disc-requested Wii IOS.

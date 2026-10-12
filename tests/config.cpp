@@ -1,4 +1,5 @@
 #include "bootstrap/config.h"
+#include "platform/path.h"
 
 #include <array>
 #include <chrono>
@@ -204,6 +205,25 @@ int main()
         }
         std::ofstream(path) << "[controls]\nremote1_calibration = 1 2 3 4 5 6 x\n";
         Reject([&] { LoadConfig(path); });
+        // Save folder: empty is the default next to the executable; a relative
+        // folder counts from the settings file and is written in quotes.
+        {
+            const fs::path executable = directory / "bin";
+            Require(Settings{}.save_folder.empty()
+                    && ResolveSaveFolder(Settings{}, path, executable)
+                        == executable / "original-main-credits-data" / "nand", "Default save folder");
+            std::ofstream(path) << "[game]\nsave_folder = \"My Saves/charged\"\n";
+            auto saves = LoadConfig(path);
+            Require(saves.settings.save_folder == "My Saves/charged"
+                    && ResolveSaveFolder(saves.settings, saves.path, executable)
+                        == saves.path.parent_path() / "My Saves/charged", "A relative save folder loads");
+            auto changed = saves.settings;
+            changed.save_folder = mscharged::PathUtf8(directory / "absolute saves");
+            SaveConfig(saves, changed);
+            Require(LoadConfig(path).settings.save_folder == changed.save_folder
+                    && ResolveSaveFolder(changed, path, executable) == directory / "absolute saves",
+                    "An absolute save folder round trips");
+        }
 
         // Host presentation/diagnostic settings: defaults keep the previous
         // behaviour, values round trip and out-of-range input is rejected.

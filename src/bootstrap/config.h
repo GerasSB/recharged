@@ -16,6 +16,10 @@ namespace mscharged
 struct Settings
 {
     std::string disc;
+    // game.save_folder: where the game keeps its Wii storage (saves). Empty
+    // uses the default folder next to the executable; a relative path
+    // counts from the settings file, like the disc.
+    std::string save_folder;
     std::string language = "auto";
     int width = 1280;
     int height = 720;
@@ -138,5 +142,10 @@ bool SamePadProfileName(const std::string& a, const std::string& b);
 ConfigFile LoadConfig(const std::filesystem::path& path, bool allow_missing = false);
 void SaveConfig(ConfigFile& file, const Settings& settings);
 std::filesystem::path ResolveDiscPath(const Settings& settings, const std::filesystem::path& config);
+// The game's Wii storage folder: game.save_folder, or by default
+// <executable directory>/original-main-credits-data/nand.
+std::filesystem::path DefaultSaveFolder(const std::filesystem::path& executable_directory);
+std::filesystem::path ResolveSaveFolder(const Settings& settings, const std::filesystem::path& config,
+                                        const std::filesystem::path& executable_directory);
 std::filesystem::path LoadDiscPath(const std::filesystem::path& config);
 }

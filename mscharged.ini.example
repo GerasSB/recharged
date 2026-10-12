@@ -8,6 +8,10 @@ disc = game/R4QE01.rvz
 # Automatic currently uses English. The original game selects localized resources.
 language = auto
 
+# Folder for the game's Wii saves. Empty: original-main-credits-data/nand next
+# to the program. A different folder starts without saves.
+save_folder = ""
+
 [display]
 width = 1280
 height = 720
