@@ -35,7 +35,8 @@ intended changes to the original game's behaviour. It has its own `base` and
 `series` and is applied after the Charged series. Its hooks are compiled only
 into the game module built with `MSCHARGED_TWEAKS` and take the original path
 unless their tweak is enabled; a fix is always on there and has no switch
-(0006: resting goal nets are redrawn, issue #19). Every other target compiles
+(0006: resting goal nets are redrawn, issue #19; 0007: the flying shells'
+ground shadow sits 0.1 higher, issue #18). Every other target compiles
 the original code. The game module receives the enabled set from the
 host before original main (`src/platform/game_tweaks.cpp`). Keep these patches
 apart from the faithful series and refresh them on every pin update.
