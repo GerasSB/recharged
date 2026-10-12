@@ -2611,7 +2611,7 @@ private:
     void GameplayPage()
     {
         PageHeader("Gameplay", "Optional tweaks that change the original game. With all of them off, the game plays "
-                               "exactly as on the Wii.");
+                               "as on the Wii.");
         BeginCard("##menus", "Menus & startup", nullptr, Icon::Play);
         if (BeginRows("##menus_rows"))
         {
