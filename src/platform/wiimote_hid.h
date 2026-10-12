@@ -4,6 +4,7 @@
 #include "platform/wiimote_ids.h"
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <initializer_list>
 #include <map>
@@ -130,6 +131,13 @@ private:
 };
 bool IsWiimoteHid(const SDL_hid_device_info* info);
 bool IsDolphinBarHid(const SDL_hid_device_info* info);
+// Detailed Wii Remote output: with advanced.verbose_console or the
+// MSCHARGED_WIIMOTE_DEBUG environment variable.
+bool WiimoteDebug();
+// Send one output report. Windows pads every write to the device's longest
+// output report and returns that padded length, so success is any count of
+// at least `size`, not exactly `size`.
+bool WriteWiimoteReport(SDL_hid_device* hid, const std::uint8_t* report, std::size_t size);
 // The settings id of a Wii Remote HID device (wiimote_ids.h). A DolphinBar
 // interface takes its interface number as slot, or else its position among
 // the interfaces of the same enumeration, which adapter_index counts.

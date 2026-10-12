@@ -77,13 +77,7 @@ struct Remote {
     mscharged::platform::NativeNunchukSource nunchuk_source{};
 };
 
-bool Verbose() {
-    static const bool verbose = [] {
-        const char* value = SDL_getenv("MSCHARGED_WIIMOTE_DEBUG");
-        return value && *value && *value != '0';
-    }();
-    return verbose;
-}
+bool Verbose() { return mscharged::platform::WiimoteDebug(); }
 
 struct Driver {
     bool initialized = false;
@@ -105,7 +99,7 @@ std::string Describe(const Remote& remote) {
 bool Send(Remote& remote, std::vector<std::uint8_t> report) {
     if (!remote.hid || report.size() < 2) return false;
     report[1] = static_cast<std::uint8_t>((report[1] & ~1u) | (remote.rumble ? 1u : 0u));
-    return SDL_hid_write(remote.hid, report.data(), report.size()) == int(report.size());
+    return mscharged::platform::WriteWiimoteReport(remote.hid, report.data(), report.size());
 }
 void Queue(Remote& remote, std::vector<std::uint8_t> report, Wait wait = Wait::None, Tag tag = Tag::None) {
     remote.queue.push_back({std::move(report), wait, tag});

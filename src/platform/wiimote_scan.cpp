@@ -1,10 +1,13 @@
 #include "platform/wiimote_hid.h"
+#include "platform/console_verbosity.h"
 
 #include <SDL3/SDL.h>
 
 #include <algorithm>
 #include <chrono>
 #include <cwchar>
+#include <mutex>
+#include <set>
 #include <string>
 #include <thread>
 #include <vector>
@@ -24,6 +27,18 @@ bool IsDolphinBarHid(const SDL_hid_device_info* info) {
            contains(info->product_string, L"DolphinBar") || contains(info->manufacturer_string, L"HJZ");
 }
 
+bool WiimoteDebug() {
+    static const bool environment = [] {
+        const char* value = SDL_getenv("MSCHARGED_WIIMOTE_DEBUG");
+        return value && *value && *value != '0';
+    }();
+    return environment || VerboseConsole();
+}
+
+bool WriteWiimoteReport(SDL_hid_device* hid, const std::uint8_t* report, std::size_t size) {
+    return hid && size && SDL_hid_write(hid, report, size) >= int(size);
+}
+
 std::string WiimoteHidId(const SDL_hid_device_info* info, int& adapter_index) {
     if (IsDolphinBarHid(info)) {
         const int slot = info->interface_number >= 0 && info->interface_number < 4 ? info->interface_number
@@ -34,6 +49,20 @@ std::string WiimoteHidId(const SDL_hid_device_info* info, int& adapter_index) {
     std::string serial;
     for (const wchar_t* c = info->serial_number; c && *c; ++c) serial += *c < 0x80 ? char(*c) : '?';
     return BluetoothWiimoteId(serial, info->path ? info->path : "");
+}
+
+std::string Narrow(const wchar_t* text) {
+    std::string value;
+    for (const wchar_t* c = text; c && *c; ++c) value += *c < 0x80 ? char(*c) : '?';
+    return value;
+}
+
+// The launcher probes every few seconds: say why a remote is missing once.
+void LogOnce(const std::string& id, const std::string& message) {
+    static std::mutex mutex;
+    static std::set<std::string> logged;
+    std::lock_guard<std::mutex> lock(mutex);
+    if (logged.insert(id + message).second) SDL_Log("Wii Remote %s %s", id.c_str(), message.c_str());
 }
 
 struct WiimoteHidProbe::Device {
@@ -66,6 +95,15 @@ void WiimoteHidProbe::Start(int timeout_ms) {
     SDL_hid_device_info* list = SDL_hid_enumerate(0x057e, 0);
     int adapter_index = 0;
     for (auto* info = list; info; info = info->next) {
+        if (WiimoteDebug() && info->path) {
+            char line[512];
+            SDL_snprintf(line, sizeof line,
+                         "HID %04x:%04x interface %d usage %04x:%04x product \"%s\" manufacturer \"%s\" serial \"%s\"",
+                         info->vendor_id, info->product_id, info->interface_number, info->usage_page, info->usage,
+                         Narrow(info->product_string).c_str(), Narrow(info->manufacturer_string).c_str(),
+                         Narrow(info->serial_number).c_str());
+            LogOnce(info->path, std::string("probe sees ") + line + " at " + info->path);
+        }
         if (!IsWiimoteHid(info) || !info->path) continue;
         const bool adapter = IsDolphinBarHid(info);
         const auto id = WiimoteHidId(info, adapter_index);
@@ -75,13 +113,25 @@ void WiimoteHidProbe::Start(int timeout_ms) {
         }
         auto* hid = SDL_hid_open_path(info->path);
         if (!hid) {
+            LogOnce(id, std::string("could not be opened: ") + SDL_GetError());
             ++status.no_permission;
             continue;
         }
         SDL_hid_set_nonblocking(hid, 1);
         // Status request; an empty DolphinBar slot rejects the write.
         const unsigned char request[2]{0x15, 0x00};
-        if (SDL_hid_write(hid, request, sizeof(request)) != int(sizeof(request))) {
+        if (WiimoteDebug()) {
+            // The raw count: Windows pads each write to the longest output report.
+            const int written = SDL_hid_write(hid, request, sizeof(request));
+            LogOnce(id, "status request: write returned " + std::to_string(written)
+                            + (written < 0 ? std::string(" (") + SDL_GetError() + ")" : std::string()));
+            if (written < int(sizeof(request))) {
+                if (!adapter) LogOnce(id, std::string("did not take a status request: ") + SDL_GetError());
+                SDL_hid_close(hid);
+                continue;
+            }
+        } else if (!WriteWiimoteReport(hid, request, sizeof(request))) {
+            if (!adapter) LogOnce(id, std::string("did not take a status request: ") + SDL_GetError());
             SDL_hid_close(hid);
             continue;
         }
@@ -101,6 +151,11 @@ bool WiimoteHidProbe::Poll() {
         unsigned char buffer[32];
         int size;
         while ((size = SDL_hid_read_timeout(device->hid, buffer, sizeof(buffer), 0)) > 0) {
+            if (WiimoteDebug() && !device->answered) {
+                char first[8];
+                SDL_snprintf(first, sizeof first, "%02x", buffer[0]);
+                LogOnce(device->id, std::string("first report ") + first + ", " + std::to_string(size) + " bytes");
+            }
             if (buffer[0] == 0x20 && size >= 7) {
                 device->answered = true;
                 device->nunchuk = (buffer[3] & 0x02) != 0;
@@ -110,6 +165,9 @@ bool WiimoteHidProbe::Poll() {
         pending |= !device->answered;
     }
     if (pending && SDL_GetTicksNS() < deadline_ns_) return false;
+    for (auto* device : devices_)
+        if (!device->answered && device->slot < 0)
+            LogOnce(device->id, "did not answer its status request");
     auto status = result_;
     for (auto* device : devices_)
         if (device->answered)
@@ -154,7 +212,7 @@ void WiimoteHidLive::Close() {
 bool WiimoteHidLive::Send(std::initializer_list<std::uint8_t> report) {
     // A DolphinBar slot can reject a write while its Bluetooth link is busy.
     for (int attempt = 0; attempt < 10; ++attempt) {
-        if (SDL_hid_write(hid_, report.begin(), report.size()) == int(report.size())) return true;
+        if (WriteWiimoteReport(hid_, report.begin(), report.size())) return true;
         SDL_Delay(20);
     }
     return false;
@@ -166,7 +224,7 @@ bool WiimoteHidLive::Write(std::uint32_t address, const std::uint8_t* data, int 
     std::copy(data, data + size, report + 6);
     bool sent = false;
     for (int attempt = 0; attempt < 10 && !sent; ++attempt) {
-        sent = SDL_hid_write(hid_, report, sizeof(report)) == int(sizeof(report));
+        sent = WriteWiimoteReport(hid_, report, sizeof(report));
         if (!sent) SDL_Delay(20);
     }
     if (!sent) return false;
@@ -218,7 +276,7 @@ void WiimoteHidLive::Handle(const std::uint8_t* report, int size) {
     } else if (report[0] == 0x20) {
         // After a status report the remote waits for its reporting mode again.
         const std::uint8_t mode[3]{0x12, 0x04, 0x37};
-        SDL_hid_write(hid_, mode, sizeof(mode));
+        WriteWiimoteReport(hid_, mode, sizeof(mode));
     }
 }
 

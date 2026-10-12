@@ -94,8 +94,10 @@ sudo udevadm control --reload-rules && sudo udevadm trigger --subsystem-match=hi
 ```
 
 Started from a terminal, the game logs `Wii Remote connected via ...` with
-the DolphinBar slot or Bluetooth address; `MSCHARGED_WIIMOTE_DEBUG=1` logs
-every step of the Remote setup.
+the DolphinBar slot or Bluetooth address; **Advanced → Verbose console** or
+`MSCHARGED_WIIMOTE_DEBUG=1` logs every step of the Remote setup, including the
+HID devices the launcher sees and how each Remote answers (also in
+`logs/mscharged.log`).
 
 ## Saves
 

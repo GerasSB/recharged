@@ -14,6 +14,7 @@
 #include "platform/parse_float.h"
 #include "platform/window_fit.h"
 #include "platform/disc.h"
+#include "platform/console_verbosity.h"
 #include "platform/app_icon.h"
 #include "platform/path.h"
 #include "platform/save_import.h"
@@ -413,6 +414,7 @@ private:
         {
             file_ = LoadConfig(file_.path, true);
             draft_ = file_.settings;
+            mscharged::platform::SetVerboseConsole(file_.settings.verbose_console);
             dirty_ = false;
             config_ok_ = true;
             check_ = {};
@@ -426,6 +428,7 @@ private:
         try
         {
             SaveConfig(file_, draft_);
+            mscharged::platform::SetVerboseConsole(draft_.verbose_console);
             dirty_ = false;
             Notice("Settings saved.", NoticeKind::Success);
             return true;
