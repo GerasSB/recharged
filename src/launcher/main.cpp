@@ -8,6 +8,7 @@
 #include "imgui_stdlib.h"
 
 #include "bootstrap/launch_options.h"
+#include "launcher/player_lineup.h"
 #include "launcher/ui_kit.h"
 #include "launcher/ui_metrics.h"
 #include "mscharged/build_version.h"
@@ -45,6 +46,7 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <set>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -710,6 +712,9 @@ private:
         // Bluetooth inquiries can disturb other Bluetooth devices: search only
         // while the Controls page is open (never in development captures).
         bluetooth_search_.SetActive(page_ == PageControls && config_ok_ && draft_.bluetooth_search && !capture_);
+        // Which Wii Remotes answer: for the Players card, and for the Play
+        // page when a player uses a remote.
+        if (page_ == PageControls || (page_ == PagePlay && RemotePlayer())) PollWiimotes();
         const float bar = Dp(74);
         const ImVec2 content{size.x, size.y - bar};
         ImGui::SetCursorPos(origin);
@@ -830,6 +835,17 @@ private:
         else if (check_.info)
             detail = "Mario Strikers Charged  -  " + std::string(RegionName(check_.info->game_id)) + "  -  "
                 + check_.info->game_id + " rev " + std::to_string(unsigned(check_.info->revision));
+        // A player's controller that is not connected: say what the game does
+        // instead (the disc line moves out of the way; the disc card has it).
+        std::string controllers;
+        if (!pending_ && blocker.empty())
+            controllers = MissingControllersNote(draft_.players, StartLineup());
+        if (!controllers.empty())
+        {
+            tint = color::warning;
+            icon = Icon::Warning;
+            detail.clear();
+        }
         // Gameplay tweaks change the original game: never silently.
         if (!pending_ && blocker.empty() && draft_.GameTweakMask() != 0)
         {
@@ -839,12 +855,18 @@ private:
         }
         if (icon != Icon::None) DrawIcon(draw, icon, {pos.x + Dp(11), pos.y + Dp(12)}, Dp(20), Col(tint));
         DrawLabel(draw, fonts.label, {pos.x + Dp(30), pos.y + Dp(1)}, Col(color::text), headline.c_str());
-        if (!detail.empty())
+        const float limit = ImGui::GetWindowPos().x + ImGui::GetWindowSize().x - Dp(28);
+        const float wrap = std::max(Dp(120), limit - pos.x - Dp(30));
+        float y = pos.y + Dp(26);
+        if (!controllers.empty())
         {
-            const float limit = ImGui::GetWindowPos().x + ImGui::GetWindowSize().x - Dp(28);
-            draw->AddText(fonts.caption, FontSize(fonts.caption), {pos.x + Dp(30), pos.y + Dp(26)}, Col(color::muted),
-                          detail.c_str(), nullptr, std::max(Dp(120), limit - pos.x - Dp(30)));
+            draw->AddText(fonts.caption, FontSize(fonts.caption), {pos.x + Dp(30), y}, Col(color::warning),
+                          controllers.c_str(), nullptr, wrap);
+            y += fonts.caption->CalcTextSizeA(FontSize(fonts.caption), FLT_MAX, wrap, controllers.c_str()).y + Dp(2);
         }
+        if (!detail.empty())
+            draw->AddText(fonts.caption, FontSize(fonts.caption), {pos.x + Dp(30), y}, Col(color::muted),
+                          detail.c_str(), nullptr, wrap);
     }
 
     struct Summary { std::string value; std::string detail; ImVec4 tint; };
@@ -1748,13 +1770,45 @@ private:
         {
             if (wii_probe_.Poll())
             {
-                wii_status_ = wii_probe_.Result();
+                AcceptWiimoteProbe(wii_probe_.Result());
                 wii_known_ = true;
                 wii_next_probe_ns_ = now + 2000000000ull;
             }
         }
         else if (now >= wii_next_probe_ns_)
             wii_probe_.Start(250);
+    }
+
+    // A remote that is still listed but missed one status answer keeps its
+    // last state, so a flaky Bluetooth link does not flip the Players card.
+    // It is gone once its device disappears or it misses twice in a row.
+    void AcceptWiimoteProbe(platform::WiimoteHidStatus status)
+    {
+        for (const auto& previous : wii_status_.remotes)
+        {
+            const bool answered = std::any_of(status.remotes.begin(), status.remotes.end(),
+                                              [&](const auto& remote) { return remote.id == previous.id; });
+            const bool silent = std::find(status.silent.begin(), status.silent.end(), previous.id) != status.silent.end();
+            if (!answered && silent && wii_held_.insert(previous.id).second) status.remotes.push_back(previous);
+            else wii_held_.erase(previous.id);
+        }
+        platform::SortWiimoteRemotes(status.remotes);
+        wii_status_ = std::move(status);
+    }
+
+    bool RemotePlayer() const
+    {
+        return std::any_of(draft_.players.begin(), draft_.players.end(),
+                           [](const std::string& device) { return platform::IsWiimoteId(device); });
+    }
+
+    // Who plays if the game starts now (player_lineup.h). Wii Remotes count as
+    // connected until a check says otherwise.
+    PlayerLineup StartLineup() const
+    {
+        return PredictLineup(
+            draft_.players, [this](const std::string& id) { return !wii_known_ || ConnectedRemote(id) != nullptr; },
+            int(gamepad_names_.size()));
     }
 
     // The connected remote with this id, or null.
@@ -1800,17 +1854,18 @@ private:
     // drop out; with nobody left keyboard & mouse is player 1, alone.
     void PlayersCard()
     {
-        PollWiimotes();
         const auto& status = wii_status_;
         const bool bar = status.dolphinbar;
         int bluetooth = 0;
         for (const auto& remote : status.remotes) bluetooth += remote.slot < 0;
         auto& players = draft_.players;
-        const char* subtitle = !wii_known_ ? "Looking for Wii Remotes..."
-            : status.dolphinbar_other_mode ? "The DolphinBar is in a mouse or gamepad mode. Press its MODE button until light 4 is on."
-            : bar || bluetooth ? "Players fill in order and each controller plays once. Changes apply when the game starts."
-            : "Players fill in order: keyboard & mouse and gamepads. For Wii Remotes, pair one over Bluetooth or connect a Mayflash DolphinBar in mode 4.";
-        BeginCard("##players", "Players", subtitle, Icon::Gamepad);
+        const auto lineup = StartLineup();
+        const auto note = MissingControllersNote(players, lineup);
+        // The layout stays put while remotes come and go: a fixed subtitle and
+        // one line of status chips, whatever the remotes do.
+        BeginCard("##players", "Players",
+                  "Players fill in order and each controller plays once. Changes apply when the game starts.",
+                  Icon::Gamepad);
         bool chip = false;
         const auto next_chip = [&] { if (chip) ImGui::SameLine(0, Dp(8)); chip = true; };
         if (bar)
@@ -1822,6 +1877,8 @@ private:
         {
             next_chip();
             Chip("DolphinBar: switch to mode 4", color::warning, Icon::Warning);
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("The DolphinBar is in a mouse or gamepad mode. Press its MODE button until light 4 is on.");
         }
         if (bluetooth)
         {
@@ -1835,6 +1892,18 @@ private:
             Chip("Wii Remote without access", color::warning, Icon::Warning);
             if (ImGui::IsItemHovered())
                 ImGui::SetTooltip("A Wii Remote is connected, but this user can't open it.");
+        }
+        if (!chip)
+        {
+            Chip(wii_known_ ? "No Wii Remote" : "Looking for Wii Remotes...", color::muted,
+                 wii_known_ ? Icon::Info : Icon::None);
+            if (wii_known_)
+            {
+                ImGui::SameLine(0, Dp(10));
+                ImGui::SetCursorPosY(ImGui::GetCursorPosY() + Dp(5));
+                TextColored(CurrentFonts().caption, color::muted,
+                            "Pair one over Bluetooth, or use a Mayflash DolphinBar in mode 4.");
+            }
         }
 
         const auto name = [&](const std::string& device) {
@@ -1913,6 +1982,14 @@ private:
                 const auto* remote = platform::IsWiimoteId(shown) ? ConnectedRemote(shown) : nullptr;
                 ImGui::TableSetColumnIndex(3);
                 if (remote) BatteryIcon(remote->battery);
+                else if (lineup.missing[std::size_t(n)])
+                {
+                    const ImVec2 pos = ImGui::GetCursorScreenPos();
+                    DrawIcon(ImGui::GetWindowDrawList(), Icon::Warning, {pos.x + Dp(9), pos.y + Dp(12.5f)}, Dp(17),
+                             Col(color::warning));
+                    ImGui::Dummy(Dp(25, 25));
+                    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Not connected. Connect it before you start the game.");
+                }
                 ImGui::TableSetColumnIndex(2);
                 if (shown.rfind("gamepad", 0) == 0)
                 {
@@ -1930,6 +2007,28 @@ private:
             ImGui::EndTable();
         }
         ImGui::PopStyleVar();
+        // Under the table a block says what happens to a controller that is
+        // not connected: the rule, or in warning colour what happens now. It
+        // is as tall as the longest of its texts (every such controller
+        // missing included), so the rows below stay put as controllers come
+        // and go.
+        if (std::any_of(players.begin(), players.end(),
+                        [](const std::string& device) { return device != "keyboard" && device != "off"; }))
+        {
+            const std::string rule = "Controllers that are not connected when the game starts drop out. With nobody "
+                                     "left, keyboard & mouse plays as player 1.";
+            const auto& fonts = CurrentFonts();
+            const float width = ImGui::GetContentRegionAvail().x;
+            const auto height = [&](const std::string& text) {
+                return fonts.caption->CalcTextSizeA(FontSize(fonts.caption), FLT_MAX, width, text.c_str()).y;
+            };
+            const float block = std::max(
+                {height(rule), height(MissingControllersNote(players, WorstLineup(players))), height(note)});
+            ImGui::GetWindowDrawList()->AddText(fonts.caption, FontSize(fonts.caption), ImGui::GetCursorScreenPos(),
+                                                Col(note.empty() ? color::muted : color::warning),
+                                                (note.empty() ? rule : note).c_str(), nullptr, width);
+            ImGui::Dummy({width, block});
+        }
         // Single player on a Wii Remote or gamepad only.
         if (players[0] != "keyboard" && players[1] == "off" && BeginRows("##mouse_rows"))
         {
@@ -1956,7 +2055,8 @@ private:
 #endif
             EndRows();
         }
-        if ((bar || !status.remotes.empty() || draft_.sensor_bar != "bottom") && BeginRows("##sensor_rows"))
+        // From the settings, not from what is connected right now: the row stays.
+        if ((RemotePlayer() || draft_.sensor_bar != "bottom") && BeginRows("##sensor_rows"))
         {
             Row("Sensor bar", "Where your sensor bar or DolphinBar sits. The game aims the Wii Remote pointer from it.");
             int position = draft_.sensor_bar == "top" ? 0 : 1;
@@ -2828,11 +2928,12 @@ private:
     std::vector<std::string> gamepad_names_;
     // Triggers past half travel per pad, so a held trigger is not a new press.
     std::map<SDL_JoystickID, std::array<bool, 2>> trigger_held_;
-    // Wii Remote / DolphinBar detection for the Controls page (non-blocking).
+    // Wii Remote / DolphinBar detection for the Controls and Play pages (non-blocking).
     platform::WiimoteHidProbe wii_probe_;
     // Windows: connects Wii Remotes over Bluetooth while Controls is open.
     platform::WiimoteBluetoothSearch bluetooth_search_;
     platform::WiimoteHidStatus wii_status_{};
+    std::set<std::string> wii_held_; // remotes kept through one missed status answer
     // Controls: keyboard & mouse keys view, and the keycap waiting for a key.
     bool keyboard_view_ = false;
     int capture_action_ = -1, capture_slot_ = -1;
