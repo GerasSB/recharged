@@ -68,8 +68,8 @@ Highlights:
 
 - Keyboard & mouse with freely assignable keys
 - Xbox, PlayStation and other gamepads
-- Real Wii Remotes with Nunchuk through a Mayflash DolphinBar, with pointer
-  calibration
+- Real Wii Remotes with Nunchuk, paired over Bluetooth or through a Mayflash
+  DolphinBar, with pointer calibration
 - Sharp picture, 4:3 or 16:9, optional antialiasing, any window size or
   fullscreen
 - A launcher for disc, players, controls, display and audio
@@ -114,8 +114,35 @@ defaults that follow their own button labels. Defaults:
 | + / − / HOME | Tab / - / Home | Start / Back / Guide |
 | Shake Remote / Nunchuk | E / Q | RT / RB |
 
-Press **P** for a screenshot. See [Wii Remote setup](docs/RUNTIME.md#wii-remote)
-for the DolphinBar.
+Press **P** for a screenshot.
+
+### Wii Remotes
+
+Real Wii Remotes (with Nunchuk) work in two ways:
+
+- **Bluetooth:** press the red **SYNC** button under the battery cover and
+  connect *Nintendo RVL-CNT-01* in your system's Bluetooth settings (no PIN).
+  The pointer needs a separate Wii sensor bar.
+- **Mayflash DolphinBar** in mode 4: press SYNC on the bar, then on the Remote.
+  The bar is also the sensor bar.
+
+Connected Remotes appear on the launcher's **Controls** page with their battery
+level. Assign them to players there and calibrate the pointer with the target
+button.
+
+**Linux:** if the launcher says a Wii Remote is connected but can't be opened,
+allow your user to access Wii Remotes once (the launcher's **Copy commands**
+button copies the same commands), then turn the Remote off and on:
+
+```sh
+sudo tee /etc/udev/rules.d/60-mscharged-wiimote.rules >/dev/null <<'EOF'
+KERNEL=="hidraw*", SUBSYSTEM=="hidraw", KERNELS=="*057E:0306*", TAG+="uaccess"
+KERNEL=="hidraw*", SUBSYSTEM=="hidraw", KERNELS=="*057E:0330*", TAG+="uaccess"
+EOF
+sudo udevadm control --reload-rules && sudo udevadm trigger --subsystem-match=hidraw
+```
+
+More in [Wii Remote setup](docs/RUNTIME.md#wii-remote).
 
 ## Build from source
 
