@@ -88,6 +88,22 @@ add_test(NAME native_filesystem_physical COMMAND native_filesystem_physical
     "${CMAKE_CURRENT_BINARY_DIR}/filesystem-test-data")
 set_tests_properties(native_filesystem_physical PROPERTIES TIMEOUT 30)
 host_check(native_thread_queues tests/native_thread_queues.cpp host_threads)
+if(NOT WIN32)
+    # Original tweak-name stack classification over the native per-thread stack
+    # query (cached on Linux). Not on Windows: there the query is the OS call
+    # itself, and lld-link still wants the registry symbols that the unit's
+    # unused functions name.
+    host_check(original_tweak_stack tests/original_tweak_stack.cpp host_threads
+        "${DECOMP}/src/Game/TweakValueBase.cpp")
+    add_dependencies(original_tweak_stack verify_host_sources)
+    target_compile_options(original_tweak_stack PRIVATE -ffunction-sections -fdata-sections
+        -fno-strict-aliasing -fsigned-char -Wno-unknown-pragmas)
+    if(APPLE)
+        target_link_options(original_tweak_stack PRIVATE LINKER:-dead_strip)
+    else()
+        target_link_options(original_tweak_stack PRIVATE LINKER:--gc-sections)
+    endif()
+endif()
 host_check(original_os_messages tests/original_os_messages.cpp host_messages)
 host_check(native_thread_lifecycle tests/native_thread_lifecycle.cpp host_messages)
 
