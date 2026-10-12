@@ -45,7 +45,8 @@ The builds are not signed, so the system asks once on the first start:
   and a Vulkan driver (Mesa or your GPU vendor's driver) are needed.
 
 Settings and saves are kept beside the program, so the folder can live anywhere
-you like. `SHA256SUMS` in the release lists the packages' checksums. Builds of
+you like. The launcher's **Game** page can move the saves to another folder and
+import a save from the Dolphin emulator ([saves](docs/RUNTIME.md#saves)). `SHA256SUMS` in the release lists the packages' checksums. Builds of
 changes not yet released are under the
 [**Build binaries** runs of `stable`](https://github.com/yannicksuter/mscharged-port/actions/workflows/build.yml?query=branch%3Astable+is%3Asuccess)
 (*Artifacts*, signed-in users); see [GitHub builds](docs/BUILDING_GITHUB.md).

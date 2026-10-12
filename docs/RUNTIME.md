@@ -97,6 +97,19 @@ Started from a terminal, the game logs `Wii Remote connected via ...` with
 the DolphinBar slot or Bluetooth address; `MSCHARGED_WIIMOTE_DEBUG=1` logs
 every step of the Remote setup.
 
+## Saves
+
+The game keeps its Wii saves (`Strikers2` and `banner.bin`) in
+`original-main-credits-data/nand` next to the program, or in the folder set as
+`[game] save_folder` (launcher: **Game → Save data**). A new folder starts
+without saves; the old folder keeps its saves.
+
+**Import from Dolphin** copies the save Dolphin keeps for the game
+(`<Dolphin user folder>/Wii/title/00010000/52345145/data`) byte for byte. The
+launcher finds Dolphin's usual folders on its own; otherwise choose Dolphin's
+user folder or that save folder. The current save is first copied to `backups/`
+in the save folder. Dolphin's encrypted `data.bin` exports are not supported.
+
 ## Performance log
 
 `MSCHARGED_FRAME_LOG=frames.csv` writes one row per original game frame (frame

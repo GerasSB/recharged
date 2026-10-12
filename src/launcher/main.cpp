@@ -16,6 +16,7 @@
 #include "platform/disc.h"
 #include "platform/app_icon.h"
 #include "platform/path.h"
+#include "platform/save_import.h"
 #include "platform/session_log.h"
 #include "platform/gamepad_bindings.h"
 #include "platform/key_bindings.h"
@@ -133,6 +134,12 @@ struct DiscCheck
 };
 
 enum class NoticeKind { Info, Success, Warning, Error };
+enum class FolderPurpose { SaveFolder, DolphinSave };
+
+// The save the game keeps (USA release, the one this port runs): its title,
+// and the identity the runtime gives its storage (original_main_credits.cpp).
+constexpr mscharged::platform::SaveTitle kSaveTitle{0x0001000052345145ull, 0x1001, 0x3031};
+constexpr const char* kSaveFile = "Strikers2";
 
 // Region branches follow original Game/main.cpp; the native runtime currently
 // supports the USA release only.
@@ -494,6 +501,15 @@ private:
                 else if (!dialog_->path.empty()) SelectDisc(dialog_->path);
             }
         }
+        {
+            std::lock_guard<std::mutex> lock(folder_dialog_->mutex);
+            if (folder_dialog_->ready)
+            {
+                folder_dialog_->ready = false;
+                if (!folder_dialog_->error.empty()) Notice(folder_dialog_->error, NoticeKind::Error);
+                else if (!folder_dialog_->path.empty()) FolderChosen(folder_dialog_->path);
+            }
+        }
         if (pending_ && future_.wait_for(std::chrono::seconds(0)) == std::future_status::ready)
         {
             auto result = future_.get();
@@ -644,6 +660,7 @@ private:
         DrawMain({sidebar, 0}, {size.x - sidebar, size.y}, quit);
         DrawClosePrompt(quit);
         DrawPlayPrompt(quit);
+        DrawImportPrompt();
         DrawRegionPrompt();
         ImGui::End();
     }
@@ -1128,20 +1145,152 @@ private:
         }
         EndCard();
 
-        BeginCard("##data", "Save data", "The game keeps its save file in a private folder next to the launcher.", Icon::Folder);
-        const fs::path data = base_ / "original-main-credits-data";
+        SaveDataCard();
+    }
+
+    // Where the game keeps its Wii storage, and importing a save from Dolphin.
+    void SaveDataCard()
+    {
+        const auto& fonts = CurrentFonts();
+        BeginCard("##data", "Save data", "Your progress and trophies, in the game's own Wii save files.", Icon::Folder);
+        bool browsing;
+        { std::lock_guard<std::mutex> lock(folder_dialog_->mutex); browsing = folder_dialog_->active; }
+        const float buttons = Dp(118) + Dp(10) + Dp(118);
+        const std::string default_folder = PathUtf8(DefaultSaveFolder(base_));
+        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - buttons - Dp(10));
+        if (ImGui::InputTextWithHint("##save_folder", ("Default: " + default_folder).c_str(), &draft_.save_folder))
+            dirty_ = true;
+        ImGui::SameLine(0, Dp(10));
+        if (SecondaryButton("browse_saves", "Browse...", {Dp(118), ImGui::GetFrameHeight()}, !browsing && config_ok_,
+                            Icon::Folder))
+            BrowseFolder(FolderPurpose::SaveFolder);
+        ImGui::SameLine(0, Dp(10));
+        if (SecondaryButton("default_saves", "Default", {Dp(118), ImGui::GetFrameHeight()},
+                            config_ok_ && !draft_.save_folder.empty(), Icon::Refresh))
+        {
+            draft_.save_folder.clear();
+            dirty_ = true;
+        }
+        if (draft_.save_folder != file_.settings.save_folder)
+        {
+            ImGui::Dummy({0, Dp(2)});
+            TextWrappedColored(fonts.caption, color::warning,
+                               "The game starts with the saves in the new folder (none if it is new). "
+                               "Saves in the old folder stay there.");
+        }
+
+        const fs::path folder = SaveFolder();
         if (BeginRows("##data_rows"))
         {
-            const std::string path = PathUtf8(data);
-            Row("Save folder", path.c_str());
+            const std::string path = PathUtf8(folder);
+            Row("Folder in use", path.c_str());
             if (SecondaryButton("open_data", "Open folder", {ImGui::GetContentRegionAvail().x, Dp(40)},
-                                fs::exists(data), Icon::Folder))
-                OpenPath(data);
-            if (!fs::exists(data) && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+                                fs::exists(folder), Icon::Folder))
+                OpenPath(folder);
+            if (!fs::exists(folder) && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
                 ImGui::SetTooltip("Created when you first play.");
+
+            const auto found = mscharged::platform::FindDolphinSaves(kSaveTitle.title_id);
+            const std::string description = found.empty()
+                ? "Copies a save from the Dolphin emulator. Choose Dolphin's user folder or the game's save folder in it."
+                : "Copies the save Dolphin keeps in " + PathUtf8(found.front()) + ".";
+            Row("Import from Dolphin", description.c_str());
+            const float width = ImGui::GetContentRegionAvail().x;
+            if (!found.empty())
+            {
+                if (SecondaryButton("import_dolphin", "Import Dolphin save", {width, Dp(40)}, config_ok_, Icon::Copy))
+                    AskImport(found.front());
+                ImGui::Dummy({0, Dp(2)});
+            }
+            if (SecondaryButton("import_choose", found.empty() ? "Choose folder..." : "Choose another folder...",
+                                {width, Dp(40)}, !browsing && config_ok_, Icon::Folder))
+                BrowseFolder(FolderPurpose::DolphinSave);
             EndRows();
         }
         EndCard();
+    }
+
+    fs::path SaveFolder() const { return ResolveSaveFolder(draft_, file_.path, base_); }
+
+    void BrowseFolder(FolderPurpose purpose)
+    {
+        {
+            std::lock_guard<std::mutex> lock(folder_dialog_->mutex);
+            folder_dialog_->active = true;
+        }
+        folder_purpose_ = purpose;
+        SDL_ShowOpenFolderDialog(DiscChosen, new std::shared_ptr<DialogResult>(folder_dialog_), window_, nullptr,
+                                 false);
+    }
+
+    void FolderChosen(const std::string& chosen)
+    {
+        if (folder_purpose_ == FolderPurpose::SaveFolder)
+        {
+            draft_.save_folder = chosen;
+            dirty_ = true;
+            return;
+        }
+        const auto save = mscharged::platform::ResolveDolphinSave(PathFromUtf8(chosen), kSaveTitle.title_id,
+                                                                    kSaveFile);
+        if (save.empty())
+            Notice("No Mario Strikers Charged save found in " + chosen + ".", NoticeKind::Warning);
+        else AskImport(save);
+    }
+
+    void AskImport(const fs::path& source)
+    {
+        import_source_ = source;
+        import_prompt_ = true;
+    }
+
+    void ImportDolphinSave()
+    {
+        try
+        {
+            const auto folder = SaveFolder();
+            const auto result = mscharged::platform::ImportDolphinSave(import_source_, folder, kSaveTitle, kSaveFile,
+                                                                       folder / "backups");
+            std::string files;
+            for (const auto& name : result.files) files += (files.empty() ? "" : ", ") + name;
+            Notice("Dolphin save imported (" + files + ")."
+                       + (result.backup.empty() ? "" : " Your previous save is in " + PathUtf8(result.backup) + "."),
+                   NoticeKind::Success);
+        }
+        catch (const std::exception& e) { Notice(std::string("Import failed: ") + e.what(), NoticeKind::Error); }
+    }
+
+    void DrawImportPrompt()
+    {
+        if (import_prompt_)
+        {
+            ImGui::OpenPopup("Import Dolphin save?");
+            import_prompt_ = false;
+        }
+        const auto& fonts = CurrentFonts();
+        ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(), ImGuiCond_Appearing, {0.5f, 0.5f});
+        ImGui::SetNextWindowSizeConstraints({Dp(460), 0}, {Dp(640), FLT_MAX});
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, Dp(28, 24));
+        if (ImGui::BeginPopupModal("Import Dolphin save?", nullptr, ImGuiWindowFlags_AlwaysAutoResize
+            | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove))
+        {
+            TextColored(fonts.heading, color::text, "Import the Dolphin save?");
+            TextWrappedColored(fonts.body, color::muted, ("From " + PathUtf8(import_source_)).c_str());
+            TextWrappedColored(fonts.body, color::muted, ("Into " + PathUtf8(SaveFolder())).c_str());
+            TextWrappedColored(fonts.body, color::muted,
+                               "It replaces the game's save there; the current one is backed up first.");
+            ImGui::Dummy({0, Dp(8)});
+            if (PrimaryButton("import_confirm", "Import", Dp(140, 42), true, Icon::Copy))
+            {
+                ImGui::CloseCurrentPopup();
+                ImportDolphinSave();
+            }
+            ImGui::SameLine(0, Dp(10));
+            if (SecondaryButton("import_cancel", "Cancel", Dp(100, 42)) || ImGui::IsKeyPressed(ImGuiKey_Escape))
+                ImGui::CloseCurrentPopup();
+            ImGui::EndPopup();
+        }
+        ImGui::PopStyleVar();
     }
 
     void DiscStatusPanel()
@@ -2903,6 +3052,10 @@ private:
     std::vector<std::string> displays_;
     std::vector<SDL_DisplayID> display_ids_;
     std::shared_ptr<DialogResult> dialog_ = std::make_shared<DialogResult>();
+    std::shared_ptr<DialogResult> folder_dialog_ = std::make_shared<DialogResult>();
+    FolderPurpose folder_purpose_ = FolderPurpose::SaveFolder;
+    fs::path import_source_;
+    bool import_prompt_ = false;
 };
 }
 
