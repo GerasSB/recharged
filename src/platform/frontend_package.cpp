@@ -46,6 +46,13 @@ static_assert(std::is_trivially_copyable_v<FETextureResource>);
 static_assert(std::is_trivially_copyable_v<fAnimationKeyframe>);
 static_assert(std::is_trivially_copyable_v<v3AnimationKeyframe>);
 
+// Scratch containers use the same host storage as the native image.
+template<class T> using HostVector = FrontendPackageVector<T>;
+template<class T> using HostSet = std::set<T, std::less<T>, FrontendPackageAllocator<T>>;
+template<class K, class V>
+using HostMap = std::map<K, V, std::less<K>, FrontendPackageAllocator<std::pair<const K, V>>>;
+template<class T> using HostDeque = std::deque<T, FrontendPackageAllocator<T>>;
+
 constexpr std::uint32_t NullWord=0xffffffffu;
 enum class Kind:unsigned
 {
@@ -63,7 +70,7 @@ struct Node
 {
     Kind kind;
     std::size_t raw_size=0,native_size=0,alignment=1,native_offset=0;
-    std::vector<Field> fields;
+    HostVector<Field> fields;
 };
 using Bytes=std::span<const std::byte>;
 void Require(bool condition,const char* message)
@@ -346,8 +353,8 @@ PreparedFrontendPackage PrepareFrontendPackage(const void* input,std::size_t siz
     Require(data_size>=24 && data_size%4==0 && table_size%4==0,"Invalid raw Wii FEN byte lengths");
     Require(size>=16 && data_size<=size-16 && table_size==size-16-data_size,"Raw FEN byte lengths do not cover the actual input");
     const Bytes data=file.subspan(16,data_size),table=file.subspan(16+data_size,table_size);
-    std::vector<std::uint32_t> relocation_order;
-    std::set<std::uint32_t> relocations;
+    HostVector<std::uint32_t> relocation_order;
+    HostSet<std::uint32_t> relocations;
     for (std::size_t i=0;i<table.size();i+=4)
     {
         const auto field=Word(table,i);
@@ -357,9 +364,9 @@ PreparedFrontendPackage PrepareFrontendPackage(const void* input,std::size_t siz
         Require(target==NullWord || target<data.size(),"Raw FEN relocation target is out of bounds");
         relocation_order.push_back(field);
     }
-    std::map<std::uint32_t,Node> nodes;
-    std::map<std::uint32_t,std::pair<std::uint32_t,std::size_t>> pointer_slots;
-    std::deque<std::pair<std::uint32_t,Kind>> pending{{0,Kind::Package}};
+    HostMap<std::uint32_t,Node> nodes;
+    HostMap<std::uint32_t,std::pair<std::uint32_t,std::size_t>> pointer_slots;
+    HostDeque<std::pair<std::uint32_t,Kind>> pending{{0,Kind::Package}};
     while (!pending.empty())
     {
         const auto [at,kind]=pending.front();pending.pop_front();
