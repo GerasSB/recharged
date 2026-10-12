@@ -26,9 +26,11 @@ constexpr float kGravity = 9.80665f;
 constexpr std::chrono::milliseconds kProbeWait{600}, kProbeInterval{2000}, kEnumerateInterval{2000};
 constexpr std::chrono::milliseconds kSilentLimit{1500}, kCommandWait{250};
 // Another program can switch a directly connected remote to its own report
-// mode (the Linux hid-wiimote driver does so when its input devices are
-// opened); the remote then gets its set-up again, at most this often.
-constexpr std::chrono::milliseconds kModeRestore{500};
+// mode: the Linux hid-wiimote driver answers every status report with buttons
+// only, sent on change. A remote that sends another mode gets its set-up
+// again, at most this often; one silent for kDataGap gets the game's
+// continuous reporting mode back.
+constexpr std::chrono::milliseconds kModeRestore{500}, kDataGap{100};
 // A DolphinBar slot can reject a write while its Bluetooth link is busy; only
 // repeated failures mean the remote is gone.
 constexpr std::chrono::milliseconds kWriteRetry{20};
@@ -67,7 +69,7 @@ struct Remote {
     Clock::time_point retry_at{};
     Clock::time_point next_debug_log{};
     int led_channel = -2;
-    Clock::time_point next_mode_restore{};
+    Clock::time_point next_mode_restore{}, last_data{}, next_data_restore{};
     bool sensors = false;
     SDL_JoystickID virtual_id = 0;
     SDL_Joystick* joystick = nullptr;
@@ -435,7 +437,7 @@ void HandleReport(Remote& remote, const std::uint8_t* report, int size, Clock::t
         return;
     }
     if (id >= 0x30 && id <= 0x3f) {
-        remote.last_report = now;
+        remote.last_report = remote.last_data = now;
         if (id == 0x37 && size >= 22 && remote.ready) Publish(remote, report);
         else if (id != 0x37 && remote.ready && !remote.waiting && remote.queue.empty() &&
                  now >= remote.next_mode_restore) {
@@ -474,6 +476,7 @@ void Pump(Remote& remote, Clock::time_point now) {
     }
     if (!remote.ready && remote.present) {
         remote.ready = true;
+        remote.last_data = now;
         AttachVirtual(remote);
     }
 }
@@ -583,6 +586,13 @@ void ServiceRemote(Remote& remote, Clock::time_point now) {
         return;
     }
     Pump(remote, now);
+    if (remote.ready && !remote.waiting && remote.queue.empty() && now - remote.last_data > kDataGap &&
+        now >= remote.next_data_restore) {
+        remote.next_data_restore = now + kDataGap;
+        if (Verbose()) SDL_Log("Wii Remote (%s): no data reports; restoring the reporting mode", Describe(remote).c_str());
+        QueueReportingMode(remote);
+        Pump(remote, now);
+    }
     if (remote.ready && now - remote.last_report > kSilentLimit) {
         Lost(remote, "no reports");
         return;
