@@ -61,7 +61,7 @@ The launcher's **Gameplay** page (or `[gameplay]` in `mscharged.ini`) turns them
   logo, intro movie and title screen.
 - **Fast menus**: skip menu transitions (matches, movies and credits unchanged).
 - **No Mega Strikes** for both teams, the usual competitive rule. Skillshots
-  stay, and Strikers 101 keeps Mega Strikes for its lessons.
+  stay, and Strikers 101 lessons keep their own rules.
 - **Unlock everything**: all characters, stadiums and cheats, through the
   game's own unlock switch; the save is not changed.
 
