@@ -50,6 +50,10 @@ unwritten. In the Windows build those bytes held stale stack data, which ended
 the frozen state hiding a lesson's or challenge's missing sidekicks (issue #25).
 The decomp carries the same fix; drop the patch once the pin includes it.
 
+Patch 0701 clears that pointer member before `Variant(eVariantType, T)` stores
+a narrower value, so a pointer-width read of a stored 32-bit word sees the
+word, as on the Wii, for every reader. It stays after 0690 is dropped.
+
 Patch 0585 restores the original SDK texture-binding loop and its panic,
 null and unpacked branches. Native address conversion publishes structural
 headers atomically; allocation failure leaves the source bytes intact.
