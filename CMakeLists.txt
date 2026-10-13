@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(mscharged_port VERSION 1.0.7 LANGUAGES C CXX)
+project(mscharged_port VERSION 1.0.8 LANGUAGES C CXX)
 if(WIN32 AND MINGW)
     # COFF weak definitions cannot be exported from mscharged.exe to the game
     # DLLs (OSReport and friends would bind to address 0). Plain definitions,
@@ -207,6 +207,7 @@ add_library(charged_host STATIC
     src/bootstrap/config.cpp
     src/bootstrap/launch_options.cpp
     src/platform/disc.cpp
+    src/platform/save_import.cpp
 )
 target_include_directories(charged_host PUBLIC src)
 target_compile_features(charged_host PUBLIC cxx_std_17)
@@ -269,6 +270,10 @@ elseif(MSCHARGED_BUILD_ORIGINAL_CREDITS_DIAGNOSTIC)
 endif()
 
 if(BUILD_TESTING)
+    include(cmake/Network.cmake)
+endif()
+
+if(BUILD_TESTING)
     include(cmake/NativeListEntryHandles.cmake)
     mscharged_add_list_entry_checks("${MSCHARGED_PREPARED}" verify_prepared)
     include(cmake/NativeWordABI.cmake)
@@ -321,10 +326,14 @@ if(BUILD_TESTING)
     target_compile_definitions(game_tweaks_tests PRIVATE MSCHARGED_NATIVE=1 MSCHARGED_GAME_MODULE=1 MSCHARGED_TWEAKS=1)
     target_compile_features(game_tweaks_tests PRIVATE cxx_std_17)
     add_test(NAME game_tweaks COMMAND game_tweaks_tests)
-    add_executable(frame_rate_title_tests tests/frame_rate_title.cpp)
-    target_include_directories(frame_rate_title_tests PRIVATE src)
-    target_compile_features(frame_rate_title_tests PRIVATE cxx_std_17)
-    add_test(NAME frame_rate_title COMMAND frame_rate_title_tests)
+    add_executable(frame_rate_tests tests/frame_rate.cpp)
+    target_include_directories(frame_rate_tests PRIVATE src)
+    target_compile_features(frame_rate_tests PRIVATE cxx_std_17)
+    add_test(NAME frame_rate COMMAND frame_rate_tests)
+    add_executable(fps_overlay_layout_tests tests/fps_overlay_layout.cpp)
+    target_include_directories(fps_overlay_layout_tests PRIVATE src)
+    target_compile_features(fps_overlay_layout_tests PRIVATE cxx_std_17)
+    add_test(NAME fps_overlay_layout COMMAND fps_overlay_layout_tests)
     add_executable(frame_timing_log_tests tests/frame_timing_log.cpp src/runtime/frame_timing_log.cpp)
     target_include_directories(frame_timing_log_tests PRIVATE src)
     target_compile_features(frame_timing_log_tests PRIVATE cxx_std_17)

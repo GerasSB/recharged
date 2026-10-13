@@ -2,20 +2,30 @@ Subject: Tweak: fast menus
 Upstream-base: 7a6bf165d9f1c5914181c079c7d4bfa7204f3509
 
 With "Fast menus" enabled menu transitions are skipped, outside matches and
-the boot screens:
+the boot screens. A match's post-match screens are menus too: from its GameOver
+event (FrontEnd::m_bGameOver), which brings up the results, the result popups
+and the stats. The match itself, its end sequence and the pause menu keep
+their pace.
 
 - 2D: one-shot slides no longer than 3 s jump to their end, and a screen's
   presentation starts a one-shot slide of up to 6 s at its end, as the game
   does for popups. Slides reset this frame keep their first frame; longer
   slides (credits) and looping ones keep their pace.
-- 3D: while the front end's presentation runs a transition script, its
-  scripted waits end as they start and the time-dilated tasks (camera moves,
-  effects) run 30 times faster. The audio task keeps real time.
-- A popup whose slide is already past 1 s when its layout hides the text shows
-  it again.
+- 3D: while the front end's presentation runs a transition script outside a
+  match, its scripted waits end as they start and its camera moves run 30
+  times faster. Only the camera task (BeginFrameTask) runs on that
+  transition time: no script waits for an effect, and effects at 30 times
+  their speed advanced up to 3 s a frame, so most particles were removed
+  before they were drawn and the rest popped in and out (issue #34).
+  Effects, audio, rumble and pads keep real time; a match's tasks never run
+  on transition time.
+- Popups: the black box behind a popup, which FEPopupMenu grows itself over
+  0.75 s rather than through a slide, opens at full size at once. A popup
+  whose slide is already past 1 s when its layout hides the text shows it
+  again.
 
 diff --git a/src/Game/FE/fePopupMenu.cpp b/src/Game/FE/fePopupMenu.cpp
-index 818c844..d2f2b6b 100644
+index 818c844..1e37107 100644
 --- a/src/Game/FE/fePopupMenu.cpp
 +++ b/src/Game/FE/fePopupMenu.cpp
 @@ -17,6 +17,7 @@
@@ -26,7 +36,24 @@ index 818c844..d2f2b6b 100644
  #include "Game/DB/CharacterInfo.h"
  #include "Game/NetTournManager.h"
  #include "Game/NetworkSession.h"
-@@ -777,6 +778,13 @@ void FEPopupMenu::SetPositions()
+@@ -423,6 +424,16 @@ void FEPopupMenu::UpdateBackgroundScale(float fDeltaT)
+         TLImageInstance* pImage = FEFinder<TLImageInstance, 2>::FindOrDefault<TLSlide>(
+             mPresentation->GetActiveSlide(), "Layer", "blackbox");
+         const feVector3 scale = pImage->GetAssetScale();
++#if defined(MSCHARGED_TWEAKS)
++        // Port tweak "Fast menus": the black box behind the popup opens at its
++        // full size at once instead of growing to it over 0.75 s.
++        if (mscharged_tweak_fast_menus() && fDeltaT > 0.0f)
++        {
++            pImage->SetAssetScale(mBackgroundTargetScaleX, mBackgroundTargetScaleY, scale.e[2]);
++            mBackgroundScaleDone = true;
++            return;
++        }
++#endif
+         if (scale.e[0] >= mBackgroundTargetScaleX && scale.e[1] >= mBackgroundTargetScaleY)
+             mBackgroundScaleDone = true;
+         else
+@@ -777,6 +788,13 @@ void FEPopupMenu::SetPositions()
      pImage->SetAssetPosition(position.e[0], position.e[1], position.e[2]);
      SetMessageAndOptionsVisible(false);
      mMenuDisplayed = true;
@@ -107,7 +134,7 @@ index fb32cfe..eb36fc5 100644
      m_time += deltaTime;
      float end = GetStartTime() + GetDuration();
 diff --git a/src/Game/Task/FrontEndTask.cpp b/src/Game/Task/FrontEndTask.cpp
-index 2ff6730..3d70c45 100644
+index 2ff6730..c8df1fa 100644
 --- a/src/Game/Task/FrontEndTask.cpp
 +++ b/src/Game/Task/FrontEndTask.cpp
 @@ -32,6 +32,10 @@
@@ -121,22 +148,25 @@ index 2ff6730..3d70c45 100644
  
  #include <math.h>
  
-@@ -164,6 +168,22 @@ void FrontEndTask::Run(float dt)
+@@ -164,6 +168,25 @@ void FrontEndTask::Run(float dt)
      }
  
  #endif // HBM owner/update omitted
 +#if defined(MSCHARGED_TWEAKS)
 +    {
 +        // Port tweak "Fast menus": once a frame, whether the menus are up
-+        // (outside matches and the boot screens) and whether the presentation
-+        // runs a transition script; such a script's scripted waits end as
-+        // they start, and its camera moves run on dilated time (nlTask.cpp).
++        // (outside matches and the boot screens, and in a match once its
++        // GameOver event has brought up the post-match screens) and whether
++        // the presentation runs a transition script; such a script's scripted
++        // waits end as they start, and its camera moves run on dilated time
++        // (nlTask.cpp). A match's tasks never run on transition time.
 +        GameSceneManager* scenes = GameSceneManager::Instance();
 +        BaseSceneHandler* top = scenes != 0 ? scenes->GetCurrentScene() : 0;
 +        SceneList type = top != 0 ? scenes->GetSceneType(top) : SCENE_INVALID;
 +        bool boot = type == SCENE_BOOT_LOADING || type == SCENE_BOOT_LOADING_JPN;
++        bool menus = (g_pGame == 0 || FrontEnd::m_bGameOver) && !boot;
 +        FrontEndPresentation* presentation = FrontEndPresentation::GetInstance();
-+        mscharged_tweak_frontend_frame(g_pGame == 0 && !boot, presentation->IsActive());
++        mscharged_tweak_frontend_frame(menus, g_pGame == 0 && presentation->IsActive());
 +        if (mscharged_tweak_fast_transition() && presentation->mWaitTime > 0.0f)
 +            presentation->mWaitTime = 0.0f;
 +    }
@@ -145,7 +175,7 @@ index 2ff6730..3d70c45 100644
      DrawFrontEndElements(dt);
  
 diff --git a/src/Game/main.cpp b/src/Game/main.cpp
-index 0ba7e3a..e3c8bd5 100644
+index 0ba7e3a..12c2ab7 100644
 --- a/src/Game/main.cpp
 +++ b/src/Game/main.cpp
 @@ -1,6 +1,7 @@
@@ -156,17 +186,18 @@ index 0ba7e3a..e3c8bd5 100644
  #if defined(MSCHARGED_NATIVE) && defined(MSCHARGED_DIAGNOSTIC_FRONTEND_BOOT_SCRIPT)
  #include <stdexcept>
  #endif
-@@ -835,6 +836,10 @@ static void AddTasks()
+@@ -809,6 +810,11 @@ static void AddTasks()
+     nlTaskManager::AddTask(&resetTask, 0, (u32)-1);
  #endif // unqualified unrelated task registration remains omitted
- #if !defined(MSCHARGED_DIAGNOSTIC_FRONTEND_TASK_CADENCE) || defined(MSCHARGED_DIAGNOSTIC_GAME_AUDIO_TASK)
-     nlTaskManager::AddTask(&audioUpdateTask, 15, (u32)-1);
+     nlTaskManager::AddTask(&beginFrameTask, 4, (u32)-1);
 +#if defined(MSCHARGED_TWEAKS)
-+    // Port tweak "Fast menus": audio keeps real time during transitions.
-+    mscharged_tweak_set_real_time_task(&audioUpdateTask);
++    // Port tweak "Fast menus": this task moves the cameras, which run on
++    // transition time; every other task keeps real time (nlTask.cpp).
++    mscharged_tweak_set_transition_task(&beginFrameTask);
 +#endif
- #endif // unqualified unrelated task registration remains omitted
-     nlTaskManager::AddTask(&endFrameTask, 16, (u32)-1);
+     nlTaskManager::AddTask(&sLoadingTask, 2, 0x01F80000);
  #if !defined(MSCHARGED_DIAGNOSTIC_FRONTEND_TASK_CADENCE) || defined(MSCHARGED_DIAGNOSTIC_FRONTEND_MATCH_LOADING)
+     nlTaskManager::AddTask(gDispatchEventsTask, 0x18, 0xFE07FFFF);
 diff --git a/src/NL/nlTask.cpp b/src/NL/nlTask.cpp
 index 3211342..d94c8c9 100644
 --- a/src/NL/nlTask.cpp

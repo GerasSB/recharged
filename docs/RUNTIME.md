@@ -62,25 +62,28 @@ transition is unfinished. Host focus and menu input remain under validation.
 
 ## Wii Remote
 
-Experimental, Linux. Wii Remotes (or Wii Remote Plus) with a Nunchuk play
-through a Mayflash DolphinBar in mode 4, which is also the sensor bar for the
-Remote's pointer. Pair each Remote with the bar (SYNC on the bar, then SYNC
-under the Remote's battery cover); players follow the bar's slot order. A Remote
-paired directly over Bluetooth uses the same driver but is not verified yet. The
-Remote speaker, MotionPlus and other extensions are not supported.
+Experimental: tested on Linux, connecting over Bluetooth also on Windows. Wii Remotes (or Wii Remote Plus) with a Nunchuk play
+either through a Mayflash DolphinBar in mode 4 or paired directly over
+Bluetooth. Pair with the bar by pressing SYNC on the bar, then SYNC under the
+Remote's battery cover. On Windows, the launcher's Controls page connects
+Remotes over Bluetooth while it is open: press 1+2 or the SYNC button on the
+Remote (some connect more easily with SYNC); `controls.bluetooth_search`
+switches this off. Elsewhere, press SYNC and connect "Nintendo RVL-CNT-01" in
+your system's Bluetooth settings (no PIN). Over Bluetooth the Remote needs a separate sensor bar for its
+pointer. The Remote speaker, MotionPlus and other extensions are not supported.
 
-Choose who plays on the launcher's Controls page: each of players 1-4 is
-keyboard & mouse, a Wii Remote connected to the bar, or off (`controls.player1`
-to `player4`: `keyboard`, `remote1`-`remote4`, `off`). Players fill in order;
-without a DolphinBar, keyboard & mouse is player 1 alone. The page also shows
+Choose who plays on the launcher's Controls page. Each of players 1-4 is
+keyboard & mouse, a connected Wii Remote, a gamepad, or off (`controls.player1`
+to `player4`: `keyboard`, `remote1`-`remote4` for DolphinBar slots,
+`remote-<address>` for a Bluetooth Remote, `gamepad1`-`gamepad4`, `off`).
+Players fill in order. Controllers missing when the game starts are left out,
+and keyboard & mouse is player 1 when nobody is left. The page also shows
 each Remote's battery level. `controls.sensor_bar` is `bottom` or `top` of the
 screen, and `controls.rumble` switches rumble. The bar must be in view of the
 Remote's camera: sit about 1 m or more away when it is on top of the screen.
-To make the pointer land where you aim, press the target button next to a
-Remote and aim at the five targets that follow, pressing A at each (B cancels).
 
-If no Remote is found, allow your user to open Wii Remotes once, then reconnect
-the bar or Remote:
+If a Remote is connected but cannot be opened, the Controls page says so and
+copies these commands. Run them once, then reconnect the bar or Remote:
 
 ```sh
 sudo tee /etc/udev/rules.d/60-mscharged-wiimote.rules >/dev/null <<'EOF'
@@ -90,8 +93,24 @@ EOF
 sudo udevadm control --reload-rules && sudo udevadm trigger --subsystem-match=hidraw
 ```
 
-Started from a terminal, the game logs `Wii Remote connected via DolphinBar slot N`;
-`MSCHARGED_WIIMOTE_DEBUG=1` logs every step of the Remote setup.
+Started from a terminal, the game logs `Wii Remote connected via ...` with
+the DolphinBar slot or Bluetooth address; **Advanced → Verbose console** or
+`MSCHARGED_WIIMOTE_DEBUG=1` logs every step of the Remote setup, including the
+HID devices the launcher sees and how each Remote answers (also in
+`logs/mscharged.log`).
+
+## Saves
+
+The game keeps its Wii saves (`Strikers2` and `banner.bin`) in
+`original-main-credits-data/nand` next to the program, or in the folder set as
+`[game] save_folder` (launcher: **Game → Save data**). A new folder starts
+without saves; the old folder keeps its saves.
+
+**Import from Dolphin** copies the save Dolphin keeps for the game
+(`<Dolphin user folder>/Wii/title/00010000/52345145/data`) byte for byte. The
+launcher finds Dolphin's usual folders on its own; otherwise choose Dolphin's
+user folder or that save folder. The current save is first copied to `backups/`
+in the save folder. Dolphin's encrypted `data.bin` exports are not supported.
 
 ## Performance log
 
@@ -106,8 +125,8 @@ Both tests accept `--config FILE`, `--disc FILE` (also `--disk`), `--window`,
 `--fullscreen`, `--size WIDTHxHEIGHT`, `--aspect auto|4:3|16:9` and `--no-tweaks`
 (the `[gameplay]` tweaks off). These override INI settings for this run without saving. The default layout is 16:9; resizing
 preserves the selected layout and fills unused space with bars. The launcher also
-saves the start display, VSync, frame rate in the title, speaker volume, graphics
-validation and log detail in `mscharged.ini`.
+saves the start display, VSync, the frame rate counter (window title or on
+screen), speaker volume, graphics validation and log detail in `mscharged.ini`.
 
 ## Other checks
 

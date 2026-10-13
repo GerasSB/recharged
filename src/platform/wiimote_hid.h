@@ -1,10 +1,12 @@
 #pragma once
 
-#include "platform/wiimote_calibration.h"
+#include "platform/wiimote_ir.h"
+#include "platform/wiimote_ids.h"
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
-#include <initializer_list>
+#include <map>
 #include <optional>
 
 struct SDL_hid_device;
@@ -24,19 +26,18 @@ struct WiimoteHidSettings {
     // Original IR sensitivity preference (1-5), mapped to the console's
     // camera register blocks.
     std::uint8_t ir_sensitivity = 3;
-    // Players by DolphinBar slot 1-4: WPAD channel (player - 1), -1 = not a
-    // player. Without fixed players every remote plays, in slot order.
+    // Players by remote id (wiimote_ids.h): WPAD channel (player - 1); a
+    // remote without an entry is not a player. Without fixed players every
+    // remote plays, DolphinBar slots first.
     bool fixed_players = false;
-    std::array<int, 4> slot_channels{-1, -1, -1, -1};
-    // Pointer calibration by DolphinBar slot (controls.remoteN_calibration),
-    // and the Wii sensor-bar position it is applied for (0 below, 1 above).
-    std::array<std::optional<WiimoteCalibration>, 4> calibrations{};
-    std::uint8_t sensor_bar_position = 0;
+    std::map<std::string, int> channels;
 };
 
 struct WiimoteHidRemote {
     std::string path;
-    int slot = -1;          // DolphinBar slot or enumeration order
+    std::string id;         // settings name (wiimote_ids.h)
+    int slot = -1;          // DolphinBar slot, -1 for a directly connected remote
+    bool plus = false;      // Wii Remote Plus (RVL-CNT-01-TR)
     int channel = -1;       // WPAD channel (player - 1), -1 when unassigned
     bool nunchuk = false;
     bool ir_visible = false;
@@ -47,7 +48,15 @@ struct WiimoteHidStatus {
     bool dolphinbar_other_mode = false; // a DolphinBar in a mouse/gamepad mode (1-3)
     int adapter_slots = 0;
     std::vector<WiimoteHidRemote> remotes;
+    // Wii Remotes the system lists but this user may not open (Linux: no
+    // udev rule for the hidraw device).
+    int no_permission = 0;
+    // Launcher probe: ids of remotes that are listed and open but did not
+    // answer this time (a flaky link, or just switched off).
+    std::vector<std::string> silent;
 };
+// DolphinBar slots first, then directly connected remotes by address.
+void SortWiimoteRemotes(std::vector<WiimoteHidRemote>& remotes);
 
 // Owner thread. Probes immediately and waits briefly for remotes that are
 // already on, so they can take their players before the keyboard device.
@@ -55,6 +64,9 @@ void InitializeWiimoteHid(WiimoteHidSettings settings);
 // Owner-thread input cadence: reads reports, probes empty slots, retires
 // silent remotes.
 void ServiceWiimoteHid();
+// Owner thread: the players' WPAD channels by remote id after the players
+// closed up (InitializeWiimoteHid keeps them otherwise).
+void SetWiimoteHidChannels(std::map<std::string, int> channels);
 void ShutdownWiimoteHid();
 WiimoteHidStatus GetWiimoteHidStatus();
 // The driver runs and has opened at least one Wii Remote HID device.
@@ -88,37 +100,19 @@ private:
 };
 WiimoteHidStatus ScanWiimoteHid(int timeout_ms = 400);
 
-// A live Wii Remote for the launcher's pointer calibration (no game input
-// owner): turns the remote's camera on like the game's driver and reads its
-// camera objects and buttons. Lives in wiimote_scan.cpp.
-class WiimoteHidLive {
-public:
-    WiimoteHidLive() = default;
-    WiimoteHidLive(const WiimoteHidLive&) = delete;
-    WiimoteHidLive& operator=(const WiimoteHidLive&) = delete;
-    ~WiimoteHidLive();
-    // The remote in DolphinBar slot 0-3; false when it does not answer.
-    bool Open(int slot);
-    void Close();
-    // Reads waiting reports; never blocks.
-    void Poll();
-    bool Connected() const;
-    // Core buttons as in report bytes 1-2: 0x0008 A, 0x0004 B, 0x0080 HOME.
-    std::uint16_t Buttons() const { return buttons_; }
-    const NativeDpdObservation& Dots() const { return dots_; }
-
-private:
-    bool Send(std::initializer_list<std::uint8_t> report);
-    bool Write(std::uint32_t address, const std::uint8_t* data, int size);
-    void Handle(const std::uint8_t* report, int size);
-    SDL_hid_device* hid_ = nullptr;
-    bool initialized_ = false;
-    std::uint16_t buttons_ = 0;
-    NativeDpdObservation dots_{};
-    std::uint64_t last_report_ns_ = 0;
-};
 bool IsWiimoteHid(const SDL_hid_device_info* info);
 bool IsDolphinBarHid(const SDL_hid_device_info* info);
+// Detailed Wii Remote output: with advanced.verbose_console or the
+// MSCHARGED_WIIMOTE_DEBUG environment variable.
+bool WiimoteDebug();
+// Send one output report. Windows pads every write to the device's longest
+// output report and returns that padded length, so success is any count of
+// at least `size`, not exactly `size`.
+bool WriteWiimoteReport(SDL_hid_device* hid, const std::uint8_t* report, std::size_t size);
+// The settings id of a Wii Remote HID device (wiimote_ids.h). A DolphinBar
+// interface takes its interface number as slot, or else its position among
+// the interfaces of the same enumeration, which adapter_index counts.
+std::string WiimoteHidId(const SDL_hid_device_info* info, int& adapter_index);
 // A DolphinBar in modes 1-3 lists one Mayflash device instead of four remotes.
 bool DolphinBarInOtherMode();
 } // namespace mscharged::platform

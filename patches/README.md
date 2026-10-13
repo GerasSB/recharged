@@ -30,15 +30,29 @@ written against the exact upstream text, never against the formatted copy.
 ## Tweak series
 
 `patches/mscharged-decomp-tweaks/` holds the opt-in game tweaks ([gameplay] in
-`mscharged.ini`), the only intended changes to the original game's behaviour.
-It has its own `base` and `series` and is applied after the Charged series.
-Its hooks are compiled only into the game module built with `MSCHARGED_TWEAKS`
-and take the original path unless their tweak is enabled; every other target
-compiles the original code. The game module receives the enabled set from the
+`mscharged.ini`) and the owner-approved fixes of original game bugs, the only
+intended changes to the original game's behaviour. It has its own `base` and
+`series` and is applied after the Charged series. Its hooks are compiled only
+into the game module built with `MSCHARGED_TWEAKS` and take the original path
+unless their tweak is enabled; a fix is always on there and has no switch
+(0006: resting goal nets are redrawn, issue #19; 0009: the electrocution
+overlay's texture, which the disc keeps only in an unused debug bundle, is
+loaded, issue #33). Every other target compiles the original code. The game module receives the enabled set from the
 host before original main (`src/platform/game_tweaks.cpp`). Keep these patches
 apart from the faithful series and refresh them on every pin update.
 
 ## Charged series
+
+Patch 0690 (temporary) tests AI desire update results as the 32-bit codes
+retail compares. The reconstructed source read them through the variant's
+pointer member, which natively also takes four bytes the int assignment leaves
+unwritten. In the Windows build those bytes held stale stack data, which ended
+the frozen state hiding a lesson's or challenge's missing sidekicks (issue #25).
+The decomp carries the same fix; drop the patch once the pin includes it.
+
+Patch 0701 clears that pointer member before `Variant(eVariantType, T)` stores
+a narrower value, so a pointer-width read of a stored 32-bit word sees the
+word, as on the Wii, for every reader. It stays after 0690 is dropped.
 
 Patch 0585 restores the original SDK texture-binding loop and its panic,
 null and unpacked branches. Native address conversion publishes structural
@@ -112,6 +126,14 @@ non-zero alpha counts that the blend pass turned into large, flickering dark
 polygons on the field. GLShadowBlendMeshWriter now publishes its native streams
 like the other mesh writers; formats, counts and the blend arithmetic are
 unchanged.
+
+Patch 0704 reads the float positions that GetAABBDimensions turns into model
+bounding boxes in host byte order. The loader keeps authored vertex streams in
+their Wii byte order, so every box was built from byte-swapped floats (around
+1e38, with an infinite extent). Thrown items and hammers derive their planar
+shadow's co-planar reference quad from these boxes; with garbage boxes Aurora
+kept an unrelated depth plane, and the item shadows flickered, were cut off or
+vanished (issue #18).
 
 Patches 0620–0621 admit original Strikers 101 lesson and Striker Challenge play
 under the explicit challenge-play diagnostic. 0620 opens the 101 pause menu (84),
@@ -684,6 +706,12 @@ the display copy's vertical flicker filter. The physical VI signal is unchanged.
 multisampled EFB (`display.antialiasing = 4x`): a poke is a pixel-aligned clear
 rectangle drawn with the render target's own sample count, covering every
 sample of the pixel. Scaled EFBs remain unsupported.
+`0090-host-overlay-over-vi-picture.patch` lets the host draw an overlay over the
+native VI desktop picture (the optional frame-rate counter, `display.fps_overlay`):
+ImGui draws recorded in surface pixels and drawn after the picture in the same
+surface pass, while the surface keeps the size they were laid out for. The
+overlay frame reads no input and leaves the cursor, mouse capture and gamepads
+alone; screenshots and the game's frames never contain it.
 
 ## Dawn series
 

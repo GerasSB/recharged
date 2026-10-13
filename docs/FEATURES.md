@@ -31,9 +31,9 @@ the reconstructed source, unchanged.
   button, or none; sticks can be swapped). A profile belongs to one kind of
   controller (Xbox and PlayStation share profiles), so each gamepad is offered
   the profiles that fit it; they are kept for the next session.
-- **Real Wii Remotes with Nunchuk** through a **Mayflash DolphinBar** (mode 4):
-  pointer, rumble and battery level, with the sensor bar above or below the
-  screen and a five-target pointer calibration per remote.
+- **Real Wii Remotes with Nunchuk**, paired over **Bluetooth** or through a
+  **Mayflash DolphinBar** (mode 4): pointer, rumble and battery level, with the
+  sensor bar above or below the screen.
 - **Mouse beside a controller**: a single player on a Wii Remote or gamepad
   can also point and press A/B with the mouse.
 
@@ -46,22 +46,31 @@ the reconstructed source, unchanged.
 - Picture styles: **sharp** (default) or clean fill the window with the game's
   picture; soft keeps the console's TV look, with the TV signal's empty border.
 - Optional **4x antialiasing**.
-- V-sync, an FPS counter, master volume and mute; music, effects and voice
-  levels stay in the game's own options.
+- V-sync, an FPS counter (window title, or on screen also in fullscreen),
+  master volume and mute; music, effects and voice levels stay in the game's
+  own options.
 - **Screenshots** with the P key.
 
 ## Optional tweaks
 
-Off by default; with all of them off the game plays exactly as on the Wii.
+Off by default; with all of them off the game plays as on the Wii. Two fixes
+of the original game are always on: a goal net no longer stays dented after a
+goal ([#19](https://github.com/yannicksuter/mscharged-port/issues/19)), and
+electrocuted players flash with the game's lightning texture instead of a
+debug texture ([#33](https://github.com/yannicksuter/mscharged-port/issues/33)).
 The launcher's **Gameplay** page (or `[gameplay]` in `mscharged.ini`) turns them on:
 
 - **Skip intro**: start at the main menu, without the notice screens, studio
   logo, intro movie and title screen.
-- **Fast menus**: skip menu transitions (matches, movies and credits unchanged).
-- **No Mega Strikes** for both teams (Striker Challenges and Strikers 101 keep
-  their own rules).
+- **Fast menus**: skip menu transitions, also on the screens after a match
+  (matches, movies and credits unchanged).
+- **No Mega Strikes** for both teams, the usual competitive rule. Skillshots
+  stay, and Strikers 101 lessons keep their own rules.
 - **Unlock everything**: all characters, stadiums and cheats, through the
   game's own unlock switch; the save is not changed.
+- **CPU vs CPU**: in Domination, press Done on Choose Sides without picking a
+  side and the CPU plays both teams. Choose Sides in the pause menu can also
+  hand a match over to the CPU.
 
 `--no-tweaks` turns them off for one run.
 
@@ -69,7 +78,7 @@ The launcher's **Gameplay** page (or `[gameplay]` in `mscharged.ini`) turns them
 
 A start window that checks your disc, explains what is missing, and keeps every
 setting in one place: players and controllers, keyboard keys, gamepad
-profiles, Wii Remote calibration, display, audio, gameplay tweaks and advanced options. It asks before playing with
+profiles, display, audio, gameplay tweaks and advanced options. It asks before playing with
 unsaved changes.
 
 ## Not supported (yet)

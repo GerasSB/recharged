@@ -1,5 +1,6 @@
 #include "config.h"
 #include "platform/path.h"
+#include "platform/wiimote_ids.h"
 
 #include <algorithm>
 #include <charconv>
@@ -33,7 +34,7 @@ std::string Trim(const std::string& value)
 
 Values Encode(const Settings& s)
 {
-    Values values{{"game.disc", s.disc}, {"game.language", s.language},
+    Values values{{"game.disc", s.disc}, {"game.save_folder", s.save_folder}, {"game.language", s.language},
             {"display.width", std::to_string(s.width)}, {"display.height", std::to_string(s.height)},
             {"display.fullscreen", s.fullscreen ? "true" : "false"},
             {"display.vsync", s.vsync ? "true" : "false"},
@@ -45,15 +46,14 @@ Values Encode(const Settings& s)
             {"audio.mute", s.mute ? "true" : "false"},
             {"controls.player1", s.players[0]}, {"controls.player2", s.players[1]},
             {"controls.player3", s.players[2]}, {"controls.player4", s.players[3]},
-            {"controls.remote1_calibration", s.remote_calibration[0]},
-            {"controls.remote2_calibration", s.remote_calibration[1]},
-            {"controls.remote3_calibration", s.remote_calibration[2]},
-            {"controls.remote4_calibration", s.remote_calibration[3]},
             {"controls.deadzone", std::to_string(s.deadzone)},
             {"controls.rumble", s.rumble ? "true" : "false"},
             {"controls.mouse_pointer", s.mouse_pointer ? "true" : "false"},
+            {"controls.bluetooth_search", s.bluetooth_search ? "true" : "false"},
             {"controls.sensor_bar", s.sensor_bar},
             {"display.show_fps", s.show_fps ? "true" : "false"},
+            {"display.fps_overlay", s.fps_overlay ? "true" : "false"},
+            {"display.fps_overlay_corner", s.fps_overlay_corner},
             {"display.monitor", std::to_string(s.monitor)},
             {"advanced.graphics_validation", s.graphics_validation ? "true" : "false"},
             {"advanced.log_level", s.log_level},
@@ -110,6 +110,9 @@ Settings Decode(const Values& values)
     if (const auto it = values.find("game.disc"); it != values.end()) s.disc = it->second;
     if (s.disc.find_first_of("\r\n") != std::string::npos || s.disc.find('\0') != std::string::npos)
         throw std::runtime_error("Invalid configuration: the disc path contains a line break or NUL");
+    if (const auto it = values.find("game.save_folder"); it != values.end()) s.save_folder = it->second;
+    if (s.save_folder.find_first_of("\r\n") != std::string::npos || s.save_folder.find('\0') != std::string::npos)
+        throw std::runtime_error("Invalid configuration: the save folder contains a line break or NUL");
     choice("game.language", s.language, {"auto", "english", "french", "spanish", "german", "italian", "japanese"});
     number("display.width", s.width, 1, 16384);
     number("display.height", s.height, 1, 16384);
@@ -127,25 +130,11 @@ Settings Decode(const Values& values)
     for (int n = 0; n < 4; ++n)
     {
         const auto key = "controls.player" + std::to_string(n + 1);
-        choice(key.c_str(), s.players[n], {"keyboard", "remote1", "remote2", "remote3", "remote4",
-                                            "gamepad1", "gamepad2", "gamepad3", "gamepad4", "off"});
-    }
-    for (int n = 0; n < 4; ++n)
-    {
-        const auto key = "controls.remote" + std::to_string(n + 1) + "_calibration";
         const auto it = values.find(key);
         if (it == values.end()) continue;
-        if (it->second != "none")
-        {
-            std::istringstream input(it->second);
-            input.imbue(std::locale::classic());
-            double value = 0;
-            int count = 0;
-            while (input >> value && std::isfinite(value)) ++count;
-            if (count != 6 || !input.eof())
-                throw std::runtime_error("Invalid configuration: " + key + " must be none or six numbers");
-        }
-        s.remote_calibration[n] = it->second;
+        if (platform::IsBluetoothWiimoteId(it->second)) { s.players[n] = it->second; continue; }
+        choice(key.c_str(), s.players[n], {"keyboard", "remote1", "remote2", "remote3", "remote4",
+                                            "gamepad1", "gamepad2", "gamepad3", "gamepad4", "off"});
     }
     // [keyboard] and [gamepadN]: one or two names per action, separated by " | ".
     const auto names = [&](const std::string& key, std::string& value, const char* what) {
@@ -224,8 +213,11 @@ Settings Decode(const Values& values)
     number("controls.deadzone", s.deadzone, 0, 50);
     boolean("controls.rumble", s.rumble);
     boolean("controls.mouse_pointer", s.mouse_pointer);
+    boolean("controls.bluetooth_search", s.bluetooth_search);
     choice("controls.sensor_bar", s.sensor_bar, {"bottom", "top"});
     boolean("display.show_fps", s.show_fps);
+    boolean("display.fps_overlay", s.fps_overlay);
+    choice("display.fps_overlay_corner", s.fps_overlay_corner, {"top-left", "top-right", "bottom-left", "bottom-right"});
     number("display.monitor", s.monitor, 0, 15);
     boolean("advanced.graphics_validation", s.graphics_validation);
     choice("advanced.log_level", s.log_level, {"error", "warning", "info", "debug"});
@@ -250,6 +242,9 @@ bool OwnedSection(const std::string& section)
         && std::all_of(section.begin() + std::ptrdiff_t(prefix.size()), section.end(),
                        [](unsigned char c) { return std::isdigit(c); });
 }
+
+// Paths are written in quotes.
+bool QuotedKey(const std::string& key) { return key == "game.disc" || key == "game.save_folder"; }
 
 Values Parse(const std::string& contents, std::string* updated = nullptr, Values replacements = {})
 {
@@ -296,7 +291,7 @@ Values Parse(const std::string& contents, std::string* updated = nullptr, Values
                 {
                     if (it->second != value)
                         line = line.substr(0, equals + 1) + " "
-                            + (full_key == "game.disc" ? "\"" + it->second + "\"" : it->second);
+                            + (QuotedKey(full_key) ? "\"" + it->second + "\"" : it->second);
                     replacements.erase(it);
                 }
             }
@@ -324,7 +319,7 @@ Values Parse(const std::string& contents, std::string* updated = nullptr, Values
             const auto next = full_key.substr(0, dot);
             if (next != section) { *updated += newline + "[" + next + "]" + newline; section = next; }
             *updated += full_key.substr(dot + 1) + " = "
-                + (full_key == "game.disc" ? "\"" + value + "\"" : value) + newline;
+                + (QuotedKey(full_key) ? "\"" + value + "\"" : value) + newline;
         }
     }
     return values;
@@ -438,6 +433,19 @@ std::filesystem::path ResolveDiscPath(const Settings& settings, const std::files
     if (settings.disc.empty())
         throw std::runtime_error("Set [game] disc to an ISO or RVZ path in " + PathUtf8(config));
     const auto path = PathFromUtf8(settings.disc);
+    return path.is_absolute() ? path : config.parent_path() / path;
+}
+
+std::filesystem::path DefaultSaveFolder(const std::filesystem::path& executable_directory)
+{
+    return executable_directory / "original-main-credits-data" / "nand";
+}
+
+std::filesystem::path ResolveSaveFolder(const Settings& settings, const std::filesystem::path& config,
+                                        const std::filesystem::path& executable_directory)
+{
+    if (settings.save_folder.empty()) return DefaultSaveFolder(executable_directory);
+    const auto path = PathFromUtf8(settings.save_folder);
     return path.is_absolute() ? path : config.parent_path() / path;
 }
 

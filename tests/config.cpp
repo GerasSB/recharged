@@ -1,4 +1,5 @@
 #include "bootstrap/config.h"
+#include "platform/path.h"
 
 #include <array>
 #include <chrono>
@@ -168,26 +169,75 @@ int main()
                     && !mscharged::ValidPadProfileName("a|b") && !mscharged::ValidPadProfileName("")
                     && !mscharged::ValidPadProfileName("DEFAULT"),
                 "Profile name rules");
-        // Pointer calibration: none or six numbers from the launcher.
-        Require(Settings{}.remote_calibration[2] == "none", "Remotes start uncalibrated");
-        std::ofstream(path) << "[controls]\nremote2_calibration = -0.0024 1e-05 1.68 0 -0.0026 1.58\n";
-        Require(LoadConfig(path).settings.remote_calibration[1] == "-0.0024 1e-05 1.68 0 -0.0026 1.58",
-                "A calibration loads");
-        std::ofstream(path) << "[controls]\nremote1_calibration = 1 2 3\n";
-        Reject([&] { LoadConfig(path); });
-        std::ofstream(path) << "[controls]\nremote1_calibration = 1 2 3 4 5 6 x\n";
-        Reject([&] { LoadConfig(path); });
+        // Wii Remotes paired over Bluetooth play by their address.
+        {
+            std::ofstream(path) << "[controls]\nplayer1 = remote-9ce635c69076\nplayer2 = remote1\n";
+            auto bluetooth = LoadConfig(path);
+            Require(bluetooth.settings.players[0] == "remote-9ce635c69076" && bluetooth.settings.players[1] == "remote1",
+                    "A Bluetooth remote loads");
+            auto changed = bluetooth.settings;
+            changed.players[2] = "remote-001122334455";
+            SaveConfig(bluetooth, changed);
+            Require(LoadConfig(path).settings.players == changed.players, "Bluetooth remotes round trip");
+            Require(Settings{}.bluetooth_search && LoadConfig(path).settings.bluetooth_search, "Bluetooth search is on");
+            auto off = LoadConfig(path);
+            auto searchless = off.settings;
+            searchless.bluetooth_search = false;
+            SaveConfig(off, searchless);
+            Require(!LoadConfig(path).settings.bluetooth_search, "Bluetooth search off round trips");
+            std::ofstream(path) << "[controls]\nplayer1 = remote-9CE635C69076\n";
+            Reject([&] { LoadConfig(path); });
+            std::ofstream(path) << "[controls]\nplayer1 = remote-9ce635c69076\nplayer2 = remote-9ce635c69076\n";
+            Reject([&] { LoadConfig(path); });
+        }
+        // Pointer calibrations of earlier versions still load; they are kept
+        // in the file untouched and no longer used.
+        {
+            const std::string old = "[controls]\nremote2_calibration = -0.0024 1e-05 1.68 0 -0.0026 1.58\n"
+                                    "remote-9ce635c69076_calibration = 1 0 0 0 1 0\n";
+            std::ofstream(path) << old;
+            auto file = LoadConfig(path);
+            auto changed = file.settings;
+            changed.rumble = !changed.rumble;
+            SaveConfig(file, changed);
+            const auto saved = LoadConfig(path).contents;
+            Require(saved.find("remote2_calibration = -0.0024 1e-05 1.68 0 -0.0026 1.58") != std::string::npos
+                    && saved.find("remote-9ce635c69076_calibration = 1 0 0 0 1 0") != std::string::npos,
+                    "An old calibration is kept in the file");
+        }
+        // Save folder: empty is the default next to the executable; a relative
+        // folder counts from the settings file and is written in quotes.
+        {
+            const fs::path executable = directory / "bin";
+            Require(Settings{}.save_folder.empty()
+                    && ResolveSaveFolder(Settings{}, path, executable)
+                        == executable / "original-main-credits-data" / "nand", "Default save folder");
+            std::ofstream(path) << "[game]\nsave_folder = \"My Saves/charged\"\n";
+            auto saves = LoadConfig(path);
+            Require(saves.settings.save_folder == "My Saves/charged"
+                    && ResolveSaveFolder(saves.settings, saves.path, executable)
+                        == saves.path.parent_path() / "My Saves/charged", "A relative save folder loads");
+            auto changed = saves.settings;
+            changed.save_folder = mscharged::PathUtf8(directory / "absolute saves");
+            SaveConfig(saves, changed);
+            Require(LoadConfig(path).settings.save_folder == changed.save_folder
+                    && ResolveSaveFolder(changed, path, executable) == directory / "absolute saves",
+                    "An absolute save folder round trips");
+        }
 
         // Host presentation/diagnostic settings: defaults keep the previous
         // behaviour, values round trip and out-of-range input is rejected.
         const Settings defaults;
-        Require(defaults.show_fps && defaults.monitor == 0 && !defaults.graphics_validation
+        Require(defaults.show_fps && !defaults.fps_overlay && defaults.fps_overlay_corner == "top-right"
+            && defaults.monitor == 0 && !defaults.graphics_validation
             && defaults.log_level == "info" && !defaults.verbose_console && defaults.ui_scale == "auto",
             "Host setting defaults");
         const auto host = directory / "host.ini";
         auto hostFile = LoadConfig(host, true);
         Settings hostSettings;
         hostSettings.show_fps = false;
+        hostSettings.fps_overlay = true;
+        hostSettings.fps_overlay_corner = "bottom-left";
         hostSettings.monitor = 2;
         hostSettings.graphics_validation = true;
         hostSettings.log_level = "warning";
@@ -195,13 +245,17 @@ int main()
         hostSettings.ui_scale = "150";
         SaveConfig(hostFile, hostSettings);
         const auto hostReloaded = LoadConfig(host).settings;
-        Require(!hostReloaded.show_fps && hostReloaded.monitor == 2 && hostReloaded.graphics_validation
+        Require(!hostReloaded.show_fps && hostReloaded.fps_overlay && hostReloaded.fps_overlay_corner == "bottom-left"
+            && hostReloaded.monitor == 2 && hostReloaded.graphics_validation
             && hostReloaded.log_level == "warning" && hostReloaded.verbose_console && hostReloaded.ui_scale == "150",
             "Host settings round trip");
         const auto hostText = LoadConfig(host).contents;
         Require(hostText.find("[advanced]") != std::string::npos && hostText.find("[launcher]") != std::string::npos
-            && hostText.find("show_fps = false") != std::string::npos, "Host settings sections");
+            && hostText.find("show_fps = false") != std::string::npos
+            && hostText.find("fps_overlay = true") != std::string::npos
+            && hostText.find("fps_overlay_corner = bottom-left") != std::string::npos, "Host settings sections");
         for (const char* invalid : {"[display]\nmonitor = 16\n", "[display]\nshow_fps = sometimes\n",
+                                    "[display]\nfps_overlay = maybe\n", "[display]\nfps_overlay_corner = center\n",
                                     "[advanced]\nlog_level = verbose\n", "[launcher]\nui_scale = 110\n",
                                     "[advanced]\ngraphics_validation = 2\n", "[advanced]\nverbose_console = yes\n"})
         {

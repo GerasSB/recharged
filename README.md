@@ -1,7 +1,7 @@
 # Mario Strikers Charged — Native Port
 
 [![Build stable](https://github.com/yannicksuter/mscharged-port/actions/workflows/build.yml/badge.svg?branch=stable)](https://github.com/yannicksuter/mscharged-port/actions/workflows/build.yml?query=branch%3Astable)
-[![Version 1.0.7](https://img.shields.io/badge/version-1.0.7-blue)](CMakeLists.txt)
+[![Version 1.0.8](https://img.shields.io/badge/version-1.0.8-blue)](CMakeLists.txt)
 
 Play **Mario Strikers Charged** natively on your PC. The port compiles the
 fully reconstructed game source of
@@ -45,7 +45,8 @@ The builds are not signed, so the system asks once on the first start:
   and a Vulkan driver (Mesa or your GPU vendor's driver) are needed.
 
 Settings and saves are kept beside the program, so the folder can live anywhere
-you like. `SHA256SUMS` in the release lists the packages' checksums. Builds of
+you like. The launcher's **Game** page can move the saves to another folder and
+import a save from the Dolphin emulator ([saves](docs/RUNTIME.md#saves)). `SHA256SUMS` in the release lists the packages' checksums. Builds of
 changes not yet released are under the
 [**Build binaries** runs of `stable`](https://github.com/yannicksuter/mscharged-port/actions/workflows/build.yml?query=branch%3Astable+is%3Asuccess)
 (*Artifacts*, signed-in users); see [GitHub builds](docs/BUILDING_GITHUB.md).
@@ -68,8 +69,8 @@ Highlights:
 
 - Keyboard & mouse with freely assignable keys
 - Xbox, PlayStation and other gamepads
-- Real Wii Remotes with Nunchuk through a Mayflash DolphinBar, with pointer
-  calibration
+- Real Wii Remotes with Nunchuk and pointer, paired over Bluetooth or through
+  a Mayflash DolphinBar
 - Sharp picture, 4:3 or 16:9, optional antialiasing, any window size or
   fullscreen
 - A launcher for disc, players, controls, display and audio
@@ -114,8 +115,36 @@ defaults that follow their own button labels. Defaults:
 | + / − / HOME | Tab / - / Home | Start / Back / Guide |
 | Shake Remote / Nunchuk | E / Q | RT / RB |
 
-Press **P** for a screenshot. See [Wii Remote setup](docs/RUNTIME.md#wii-remote)
-for the DolphinBar.
+Press **P** for a screenshot.
+
+### Wii Remotes
+
+Real Wii Remotes (with Nunchuk) work in two ways:
+
+- **Bluetooth:** on Windows, open the launcher's **Controls** page and press
+  **1+2** or the red **SYNC** button (under the battery cover) on the Remote; the
+  launcher connects it. Elsewhere, press SYNC and connect *Nintendo RVL-CNT-01*
+  in your system's Bluetooth settings (no PIN). The pointer needs a separate
+  Wii sensor bar.
+- **Mayflash DolphinBar** in mode 4: press SYNC on the bar, then on the Remote.
+  The bar is also the sensor bar.
+
+Connected Remotes appear on the launcher's **Controls** page with their battery
+level. Assign them to players there; the pointer works without any setup.
+
+**Linux:** if the launcher says a Wii Remote is connected but can't be opened,
+allow your user to access Wii Remotes once (the launcher's **Copy commands**
+button copies the same commands), then turn the Remote off and on:
+
+```sh
+sudo tee /etc/udev/rules.d/60-mscharged-wiimote.rules >/dev/null <<'EOF'
+KERNEL=="hidraw*", SUBSYSTEM=="hidraw", KERNELS=="*057E:0306*", TAG+="uaccess"
+KERNEL=="hidraw*", SUBSYSTEM=="hidraw", KERNELS=="*057E:0330*", TAG+="uaccess"
+EOF
+sudo udevadm control --reload-rules && sudo udevadm trigger --subsystem-match=hidraw
+```
+
+More in [Wii Remote setup](docs/RUNTIME.md#wii-remote).
 
 ## Build from source
 

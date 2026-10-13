@@ -8,6 +8,10 @@ disc = game/R4QE01.rvz
 # Automatic currently uses English. The original game selects localized resources.
 language = auto
 
+# Folder for the game's Wii saves. Empty: original-main-credits-data/nand next
+# to the program. A different folder starts without saves.
+save_folder = ""
+
 [display]
 width = 1280
 height = 720
@@ -27,6 +31,10 @@ antialiasing = 4x
 resolution = window
 # Frames per second in the game window title.
 show_fps = true
+# Frames per second drawn in a corner of the game window, also in fullscreen.
+fps_overlay = false
+# Corner of that counter: top-left, top-right, bottom-left or bottom-right.
+fps_overlay_corner = top-right
 # Display the game window opens on: 0 = default, 1 = first display, 2 = second...
 monitor = 0
 
@@ -40,10 +48,12 @@ mute = false
 
 [controls]
 # Who plays: keyboard (keyboard & mouse), remote1-remote4 (the Wii Remote in
-# that DolphinBar slot), gamepad1-gamepad4 (the n-th connected Xbox,
-# PlayStation or other standard gamepad, played as Wii Remote + Nunchuk) or
-# off. Players fill in order and each device plays once. Without a DolphinBar
-# the Wii Remote players are left out and the others close up in order.
+# that DolphinBar slot), remote-<Bluetooth address> (a Wii Remote paired over
+# Bluetooth, e.g. remote-9ce635c69076; the launcher lists connected ones),
+# gamepad1-gamepad4 (the n-th connected Xbox, PlayStation or other standard
+# gamepad, played as Wii Remote + Nunchuk) or off. Players fill in order and
+# each device plays once. Controllers missing when the game starts are left
+# out and the others close up in order.
 player1 = keyboard
 player2 = off
 player3 = off
@@ -51,12 +61,9 @@ player4 = off
 # When player 1 is a Wii Remote or gamepad and plays alone, the mouse also
 # points for it (left click A, right click B); the controller keeps working.
 mouse_pointer = true
-# Pointer calibration of the Wii Remote in each DolphinBar slot, made on the
-# launcher's Controls page (none = uncalibrated).
-remote1_calibration = none
-remote2_calibration = none
-remote3_calibration = none
-remote4_calibration = none
+# Windows: while the launcher's Controls page is open it connects Wii Remotes
+# over Bluetooth when you press 1+2 or the SYNC button on them.
+bluetooth_search = true
 deadzone = 15
 rumble = true
 # Where the sensor bar or DolphinBar sits: bottom or top of the screen.
@@ -127,14 +134,18 @@ shake_nunchuk = Q
 # Optional tweaks that change the original game. All off plays it unchanged;
 # --no-tweaks turns them off for one run.
 # skip_intro: start at the main menu (no notices, logo, intro or title screen).
-# fast_menus: skip menu transitions (matches, movies and credits unchanged).
-# no_mega_strikes: Mega Strikes off for both teams (not in Striker Challenges
-# or Strikers 101).
+# fast_menus: skip menu transitions, also on the screens after a match
+# (matches, movies and credits unchanged).
+# no_mega_strikes: Mega Strikes off for both teams; Skillshots stay (Strikers
+# 101 lessons keep their own rules).
 # unlock_all: all characters, stadiums and cheats; the save is not changed.
+# cpu_vs_cpu: in Domination, Done on Choose Sides also works with no side
+# picked; the CPU then plays both teams (from the pause menu too).
 skip_intro = false
 fast_menus = false
 no_mega_strikes = false
 unlock_all = false
+cpu_vs_cpu = false
 
 [advanced]
 # Backend graphics debug layers (slower; turn on for bug reports). WebGPU
