@@ -127,6 +127,14 @@ polygons on the field. GLShadowBlendMeshWriter now publishes its native streams
 like the other mesh writers; formats, counts and the blend arithmetic are
 unchanged.
 
+Patch 0704 reads the float positions that GetAABBDimensions turns into model
+bounding boxes in host byte order. The loader keeps authored vertex streams in
+their Wii byte order, so every box was built from byte-swapped floats (around
+1e38, with an infinite extent). Thrown items and hammers derive their planar
+shadow's co-planar reference quad from these boxes; with garbage boxes Aurora
+kept an unrelated depth plane, and the item shadows flickered, were cut off or
+vanished (issue #18).
+
 Patches 0620–0621 admit original Strikers 101 lesson and Striker Challenge play
 under the explicit challenge-play diagnostic. 0620 opens the 101 pause menu (84),
 the lesson movie player (87) and the Challenge preview (103), and queues the 101
