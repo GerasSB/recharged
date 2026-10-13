@@ -65,6 +65,9 @@ The launcher's **Gameplay** page (or `[gameplay]` in `mscharged.ini`) turns them
   stay, and Strikers 101 lessons keep their own rules.
 - **Unlock everything**: all characters, stadiums and cheats, through the
   game's own unlock switch; the save is not changed.
+- **CPU vs CPU**: in Domination, press Done on Choose Sides without picking a
+  side and the CPU plays both teams. Choose Sides in the pause menu can also
+  hand a match over to the CPU.
 
 `--no-tweaks` turns them off for one run.
 

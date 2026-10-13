@@ -2723,6 +2723,7 @@ private:
         if (BeginRows("##matches_rows"))
         {
             TweakRow(GameTweak::NoMegaStrikes);
+            TweakRow(GameTweak::CpuVsCpu);
             TweakRow(GameTweak::UnlockAll);
             EndRows();
         }

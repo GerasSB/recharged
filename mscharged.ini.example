@@ -135,10 +135,13 @@ shake_nunchuk = Q
 # no_mega_strikes: Mega Strikes off for both teams; Skillshots stay (Strikers
 # 101 lessons keep their own rules).
 # unlock_all: all characters, stadiums and cheats; the save is not changed.
+# cpu_vs_cpu: in Domination, Done on Choose Sides also works with no side
+# picked; the CPU then plays both teams (from the pause menu too).
 skip_intro = false
 fast_menus = false
 no_mega_strikes = false
 unlock_all = false
+cpu_vs_cpu = false
 
 [advanced]
 # Backend graphics debug layers (slower; turn on for bug reports). WebGPU
