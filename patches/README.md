@@ -694,6 +694,12 @@ the display copy's vertical flicker filter. The physical VI signal is unchanged.
 multisampled EFB (`display.antialiasing = 4x`): a poke is a pixel-aligned clear
 rectangle drawn with the render target's own sample count, covering every
 sample of the pixel. Scaled EFBs remain unsupported.
+`0090-host-overlay-over-vi-picture.patch` lets the host draw an overlay over the
+native VI desktop picture (the optional frame-rate counter, `display.fps_overlay`):
+ImGui draws recorded in surface pixels and drawn after the picture in the same
+surface pass, while the surface keeps the size they were laid out for. The
+overlay frame reads no input and leaves the cursor, mouse capture and gamepads
+alone; screenshots and the game's frames never contain it.
 
 ## Dawn series
 

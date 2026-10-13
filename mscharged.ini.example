@@ -31,6 +31,10 @@ antialiasing = 4x
 resolution = window
 # Frames per second in the game window title.
 show_fps = true
+# Frames per second drawn in a corner of the game window, also in fullscreen.
+fps_overlay = false
+# Corner of that counter: top-left, top-right, bottom-left or bottom-right.
+fps_overlay_corner = top-right
 # Display the game window opens on: 0 = default, 1 = first display, 2 = second...
 monitor = 0
 

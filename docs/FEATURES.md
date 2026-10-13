@@ -46,8 +46,9 @@ the reconstructed source, unchanged.
 - Picture styles: **sharp** (default) or clean fill the window with the game's
   picture; soft keeps the console's TV look, with the TV signal's empty border.
 - Optional **4x antialiasing**.
-- V-sync, an FPS counter, master volume and mute; music, effects and voice
-  levels stay in the game's own options.
+- V-sync, an FPS counter (window title, or on screen also in fullscreen),
+  master volume and mute; music, effects and voice levels stay in the game's
+  own options.
 - **Screenshots** with the P key.
 
 ## Optional tweaks
