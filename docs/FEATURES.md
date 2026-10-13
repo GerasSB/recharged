@@ -62,8 +62,8 @@ The launcher's **Gameplay** page (or `[gameplay]` in `mscharged.ini`) turns them
 
 - **Skip intro**: start at the main menu, without the notice screens, studio
   logo, intro movie and title screen.
-- **Fast menus**: skip menu transitions, also on the screens after a match
-  (matches, movies and credits unchanged).
+- **Fast menus**: skip menu transitions, also in the pause menu and on the
+  screens after a match (matches, movies and credits unchanged).
 - **No Mega Strikes** for both teams, the usual competitive rule. Skillshots
   stay, and Strikers 101 lessons keep their own rules.
 - **Unlock everything**: all characters, stadiums and cheats, through the
