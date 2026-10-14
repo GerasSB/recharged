@@ -161,12 +161,20 @@ void ConvertFields(NativeDSPMemoryEncoding encoding,unsigned char* native,std::s
     case NativeDSPMemoryEncoding::AXParameterBlocks:
         if (wire%320==0 && bytes%320==0) {
             // Whole parameter blocks: u16 fields, the u32 at 12..15, opaque tail.
+            // Each mapping swaps the bytes of one field, so the copy is a field
+            // byte swap in either direction (the same bytes as the per-byte form).
             for (std::size_t record=0;record<bytes;record+=320) {
-                const auto at=wire+record;
-                for (std::size_t k=0;k<12;++k) move(record+k,(at+k)^std::size_t(1));
-                for (std::size_t k=12;k<16;++k) move(record+k,(at+k)^std::size_t(3));
-                for (std::size_t k=16;k<296;++k) move(record+k,(at+k)^std::size_t(1));
-                for (std::size_t k=296;k<320;++k) move(record+k,at+k);
+                unsigned char* to=Write ? native+wire+record : device+record;
+                const unsigned char* from=Write ? device+record : native+wire+record;
+                const auto swap16=[&](std::size_t begin,std::size_t end) {
+                    for (std::size_t k=begin;k<end;k+=2) {
+                        std::uint16_t v;std::memcpy(&v,from+k,2);v=__builtin_bswap16(v);std::memcpy(to+k,&v,2);
+                    }
+                };
+                swap16(0,12);
+                std::uint32_t word;std::memcpy(&word,from+12,4);word=__builtin_bswap32(word);std::memcpy(to+12,&word,4);
+                swap16(16,296);
+                std::memcpy(to+296,from+296,24);
             }
             return;
         }
