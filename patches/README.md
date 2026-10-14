@@ -58,6 +58,11 @@ Patch 0701 clears that pointer member before `Variant(eVariantType, T)` stores
 a narrower value, so a pointer-width read of a stored 32-bit word sees the
 word, as on the Wii, for every reader. It stays after 0690 is dropped.
 
+Patch 0714 releases a destroyed GL target's EFB copies through
+`GXDestroyCopyTex`. On the console a copy is written into the target's memory,
+so no call is needed; native GX keeps copies in host textures keyed by that
+address, and each match left its crowd and captain impostor copies allocated.
+
 Patch 0585 restores the original SDK texture-binding loop and its panic,
 null and unpacked branches. Native address conversion publishes structural
 headers atomically; allocation failure leaves the source bytes intact.
