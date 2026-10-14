@@ -2776,6 +2776,7 @@ private:
         {
             TweakRow(GameTweak::NoMegaStrikes);
             TweakRow(GameTweak::CpuVsCpu);
+            TweakRow(GameTweak::FastTerrain);
             TweakRow(GameTweak::UnlockAll);
             EndRows();
         }
