@@ -40,3 +40,5 @@ endif()
 
 # Real native VI display-register/output qualification; no game input required.
 include(cmake/NativeVIDisplayGPU.cmake)
+
+include(cmake/PipelineWarmupGPU.cmake)

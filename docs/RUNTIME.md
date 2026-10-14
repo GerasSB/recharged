@@ -13,6 +13,15 @@ next game launch (`display.backend = vulkan` or `d3d12` in the INI). Existing
 `auto` settings keep Vulkan. A failed selection reports an error without
 switching APIs. Keep the three shader compiler DLLs included in the Windows ZIP
 beside `mscharged.exe`.
+
+Before the game starts, **Preparing graphics** builds known effect and drawing
+pipelines in the background for the selected API and GPU. The first launch can
+take longer; later launches reuse the local driver cache. Keep
+`assets/graphics/initial_pipeline_cache.db` in the package. This catalogue covers
+captured game runs; a previously unseen effect combination can still compile on
+first use. The session log records preparation time and final pipeline cache
+hits, misses and time spent resolving misses.
+
 Install the [build prerequisites](BUILDING.md#requirements), then initialize the
 required pinned sources from the repository root:
 

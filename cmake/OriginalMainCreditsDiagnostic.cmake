@@ -322,6 +322,7 @@ target_link_libraries(mscharged_original_main_credits_vi PRIVATE aurora::vi)
 
 add_library(charged_original_main_credits_host OBJECT
     src/runtime/original_main_credits.cpp src/runtime/frame_timing_log.cpp src/runtime/fps_overlay.cpp
+    src/runtime/pipeline_warmup.cpp
     src/platform/console.cpp
     src/platform/os.cpp src/platform/host_metadata.cpp src/platform/string_format.cpp
     src/platform/report.cpp src/platform/thread.cpp src/platform/os_version.cpp)
@@ -345,6 +346,7 @@ target_link_libraries(charged_original_main_credits_host PRIVATE
     charged_native_module_loader
     "$<LINK_LIBRARY:WHOLE_ARCHIVE,aurora::gx,aurora::mtx,aurora::os>"
     aurora::core aurora::dvd charged_host charged_session_log charged_wii_string_format charged_native_stm
+    absl::flat_hash_map
     charged_native_system_settings charged_native_video_device charged_credits_movie_hardware
     charged_native_hardware_owner
     charged_native_video_output_device charged_native_filesystem_boot
@@ -406,6 +408,8 @@ endfunction()
 
 add_executable(mscharged-original-main-credits-check
     tests/diagnostics/original_main_credits_window.cpp)
+include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/PipelineCatalog.cmake")
+mscharged_stage_pipeline_catalog(mscharged-original-main-credits-check)
 mscharged_link_original_main_credits(mscharged-original-main-credits-check)
 
 # The user opts into this combined executable by enabling both existing options.

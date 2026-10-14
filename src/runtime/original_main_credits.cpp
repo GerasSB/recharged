@@ -50,6 +50,7 @@
 #include <revolution/ipc.h>
 #include "credits_movie_hardware.h"
 #include "runtime/fps_overlay.h"
+#include "runtime/pipeline_warmup.h"
 #include "runtime/frame_rate.h"
 #include "runtime/frame_timing_log.h"
 #if defined(MSCHARGED_HAS_ORIGINAL_GAME_AUDIO_INITIALIZE)
@@ -346,6 +347,8 @@ int mscharged::RunOriginalMainCredits(int argc, char** argv,
             frontend ? appTitle : appTitle+" | Credits diagnostic";
         config.appName=windowTitle.c_str();
         config.userPath=config.cachePath=dataPath.c_str();
+        const auto graphicsResourcesPath=mscharged::PathUtf8(executableDirectory/"assets"/"graphics");
+        config.resourcesPath=graphicsResourcesPath.c_str();
         const auto& graphics=mscharged::ResolveGraphicsBackend(launch.settings.backend);
         config.desiredBackend=mscharged::platform::AuroraGraphicsBackend(graphics.backend);
         config.windowWidth=windowWidth;config.windowHeight=windowHeight;
@@ -382,13 +385,6 @@ int mscharged::RunOriginalMainCredits(int argc, char** argv,
         mscharged::platform::SetApplicationIcon(host.window);
         mscharged::platform::SessionLogLine("Startup: graphics ready");
         mscharged::platform::LogSessionDisplays(host.window);
-        bool retainedWindowClose=false;
-#if defined(MSCHARGED_HAS_ORIGINAL_FRONTEND_RESET)
-        if(frontend && sourceAudio && nativeSend) {
-            mscharged::platform::RetainNativeHardwareWindowClose(host.window);
-            retainedWindowClose=true;
-        }
-#endif
         if(launch.settings.monitor>0) {
             // Start on the selected display; fullscreen then uses that display.
             int displayCount=0;
@@ -440,12 +436,31 @@ int mscharged::RunOriginalMainCredits(int argc, char** argv,
             if(efbScale==0.0f) VILockAspectRatio(int(aspectWidth),int(aspectHeight));
             VISetFrameBufferScale(efbScale);
             AuroraSetViewportPolicy(AURORA_VIEWPORT_FIT);
-            for(const auto* event=aurora_update();event->type!=AURORA_NONE;++event)
-                Check(event->type!=AURORA_EXIT || (retainedWindowClose &&
-                      mscharged::platform::GetNativeHardwareWindowCloseStatus().requested),
-                      "Native window closed before source entry");
-            aurora::gfx::synchronize();
-            mscharged::platform::SessionLogLine("Startup: first frame done, render size "
+        }
+        // Warm the actual selected GPU/backend before any original module
+        // constructors, clocks or input/audio owners. The helper pumps resize
+        // events before preparing the final targets and keeps the window live.
+        bool graphicsPrepared=false;
+        try {
+            graphicsPrepared=mscharged::runtime::PrepareGraphicsForGame();
+        } catch(...) {
+            aurora_shutdown();
+            throw;
+        }
+        if(!graphicsPrepared) {
+            aurora_shutdown();
+            mscharged::platform::SessionLogLine("=== Session ended during graphics preparation ===");
+            return 0;
+        }
+        bool retainedWindowClose=false;
+#if defined(MSCHARGED_HAS_ORIGINAL_FRONTEND_RESET)
+        if(frontend && sourceAudio && nativeSend) {
+            mscharged::platform::RetainNativeHardwareWindowClose(host.window);
+            retainedWindowClose=true;
+        }
+#endif
+        if(nativeSend) {
+            mscharged::platform::SessionLogLine("Startup: render size "
                 +std::string(efbScale==0.0f?"follows the window":"fixed"));
             mscharged::platform::LogSessionDisplays(host.window);
         }
@@ -616,6 +631,7 @@ int mscharged::RunOriginalMainCredits(int argc, char** argv,
             // The opt-in frame timing log completes before the process ends.
             removal.before_removal=[](void*){
                 mscharged::runtime::FrameTimingLog::FinishForProcessExit();
+                mscharged::runtime::LogGraphicsPipelineStats();
                 // The power-off path ends with TerminateProcessNow: hand the last lines to the log and console.
                 mscharged::platform::SessionLogLine("=== Session ended (original power off) ===");
                 mscharged::platform::FlushSessionLog();
@@ -969,6 +985,7 @@ int mscharged::RunOriginalMainCredits(int argc, char** argv,
         // No source frame/callback follows this terminal diagnostic retirement.
         // The endpoint refuses borrowed EXI state; it never clears source Scb.
         mscharged::platform::ShutdownNativeRTC();
+        mscharged::runtime::LogGraphicsPipelineStats();
         if(resizeCheck) {
             // Retire the actual native hardware/window for the resize gate.
             // Original game tasks/CRT destruction remain explicitly omitted;
