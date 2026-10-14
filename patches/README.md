@@ -716,6 +716,13 @@ ImGui draws recorded in surface pixels and drawn after the picture in the same
 surface pass, while the surface keeps the size they were laid out for. The
 overlay frame reads no input and leaves the cursor, mouse capture and gamepads
 alone; screenshots and the game's frames never contain it.
+`0107-release-unused-native-textures.patch` ages Aurora's texture caches at each
+display copy in native GX mode. Their cleanup ran only in the diagnostic frame
+loop, so every texture the game had prepared stayed in GPU memory, including
+each decoded movie frame (about 1.7 GB over the credits; a Windows player's
+out-of-video-memory crash held about 6.4 GB of small textures). A playing movie
+still keeps its last 600 frames of textures. A copy to a destination at a new
+size or format also releases that destination's older copy textures.
 
 ## Dawn series
 
