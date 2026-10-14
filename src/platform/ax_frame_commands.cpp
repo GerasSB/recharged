@@ -165,21 +165,20 @@ NativeAXPreparedCommandFrame PrepareNativeAXCommandFrame(
     const auto& process=Take(NativeAXOpcode::Process);
     std::array<std::uint32_t,96> seen{};auto voice_address=Address(process);
     // Each prepared voice carries its own 12x96 bus contributions (~6 KiB).
-    // Building it in reserved storage avoids copying every voice into the
-    // vector, and the vector growth copying all earlier voices again.
-    f.voices.swap(spare_voices);f.voices.clear();
+    // Voices are prepared in place, reusing the previous frame's voice objects
+    // when recycled: a stopped voice then only rewrites its PB and flags.
+    f.voices.swap(spare_voices);
+    const auto reusable=f.voices.size();
     f.voices.reserve(96);
-    struct PreparedVoice {
-        NativeDSPMemoryEndpoint memory;std::uint32_t address;const NativeAXCoefficientView& coefficients;
-        operator NativeAXPreparedVoiceFrame() const {return PrepareNativeAXADPCMVoiceFrame(memory,address,coefficients);}
-    };
     while(voice_address) {
         if(f.voice_count==96 || std::find(seen.begin(),seen.begin()+f.voice_count,voice_address)!=seen.begin()+f.voice_count)
             Fail(NativeAXFailure::InvalidVoiceChain,process,"AX source PB chain is cyclic or exceeds96 voices");
         for(unsigned i=0;i<f.voice_count;++i)
             if(Overlap(seen[i],320,voice_address,320))
                 Fail(NativeAXFailure::InvalidVoiceChain,process,"AX distinct source PB records partially overlap");
-        const auto& voice=f.voices.emplace_back(PreparedVoice{memory,voice_address,coefficients});
+        auto& slot=f.voice_count<reusable ? f.voices[f.voice_count] : f.voices.emplace_back();
+        PrepareNativeAXADPCMVoiceInto(slot,memory,voice_address,coefficients);
+        const auto& voice=slot;
         seen[f.voice_count++]=voice_address;
         if(voice.was_running) {
             ++f.active_voices;
@@ -193,6 +192,7 @@ NativeAXPreparedCommandFrame PrepareNativeAXCommandFrame(
         }
         voice_address=Word(voice.parameters_before.data());
     }
+    f.voices.resize(f.voice_count);
     if(f.voice_count!=96)
         Fail(NativeAXFailure::InvalidVoiceChain,process,"AX staged frame requires the complete original96-PB owner");
     constexpr unsigned aux_bus[3][3]={{2,3,9},{4,5,10},{6,7,11}};
@@ -314,7 +314,7 @@ void ValidateNativeAXCommandCommit(NativeDSPMemoryEndpoint memory,const NativeAX
     }
 }
 void RecycleNativeAXCommandFrame(NativeAXPreparedCommandFrame&& frame) noexcept {
-    if(frame.voices.capacity()>spare_voices.capacity()) {frame.voices.clear();spare_voices.swap(frame.voices);}
+    if(frame.voices.capacity()>spare_voices.capacity())spare_voices.swap(frame.voices);
 }
 void CommitNativeAXCommandFrame(NativeDSPMemoryEndpoint memory,const NativeAXPreparedCommandFrame& f,
                                NativeAXCommandHistory& history) {
