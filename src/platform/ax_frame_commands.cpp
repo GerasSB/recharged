@@ -52,6 +52,8 @@ void Stage(NativeAXPreparedCommandFrame& f,NativeDSPMemoryEndpoint e,std::uint32
             throw std::runtime_error("AX original output/AUX writable spans overlap");
     f.written_bytes+=after.size();f.writes.push_back({a,Read(e,a,after.size()),std::move(after)});
 }
+// Voice storage of the previous frame on this thread (RecycleNativeAXCommandFrame).
+thread_local std::vector<NativeAXPreparedVoiceFrame> spare_voices;
 bool IsZero(const std::vector<unsigned char>& bytes) {
     return std::all_of(bytes.begin(),bytes.end(),[](unsigned char x){return x==0;});
 }
@@ -165,6 +167,7 @@ NativeAXPreparedCommandFrame PrepareNativeAXCommandFrame(
     // Each prepared voice carries its own 12x96 bus contributions (~6 KiB).
     // Building it in reserved storage avoids copying every voice into the
     // vector, and the vector growth copying all earlier voices again.
+    f.voices.swap(spare_voices);f.voices.clear();
     f.voices.reserve(96);
     struct PreparedVoice {
         NativeDSPMemoryEndpoint memory;std::uint32_t address;const NativeAXCoefficientView& coefficients;
@@ -309,6 +312,9 @@ void ValidateNativeAXCommandCommit(NativeDSPMemoryEndpoint memory,const NativeAX
                 throw std::runtime_error("AX output aliases its original parameter-block owner");
         }
     }
+}
+void RecycleNativeAXCommandFrame(NativeAXPreparedCommandFrame&& frame) noexcept {
+    if(frame.voices.capacity()>spare_voices.capacity()) {frame.voices.clear();spare_voices.swap(frame.voices);}
 }
 void CommitNativeAXCommandFrame(NativeDSPMemoryEndpoint memory,const NativeAXPreparedCommandFrame& f,
                                NativeAXCommandHistory& history) {
