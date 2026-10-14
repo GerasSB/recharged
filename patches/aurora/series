@@ -86,3 +86,4 @@
 0090-host-overlay-over-vi-picture.patch
 0091-honor-explicit-graphics-backend.patch
 0092-complete-cached-dvd-reads.patch
+0093-medium-resident-dvd-reads.patch
