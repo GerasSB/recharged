@@ -1,5 +1,7 @@
 #pragma once
 
+#include <filesystem>
+
 namespace mscharged::runtime {
 
 // Prepare the current device's known graphics configurations before original
@@ -7,7 +9,7 @@ namespace mscharged::runtime {
 // no second renderer, source frames, hardware input or original timers.
 // Returns false for an ordinary window close. Failure throws. The caller owns
 // aurora_shutdown on cancellation/failure, before any original owners exist.
-bool PrepareGraphicsForGame();
+bool PrepareGraphicsForGame(const std::filesystem::path& font);
 
 // One terminal snapshot for correlating first-use stalls with session reports.
 void LogGraphicsPipelineStats();

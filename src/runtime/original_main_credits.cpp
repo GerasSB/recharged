@@ -37,6 +37,7 @@
 #include "platform/ai.h"
 #include "platform/console.h"
 #include "platform/session_log.h"
+#include "platform/shader_cache.h"
 #include "platform/process_exit.h"
 #include "platform/native_ax_module_memory.h"
 #include "platform/system.h"
@@ -51,6 +52,7 @@
 #include "credits_movie_hardware.h"
 #include "runtime/fps_overlay.h"
 #include "runtime/pipeline_warmup.h"
+#include "runtime/graphics_loading_view.h"
 #include "runtime/frame_rate.h"
 #include "runtime/frame_timing_log.h"
 #if defined(MSCHARGED_HAS_ORIGINAL_GAME_AUDIO_INITIALIZE)
@@ -240,6 +242,9 @@ void EndWithSnapshot(const std::filesystem::path& output) {
 }
 int mscharged::RunOriginalMainCredits(int argc, char** argv,
     const ResolvedLaunch* suppliedLaunch, bool interactive, OriginalMainScene scene, const char* title) {
+    // Keep the cache lease through every shutdown/error path, including paths
+    // that terminate with live native owners instead of unwinding them.
+    std::optional<mscharged::platform::ShaderCacheUse> shaderCacheUse;
     try {
         const bool frontend = scene != OriginalMainScene::Credits;
         const bool optionsScene = scene == OriginalMainScene::FrontendOptions;
@@ -349,6 +354,7 @@ int mscharged::RunOriginalMainCredits(int argc, char** argv,
         config.userPath=config.cachePath=dataPath.c_str();
         const auto graphicsResourcesPath=mscharged::PathUtf8(executableDirectory/"assets"/"graphics");
         config.resourcesPath=graphicsResourcesPath.c_str();
+        config.automaticPipelinePreparation=frontend;
         const auto& graphics=mscharged::ResolveGraphicsBackend(launch.settings.backend);
         config.desiredBackend=mscharged::platform::AuroraGraphicsBackend(graphics.backend);
         config.windowWidth=windowWidth;config.windowHeight=windowHeight;
@@ -374,10 +380,11 @@ int mscharged::RunOriginalMainCredits(int argc, char** argv,
             +" "+std::to_string(windowWidth)+"x"+std::to_string(windowHeight)+", aspect "+shown.aspect
             +", 3D resolution "+shown.resolution+", antialiasing "+shown.antialiasing+", picture "+shown.picture
             +", vsync "+(shown.vsync?"on":"off")+", display "+std::to_string(shown.monitor)
-            +", fps counter "+(shown.fps_overlay?shown.fps_overlay_corner:std::string("off"))
+            +", performance overlay "+(shown.fps_overlay?shown.fps_overlay_corner:std::string("off"))
             +", graphics validation "+(shown.graphics_validation?"on":"off"));
         mscharged::platform::SessionLogLine(std::string("Startup: initializing ")
             +graphics.label+" graphics and the window");
+        shaderCacheUse.emplace(mscharged::platform::ShaderCacheDirectory(executableDirectory));
         const auto host=aurora_initialize(argc,argv,&config);
         if(!host.window||host.backend!=config.desiredBackend)
             throw std::runtime_error(std::string(graphics.label)
@@ -442,7 +449,8 @@ int mscharged::RunOriginalMainCredits(int argc, char** argv,
         // events before preparing the final targets and keeps the window live.
         bool graphicsPrepared=false;
         try {
-            graphicsPrepared=mscharged::runtime::PrepareGraphicsForGame();
+            graphicsPrepared=mscharged::runtime::PrepareGraphicsForGame(
+                executableDirectory/"assets"/"launcher"/"Roboto-Medium.ttf");
         } catch(...) {
             aurora_shutdown();
             throw;
@@ -722,16 +730,25 @@ int mscharged::RunOriginalMainCredits(int argc, char** argv,
         bool bootLogoCaptured=false;
         const auto start=std::chrono::steady_clock::now(); auto previous=start;
         auto stageStart=start; unsigned resizeStage=0; bool stageAnnounced=false;
-        // Original game frames per second: display.show_fps in the window
-        // title, display.fps_overlay as a counter over the presented picture.
+        // Original game frames per second, shown only in the optional overlay.
         mscharged::runtime::FrameRateMeter frameRate;
         std::optional<mscharged::runtime::FpsOverlay> fpsOverlay;
         if(launch.settings.fps_overlay && nativeSend)
             fpsOverlay.emplace(executableDirectory/"assets"/"launcher"/"Roboto-Medium.ttf",
                 mscharged::runtime::ParseOverlayCorner(launch.settings.fps_overlay_corner)
                     .value_or(mscharged::runtime::OverlayCorner::TopRight));
-        // Opt-in MSCHARGED_FRAME_LOG: per-frame timing for performance reports.
-        const auto frameTiming=mscharged::runtime::FrameTimingLog::FromEnvironment();
+        mscharged::runtime::GraphicsLoadingView graphicsLoading(
+            executableDirectory/"assets"/"launcher"/"Roboto-Medium.ttf");
+        auto graphicsPending=reinterpret_cast<bool(*)()>(
+            mscharged::platform::FindNativeModuleSymbol(module,"charged_graphics_preparation_pending"));
+        auto graphicsLabel=reinterpret_cast<const char*(*)()>(
+            mscharged::platform::FindNativeModuleSymbol(module,"charged_graphics_preparation_label"));
+        Check(!frontend || (graphicsPending && graphicsLabel),
+              "Original frontend graphics preparation hooks are missing");
+        // The persisted launcher toggle is authoritative; recordings always
+        // live beside this executable, independently of the working directory.
+        const auto frameTiming=mscharged::runtime::FrameTimingLog::FromSettings(
+            launch.settings.frame_logging, executableDirectory);
         wgpu::Texture retainedEFB;
         Check(!resizeCheck || nativeSend, "Resize qualification requires source-native send");
         while(!exit && (interactive || !snapshot)) {
@@ -756,15 +773,19 @@ int mscharged::RunOriginalMainCredits(int argc, char** argv,
                 }
             }
             const auto now=std::chrono::steady_clock::now();
-            if(launch.settings.show_fps || fpsOverlay)
-                if(const auto rate=frameRate.Sample(frames,now)) {
-                    if(launch.settings.show_fps)
-                        SDL_SetWindowTitle(host.window,mscharged::runtime::FrameRateTitle(windowTitle,*rate).c_str());
-                    if(fpsOverlay)fpsOverlay->SetRate(*rate);
-                }
-            if(fpsOverlay) {
+            if(fpsOverlay)
+                if(const auto rate=frameRate.Sample(frames,now)) fpsOverlay->SetRate(*rate);
+            if(nativeSend && graphicsPending && graphicsPending()) {
                 const auto size=aurora_get_window_size();
-                fpsOverlay->Update(size.native_fb_width,size.native_fb_height);
+                graphicsLoading.Draw(size.native_fb_width,size.native_fb_height,
+                    graphicsLabel ? graphicsLabel() : "Preparing graphics",
+                    aurora_pipeline_warmup_status(),true);
+            } else {
+                if(graphicsLoading.Hide() && fpsOverlay) fpsOverlay->Invalidate();
+                if(fpsOverlay) {
+                    const auto size=aurora_get_window_size();
+                    fpsOverlay->Update(size.native_fb_width,size.native_fb_height);
+                }
             }
             Check(interactive || now-start<std::chrono::seconds(sourceBoot?90:40),"Original source scene diagnostic timed out");
             if(nativeSend) {

@@ -7,6 +7,8 @@
 #include "gfx/frame_packet.hpp"
 #include "gfx/pipeline_cache.hpp"
 #include "gx/pipeline.hpp"
+#include "gx/fifo.hpp"
+#include "dolphin/gx/__gx.h"
 #include "webgpu/gpu.hpp"
 
 #include <sqlite3.h>
@@ -44,7 +46,8 @@ struct Session {
   }
 };
 void Start(Session& session, int argc, char** argv, AuroraBackend backend,
-           const std::filesystem::path& directory, const std::filesystem::path& resources, unsigned msaa) {
+           const std::filesystem::path& directory, const std::filesystem::path& resources, unsigned msaa,
+           bool automaticPreparation = false) {
   std::filesystem::create_directories(directory);
   const auto path = Utf8(directory), resourcePath = Utf8(resources);
   AuroraConfig config{};
@@ -58,6 +61,7 @@ void Start(Session& session, int argc, char** argv, AuroraBackend backend,
   config.vsync = true;
   config.logLevel = LOG_WARNING;
   config.enableBackendValidation = true;
+  config.automaticPipelinePreparation = automaticPreparation;
   const auto host = aurora_initialize(argc, argv, &config);
   session.live = true;
   Check(host.window && host.backend == backend, "Requested GPU backend unavailable");
@@ -80,6 +84,132 @@ AuroraPipelineWarmupStatus WaitReady(std::chrono::seconds timeout = std::chrono:
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
 }
+// Include inside pipeline_warmup_gpu.cpp's anonymous namespace. The function
+// uses its existing Start/Session/Check/WaitReady helpers and actual GPU cache.
+void CollectionChecks(int argc, char** argv, AuroraBackend backend,
+                      const std::filesystem::path& directory,
+                      const std::filesystem::path& resources) {
+  Session session;
+  Start(session, argc, argv, backend, directory, resources, 4, true);
+  Check(WaitReady().knownConfigs == 0, "Collection fixture must start without a seed");
+  Check(aurora_begin_pipeline_generation(), "Automatic generation begin failed");
+  aurora_update();
+  Check(aurora_begin_frame(), "Collection fixture frame did not begin");
+  const auto setState = [](unsigned variant) {
+    GXClearVtxDesc();
+    GXSetVtxDesc(GX_VA_POS, GX_INDEX16);
+    GXSetVtxAttrFmt(GX_VTXFMT0, GX_VA_POS, GX_POS_XYZ, GX_F32, 0);
+    // Pointer 1 is intentionally unreadable: collecting metadata must not read it.
+    GXSetArray(GX_VA_POS, reinterpret_cast<const void*>(1), 0,
+               variant == 0 ? 12 : 16, variant == 0);
+    GXSetNumChans(0);
+    GXSetNumTexGens(0);
+    GXSetNumTevStages(1);
+    GXSetNumIndStages(0);
+    GXSetTevDirect(GX_TEVSTAGE0);
+    GXSetTevOrder(GX_TEVSTAGE0, GX_TEXCOORD_NULL, GX_TEXMAP_NULL, GX_COLOR_NULL);
+    GXSetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ONE);
+    GXSetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_KONST);
+    GXSetTevColorOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
+    GXSetTevAlphaOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
+    GXSetAlphaCompare(GX_ALWAYS, 0, GX_AOP_AND, GX_ALWAYS, 0);
+    GXSetCullMode(variant == 0 ? GX_CULL_BACK : GX_CULL_NONE);
+    GXSetZMode(GX_TRUE, variant == 0 ? GX_LEQUAL : GX_EQUAL, variant == 0);
+    GXSetColorUpdate(GX_TRUE);
+    GXSetAlphaUpdate(GX_FALSE);
+    GXSetBlendMode(variant == 0 ? GX_BM_NONE : GX_BM_BLEND,
+                   GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_CLEAR);
+  };
+  std::array<aurora::gx::PipelineConfig, 2> expected{};
+  for (unsigned i = 0; i < expected.size(); ++i) {
+    setState(i);
+    GXFlush();
+    aurora::gx::fifo::drain();
+    aurora::gx::populate_pipeline_config(expected[i], GX_TRIANGLES, GX_VTXFMT0);
+  }
+  const auto sdkBefore = *__gx;
+  const auto registersBefore = aurora::gx::g_gxState.bpRegCache;
+  aurora::gx::PipelineConfig before{};
+  aurora::gx::populate_pipeline_config(before, GX_TRIANGLES, GX_VTXFMT0);
+  const auto restored = [&] {
+    Check(std::memcmp(__gx, &sdkBefore, sizeof sdkBefore) == 0, "Collection changed SDK shadow");
+    Check(aurora::gx::g_gxState.bpRegCache == registersBefore, "Collection changed live BP registers");
+    aurora::gx::PipelineConfig after{};
+    aurora::gx::populate_pipeline_config(after, GX_TRIANGLES, GX_VTXFMT0);
+    Check(std::memcmp(&before, &after, sizeof before) == 0, "Collection changed live pipeline state");
+    Check(aurora::gx::fifo::get_buffer_size() == 0, "Collection published commands into real FIFO");
+  };
+  Check(aurora_begin_pipeline_collection(), "Collection begin failed");
+  Check(!aurora_begin_pipeline_collection(), "Nested collection was accepted");
+  Check(!aurora_begin_pipeline_generation(), "Generation reset inside collection was accepted");
+  Check(!aurora_pipeline_warmup_status().ready, "Open discovery reported ready");
+  setState(0);
+  Check(aurora_collect_pipeline(GX_TRIANGLES, GX_VTXFMT0, false), "Cancelled collection failed");
+  Check(aurora_end_pipeline_collection(false), "Clean cancellation failed");
+  restored();
+  Check(WaitReady().knownConfigs == 0, "Cancellation persisted or compiled configurations");
+
+  Check(aurora_begin_pipeline_scope_census(), "Collection final census begin failed");
+  Check(aurora_begin_pipeline_collection(), "Valid batch begin failed");
+  for (unsigned i : {0u, 1u, 0u}) {
+    Check(aurora_reset_pipeline_collection(), "Variant reset failed");
+    setState(i);
+    Check(aurora_collect_pipeline(GX_TRIANGLES, GX_VTXFMT0, false), "Variant collection failed");
+  }
+  Check(aurora_end_pipeline_collection(true), "Collection enqueue failed");
+  restored();
+  Check(aurora_seal_pipeline_generation(), "Collection final census seal failed");
+  const auto prepared = WaitReady();
+  Check(prepared.knownConfigs == 2 && prepared.demandMisses == 0,
+        "Collection did not deduplicate/background-prepare exact configs");
+  const auto layout = aurora::gfx::scene_render_target_layout();
+  for (const auto& config : expected) aurora::gfx::find_pipeline(config, layout);
+  const auto hits = aurora_pipeline_warmup_status();
+  Check(hits.demandHits == 2 && hits.demandMisses == 0,
+        "Collected keys differ from real decoder's first draw keys");
+
+  Check(aurora_begin_pipeline_collection(), "Rejected draw batch begin failed");
+  GXBegin(GX_TRIANGLES, GX_VTXFMT0, 3);
+  GXEnd();
+  Check(!aurora_end_pipeline_collection(true), "Actual draw was accepted during collection");
+  restored();
+
+  Check(aurora_begin_pipeline_collection(), "Overflow batch begin failed");
+  for (unsigned i = 0; i < 32768; ++i) GXSetBlendMode(GX_BM_BLEND, GX_BL_ONE, GX_BL_ZERO, GX_LO_CLEAR);
+  Check(!aurora_collect_pipeline(GX_TRIANGLES, GX_VTXFMT0, false), "Capture overflow silently succeeded");
+  Check(!aurora_end_pipeline_collection(true), "Failed overflow batch submitted");
+  restored();
+  // A producer may fail before Emit. Reset/end must still reject the trailing
+  // hardware command and must not turn an overflow into a successful empty batch.
+  Check(aurora_begin_pipeline_collection(), "Trailing copy batch begin failed");
+  GXCopyTex(nullptr, GX_FALSE);
+  Check(!aurora_end_pipeline_collection(true), "Trailing hardware copy silently discarded at submit");
+  restored();
+  Check(aurora_begin_pipeline_collection(), "Reset copy batch begin failed");
+  GXCopyTex(nullptr, GX_FALSE);
+  Check(!aurora_reset_pipeline_collection(), "Reset silently discarded unsupported command");
+  Check(!aurora_end_pipeline_collection(true), "Reset failure did not latch batch failure");
+  restored();
+  Check(aurora_begin_pipeline_collection(), "Reset overflow batch begin failed");
+  for (unsigned i = 0; i < 32768; ++i) GXSetBlendMode(GX_BM_BLEND, GX_BL_ONE, GX_BL_ZERO, GX_LO_CLEAR);
+  Check(!aurora_reset_pipeline_collection(), "Reset silently cleared capture overflow");
+  Check(!aurora_end_pipeline_collection(true), "Reset overflow failure did not latch");
+  restored();
+  GXTexObj borrowedTexture{};
+  GXInitTexObj(&borrowedTexture, reinterpret_cast<const void*>(1), 8, 8,
+               GX_TF_RGBA8, GX_CLAMP, GX_CLAMP, GX_FALSE);
+  const auto textureBefore = borrowedTexture;
+  Check(aurora_begin_pipeline_collection(), "Texture metadata batch begin failed");
+  GXLoadTexObj(&borrowedTexture, GX_TEXMAP3);
+  Check(aurora_end_pipeline_collection(true), "Texture metadata collection failed");
+  Check(std::memcmp(&borrowedTexture, &textureBefore, sizeof borrowedTexture) == 0,
+        "Collection mutated a borrowed texture object while binding metadata");
+  restored();
+  Check(WaitReady().knownConfigs == 2, "Failed batches changed known configurations");
+  aurora_end_frame_no_present();
+  session.Stop();
+}
+
 std::array<aurora::gfx::clear::PipelineConfig, 8> Configs() {
   std::array<aurora::gfx::clear::PipelineConfig, 8> result{};
   for (unsigned i = 0; i < result.size(); ++i) {
@@ -117,6 +247,68 @@ void VerifyHits(unsigned expectedRequests) {
   Check(after.totalPipelines == before.totalPipelines, "Demand rebuilt a prepared pipeline");
   std::printf("Prepared requests: %u hits, 0 misses, 0 ns demand wait; ready=%llu.\n",
               expectedRequests, static_cast<unsigned long long>(after.readyPipelines));
+}
+
+void AutomaticSelectionChecks(int argc, char** argv, AuroraBackend backend,
+                              const std::filesystem::path& directory,
+                              const std::filesystem::path& resources) {
+  {
+    Session session;
+    Start(session, argc, argv, backend, directory / "automatic-empty", resources, 1, true);
+    const auto empty = WaitReady();
+    Check(empty.knownConfigs == 0 && empty.totalPipelines == 0,
+          "Automatic discovery imported the bundled catalogue");
+    session.Stop();
+  }
+  {
+    Session session;
+    // This database contains eight descriptions recorded by normal requests in
+    // the earlier session. Startup must retain them without preparing all eight.
+    Start(session, argc, argv, backend, directory / "observed", resources, 1, true);
+    const auto loaded = WaitReady();
+    Check(loaded.knownConfigs == 8 && loaded.totalPipelines == 0,
+          "Automatic startup rebuilt inactive retained configurations");
+    Check(aurora_begin_pipeline_generation(), "First selection generation failed");
+    const auto configs = Configs();
+    const auto originalLayout = aurora::gfx::scene_render_target_layout();
+    const auto oldHandle = aurora::gfx::find_pipeline(configs[0], originalLayout);
+    Check(WaitReady().totalPipelines == 1, "First selected demand did not compile once");
+    Check(aurora_begin_pipeline_scope_census() && aurora_seal_pipeline_generation_for_resources(1),
+          "First selection scope seal failed");
+    Check(aurora_begin_pipeline_generation(), "Second selection generation failed");
+    aurora::gfx::find_pipeline(configs[1], originalLayout);
+    Check(aurora_begin_pipeline_scope_census() && aurora_seal_pipeline_generation_for_resources(2),
+          "Second selection scope seal failed");
+    const auto selected = WaitReady();
+    Check(selected.totalPipelines == 2 && selected.knownConfigs == 8,
+          "Generation reset discarded retained handles or descriptions");
+    aurora::gfx::CompiledPipeline oldPipeline;
+    Check(aurora::gfx::get_pipeline(oldHandle, oldPipeline), "Generation reset invalidated an old handle");
+
+    // Exercise the production layout-change resolver without recording a frame.
+    // Only the current selection may create a new 4x key; its 1x key already exists.
+    // GPU attachment resources are never used with this temporary test layout.
+    const auto savedSamples = aurora::webgpu::g_graphicsConfig.msaaSamples;
+    aurora::webgpu::g_graphicsConfig.msaaSamples = 4;
+    aurora_prepare_pipelines();
+    const auto resized = WaitReady();
+    aurora::webgpu::g_graphicsConfig.msaaSamples = savedSamples;
+    aurora_prepare_pipelines();
+    WaitReady();
+    Check(resized.totalPipelines == 3 && resized.knownConfigs == 8,
+          "Layout rebuild prepared inactive configurations or forgot retained ones");
+    Check(resized.demandMisses == selected.demandMisses && resized.demandHits == selected.demandHits,
+          "Automatic layout preparation performed demand work");
+    session.Stop();
+  }
+  {
+    Session session;
+    Start(session, argc, argv, backend, directory / "observed", resources, 1, true);
+    const auto reloaded = WaitReady();
+    Check(reloaded.knownConfigs == 8 && reloaded.totalPipelines == 0,
+          "Inactive configurations were lost or eagerly rebuilt on later launch");
+    session.Stop();
+  }
 }
 
 using CatalogueConfig = std::variant<aurora::gfx::clear::PipelineConfig, aurora::gx::PipelineConfig>;
@@ -196,6 +388,147 @@ Catalogue ReadCatalogue(const std::filesystem::path& path) {
   return catalogue;
 }
 
+void LearnedScopeChecks(int argc, char** argv, AuroraBackend backend,
+                        const std::filesystem::path& directory,
+                        const std::filesystem::path& resources) {
+  // These are actual state-collector configs saved by the earlier fixture, not
+  // hand-injected database records or copies of a shipped catalogue.
+  const auto collected = ReadCatalogue(directory / "collected" / "pipeline_cache.db");
+  std::vector<aurora::gx::PipelineConfig> gx;
+  for (const auto& entry : collected.configs)
+    if (const auto* config = std::get_if<aurora::gx::PipelineConfig>(&entry)) gx.push_back(*config);
+  Check(gx.size() == 2, "Learned-scope fixture needs two genuine collected states");
+  const auto a = gx[0], unknown = gx[1];
+  auto c = a;
+  c.cullMode = GX_CULL_FRONT; // another valid state; collector used BACK/NONE
+  constexpr uint64_t matchA = 0x5354414449554d41ull;
+  constexpr uint64_t matchB = 0x5354414449554d42ull;
+  const auto clear = Configs();
+  const auto prepare = [](std::initializer_list<aurora::gx::PipelineConfig> configs) {
+    aurora::gfx::prepare_pipeline_configs({configs.begin(), configs.size()});
+  };
+  const auto begin = [] {
+    Check(aurora_begin_pipeline_generation(), "Learned generation begin failed");
+    // Incremental FE resource publication waits use readiness before final census.
+    // Keeping ready false for the entire generation would deadlock that loader.
+    Check(WaitReady().ready, "Unsealed generation blocked incremental resource readiness");
+    Check(!aurora_seal_pipeline_generation_for_resources(matchA), "Seal without final census was accepted");
+    Check(aurora_begin_pipeline_scope_census(), "Learned scope census begin failed");
+    Check(!aurora_pipeline_warmup_status().ready, "Final census reported ready before seal");
+  };
+  const auto requestLearned = [&](bool bothLayouts) {
+    const auto scene = aurora::gfx::scene_render_target_layout();
+    auto offscreen = scene;
+    offscreen.sampleCount = 1;
+    offscreen.colorAttachmentCount = 1;
+    aurora::gfx::detail::finalize_render_target_layout(offscreen);
+    const auto request = [&](const auto& config) {
+      aurora::gfx::CompiledPipeline pipeline;
+      Check(aurora::gfx::get_pipeline(aurora::gfx::find_pipeline(config, scene), pipeline),
+            "Learned scene pipeline unavailable");
+      if (bothLayouts && offscreen.key != scene.key)
+        Check(aurora::gfx::get_pipeline(aurora::gfx::find_pipeline(config, offscreen), pipeline),
+              "Learned offscreen pipeline unavailable");
+    };
+    request(unknown);
+    request(clear[0]);
+  };
+  const auto assertLearnedHits = [&](unsigned requests) {
+    const auto before = WaitReady();
+    requestLearned(true);
+    const auto after = WaitReady();
+    Check(after.demandHits == before.demandHits + requests && after.demandMisses == before.demandMisses &&
+          after.demandWaitNanoseconds == before.demandWaitNanoseconds,
+          "A first learned request incurred a compilation miss/wait");
+  };
+  {
+    Session session;
+    Start(session, argc, argv, backend, directory / "learned", resources, 1, true);
+    Check(WaitReady().knownConfigs == 0, "Learned cache did not start empty");
+    // Original startup initializes material resources without a reset hook.
+    // Generation zero must accept its final census and preserve early demands.
+    prepare({c});
+    Check(WaitReady().readyPipelines == 1,
+          "Incremental resources could not become ready before final census");
+    Check(aurora_begin_pipeline_scope_census(), "Cold learned census begin failed");
+    prepare({a, c});
+    aurora::gfx::find_pipeline(clear[0], aurora::gfx::scene_render_target_layout());
+    Check(!aurora_pipeline_warmup_status().ready, "Preseal demand incorrectly opened final census gate");
+    Check(aurora_seal_pipeline_generation_for_resources(matchA), "Cold resource seal failed");
+    Check(aurora_seal_pipeline_generation_for_resources(matchA), "Same resource seal was not idempotent");
+    Check(!aurora_seal_pipeline_generation_for_resources(matchB) && !aurora_seal_pipeline_generation(),
+          "Sealed generation accepted a different identity kind/value");
+    const auto before = WaitReady();
+    Check(before.totalPipelines == 3 && before.knownConfigs == 3, "Cold generated/preseal state count mismatch");
+    aurora::gfx::find_pipeline(unknown, aurora::gfx::scene_render_target_layout());
+    const auto after = WaitReady();
+    Check(after.demandMisses == before.demandMisses + 1 && after.knownConfigs == 4 && after.totalPipelines == 4,
+          "First unknown state was not observed as one real demand miss");
+    session.Stop(); // joins the actual async SQLite writer; next session reopens it
+  }
+  {
+    Session session;
+    Start(session, argc, argv, backend, directory / "learned", resources, 4, true);
+    const auto loaded = WaitReady();
+    Check(loaded.knownConfigs == 4 && loaded.totalPipelines == 0,
+          "Reload eagerly compiled or lost remembered descriptions");
+    begin();
+    // A stable resource identity must survive a different producer-key subset
+    // (e.g. inherited source state). Learned exact states remain available.
+    prepare({c, c});
+    Check(aurora_seal_pipeline_generation_for_resources(matchA), "Reloaded resource seal failed");
+    const auto ready = WaitReady();
+    Check(ready.totalPipelines == 6 && ready.knownConfigs == 4 && ready.demandMisses == 0,
+          "Learned GX/Clear states did not prepare both changed-AA layouts selectively");
+    assertLearnedHits(4);
+    session.Stop();
+  }
+  {
+    Session session;
+    Start(session, argc, argv, backend, directory / "learned", resources, 1, true);
+    begin();
+    prepare({c});
+    Check(aurora_seal_pipeline_generation_for_resources(matchB), "Different resource seal failed");
+    Check(WaitReady().totalPipelines == 1, "Different selected resources preloaded another match's learned states");
+    aurora::gfx::find_pipeline(clear[1], aurora::gfx::scene_render_target_layout());
+    Check(WaitReady().knownConfigs == 5, "Different resource observation was not retained");
+    session.Stop();
+  }
+  {
+    Session session;
+    Start(session, argc, argv, backend, directory / "learned", resources, 1, true);
+    begin();
+    prepare({c, a, a});
+    Check(aurora_seal_pipeline_generation_for_resources(matchA), "Returning resource seal failed");
+    const auto ready = WaitReady();
+    Check(ready.totalPipelines == 4 && ready.knownConfigs == 5,
+          "Returning resources lost learned states or selected unrelated ones");
+    assertLearnedHits(2);
+    session.Stop();
+  }
+  // The generated-key fallback excludes transient loader publications, demand
+  // observations, and duplicate producer calls from its identity.
+  for (unsigned run = 0; run < 2; ++run) {
+    Session session;
+    Start(session, argc, argv, backend, directory / "learned-generated", resources, 1, true);
+    Check(WaitReady().totalPipelines == 0, "Fallback startup prepared inactive configs");
+    Check(aurora_begin_pipeline_generation(), "Fallback generation begin failed");
+    if (run == 0) prepare({c}); // transient state absent on second launch
+    Check(WaitReady().ready, "Fallback loader publication did not become ready");
+    Check(aurora_begin_pipeline_scope_census(), "Fallback census begin failed");
+    prepare(run == 0 ? std::initializer_list<aurora::gx::PipelineConfig>{a} :
+                       std::initializer_list<aurora::gx::PipelineConfig>{a, a});
+    Check(aurora_seal_pipeline_generation(), "Generated-key seal failed");
+    const auto ready = WaitReady();
+    Check(ready.totalPipelines == (run == 0 ? 2 : 3), "Fallback fingerprint included transient/observed states");
+    if (run == 0) requestLearned(false);
+    else assertLearnedHits(2);
+    session.Stop();
+  }
+  std::puts("Learned scopes: genuine later launches preload first-use GX/Clear states; stable resource identity, "
+            "changed AA, different selections, and final-only fallback census passed.");
+}
+
 void VerifyCatalogue(int argc, char** argv, AuroraBackend backend, unsigned msaa,
                      const std::filesystem::path& input, const std::filesystem::path& directory,
                      const std::filesystem::path& resources) {
@@ -257,7 +590,8 @@ int main(int argc, char** argv) {
     AuroraBackend backend = BACKEND_VULKAN;
 #endif
     auto directory = std::filesystem::temp_directory_path() /
-        ("charged-pipeline-warmup-" + std::to_string(SDL_GetTicksNS()));
+        ("charged-pipeline-warmup-" +
+         std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
     std::filesystem::path catalogue;
     unsigned catalogueMsaa = 1;
     for (int i = 1; i < argc; ++i) {
@@ -287,6 +621,8 @@ int main(int argc, char** argv) {
       return 0;
     }
 
+    CollectionChecks(argc, argv, backend, directory / "collected", resources);
+
     // Establish an actual observed catalogue through normal production requests
     // and the real asynchronous SQLite writer. No saved pipeline is injected.
     {
@@ -305,6 +641,9 @@ int main(int argc, char** argv) {
     }
     std::filesystem::copy_file(directory / "observed" / "pipeline_cache.db",
                                resources / "initial_pipeline_cache.db");
+
+    AutomaticSelectionChecks(argc, argv, backend, directory, resources);
+    LearnedScopeChecks(argc, argv, backend, directory, resources);
 
     // Fresh local/Dawn caches: consume the bundled seed, then prove that the
     // first actual requests on this device are hits for scene/offscreen layouts.

@@ -1,6 +1,6 @@
 #include "runtime/pipeline_warmup.h"
 #include "runtime/pipeline_warmup_loop.h"
-#include "runtime/pipeline_catalog_layout.h"
+#include "runtime/graphics_loading_view.h"
 
 #include "platform/session_log.h"
 
@@ -22,6 +22,8 @@
 namespace mscharged::runtime {
 namespace {
 struct WarmupHost {
+    GraphicsLoadingView view;
+    explicit WarmupHost(const std::filesystem::path& font) : view(font) {}
     detail::PipelineWarmupEvents PollEvents()
     {
         detail::PipelineWarmupEvents events;
@@ -38,44 +40,15 @@ struct WarmupHost {
 
     void Draw(const AuroraPipelineWarmupStatus& status)
     {
-        // Native GX has not been armed. This frame displays host startup UI
-        // through the same Aurora surface that the original game will use.
-        if (!aurora_begin_frame()) return;
-        const auto size = ImGui::GetIO().DisplaySize;
-        const float scale = std::clamp(std::min(size.x / 960.0f, size.y / 540.0f), 0.65f, 3.0f);
-        auto* draw = ImGui::GetForegroundDrawList();
-        auto* font = ImGui::GetFont();
-        const auto text = [&](const char* value, float y, float pixels, ImU32 color) {
-            const auto width = font->CalcTextSizeA(pixels, 10000.0f, 0.0f, value).x;
-            draw->AddText(font, pixels, {std::round((size.x - width) * 0.5f), std::round(y)}, color, value);
-        };
-        draw->AddRectFilled({0, 0}, size, IM_COL32(15, 19, 27, 255));
-        text("Preparing graphics", size.y * 0.5f - 58.0f * scale, 26.0f * scale,
-             IM_COL32(245, 247, 250, 255));
-        text("This may take longer the first time.", size.y * 0.5f - 18.0f * scale, 16.0f * scale,
-             IM_COL32(170, 181, 197, 255));
-        const float fraction = status.totalPipelines
-            ? std::clamp(float(double(status.readyPipelines) / double(status.totalPipelines)), 0.0f, 1.0f)
-            : 0.0f;
-        const float width = std::min(size.x * 0.75f, 420.0f * scale);
-        const float left = (size.x - width) * 0.5f;
-        const float top = size.y * 0.5f + 26.0f * scale;
-        draw->AddRectFilled({left, top}, {left + width, top + 6.0f * scale}, IM_COL32(45, 55, 70, 255),
-                            3.0f * scale);
-        if (fraction > 0.0f)
-            draw->AddRectFilled({left, top}, {left + width * fraction, top + 6.0f * scale},
-                                IM_COL32(91, 188, 255, 255), 3.0f * scale);
-        char progress[32];
-        std::snprintf(progress, sizeof progress, "%u%%", std::min(99u, unsigned(fraction * 100.0f)));
-        text(progress, top + 20.0f * scale, 16.0f * scale, IM_COL32(170, 181, 197, 255));
-        aurora_end_frame();
+        const auto size = aurora_get_window_size();
+        view.Draw(size.native_fb_width, size.native_fb_height, "Preparing graphics", status, false);
     }
 
     void Pause() { std::this_thread::sleep_for(std::chrono::milliseconds(16)); }
 };
 } // namespace
 
-bool PrepareGraphicsForGame()
+bool PrepareGraphicsForGame(const std::filesystem::path& font)
 {
     platform::SessionLogLine("Startup: preparing graphics");
     const auto started = std::chrono::steady_clock::now();
@@ -91,7 +64,7 @@ bool PrepareGraphicsForGame()
     io.IniFilename = nullptr;
     io.ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
 
-    WarmupHost host;
+    WarmupHost host(font);
     const auto result = detail::RunPipelineWarmup(host);
     // Retire all startup draws before original GX acquires its FIFO and EFB.
     aurora::gfx::synchronize();

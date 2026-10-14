@@ -1,6 +1,5 @@
 """Synthetic package allowlist, provenance and extraction checks; no game data."""
 
-from contextlib import closing
 import hashlib
 import importlib.util
 import io
@@ -36,14 +35,6 @@ class PackageBuildTests(unittest.TestCase):
             self.write(self.build, stem + ".so", b"synthetic module", 0o755)
         for asset in PACKAGER.ASSETS:
             self.write(self.build, "assets/launcher/" + asset, b"synthetic asset")
-        catalog = {"format": 1, "schema": 1, "config_abi": "aurora-gx13-clear5-le64",
-                   "pipelines": [{"type": 0, "hash": "0000000000000001", "version": 5,
-                                  "first_frame": 0, "config": "0500000001010100",
-                                  "sha256": self.hash(bytes.fromhex("0500000001010100"))}]}
-        path = self.write(self.source, "assets/graphics/pipelines.json", json.dumps(catalog).encode())
-        from pipeline_catalog import generate
-        generate(self.build / "assets/graphics/initial_pipeline_cache.db", PACKAGER.read_catalog(path))
-        self.write(self.source, "assets/graphics/README.md", b"pipeline descriptions only")
         for public in PACKAGER.PUBLIC_FILES:
             self.write(self.source, public, b"public text")
         self.write(self.build, "generated/mscharged/build_version.h",
@@ -189,29 +180,13 @@ checksum = "{self.checksum}"
                 self.assertEqual(member.mode, int(item["mode"], 8))
                 self.assertEqual(member.uid, 0)
             self.assertEqual(manifest["files"]["mscharged"]["mode"], "0o755")
-            self.assertIn("assets/graphics/initial_pipeline_cache.db", manifest["files"])
-            self.assertIn("assets/graphics/README.md", manifest["files"])
+            self.assertFalse(any(name.startswith("assets/graphics/") for name in manifest["files"]))
             self.assertFalse(any("MUST NOT BE PACKAGED" in archive.extractfile(member).read().decode(errors="ignore")
                                  for member in members if member.isfile()))
             extraction = self.root / "extracted"
             archive.extractall(extraction, filter="data")
             executable = next(extraction.glob("*/mscharged"))
             self.assertTrue(executable.stat().st_mode & 0o111)
-
-    def test_pipeline_resource_is_required_and_matches_catalogue(self):
-        path = self.build / "assets/graphics/initial_pipeline_cache.db"
-        original = path.read_bytes()
-        path.unlink()
-        with self.assertRaisesRegex(PACKAGER.PackageError, "Missing or unsafe"):
-            self.package()
-        self.write(path.parent, path.name, original)
-        import sqlite3
-        with closing(sqlite3.connect(path)) as db:
-            db.execute("UPDATE pipeline_cache SET first_frame_used=42")
-            db.commit()
-        with self.assertRaisesRegex(PACKAGER.PackageError, "differs from its reviewed"):
-            self.package()
-        self.assertFalse(self.output.exists())
 
     def test_missing_module_fails_without_archive(self):
         (self.build / (PACKAGER.MODULES[1] + ".so")).unlink()
@@ -368,6 +343,7 @@ checksum = "{self.checksum}"
 
     def test_windows_packages_exe_dlls_runtime_and_notices_as_zip(self):
         _, pin = self.windows_build()
+        self.windows_imports["mscharged.exe"].append("pdh.dll")
         path = self.package()
         self.assertTrue(path.name.endswith("-windows-x86_64.zip"))
         with zipfile.ZipFile(path) as archive:
@@ -380,7 +356,8 @@ checksum = "{self.checksum}"
         self.assertEqual(manifest["modules"], [stem + ".dll" for stem in PACKAGER.MODULES])
         self.assertEqual(manifest["platform"], "windows")
         self.assertEqual(manifest["windows_graphics"], pin)
-        self.assertEqual(manifest["windows_imports"]["mscharged.exe"], ["libc++.dll"])
+        self.assertEqual(manifest["windows_imports"]["mscharged.exe"], ["libc++.dll", "pdh.dll"])
+        self.assertNotIn("pdh.dll", names)  # Performance counters use the Windows OS component.
         for record in PACKAGER.graphics_file_records(pin):
             self.assertIn(record["path"], names)
             self.assertEqual(manifest["files"][record["path"]]["sha256"], record["sha256"])

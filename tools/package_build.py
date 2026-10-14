@@ -25,8 +25,6 @@ from pathlib import Path
 
 from setup_windows_graphics import verify as verify_windows_graphics, file_records as graphics_file_records
 
-from pipeline_catalog import CatalogError, read_catalog, verify_database
-
 WINDOWS_GRAPHICS_PIN = Path(__file__).with_name("windows_graphics.json")
 
 MODULES = ("mscharged_original_frontend_module", "mscharged_original_main_credits_module")
@@ -41,7 +39,7 @@ WINDOWS_RUNTIME_NOTICES = ("LICENSE.TXT", "x86_64-w64-mingw32/share/mingw32/COPY
 WINDOWS_SYSTEM_DLLS = frozenset((
     "advapi32.dll", "bcrypt.dll", "bcryptprimitives.dll", "cfgmgr32.dll", "comdlg32.dll",
     "crypt32.dll", "d3d11.dll", "d3d12.dll", "dbghelp.dll", "dwmapi.dll", "dxgi.dll",
-    "gdi32.dll", "imm32.dll", "kernel32.dll", "ntdll.dll", "ole32.dll", "oleaut32.dll",
+    "gdi32.dll", "imm32.dll", "kernel32.dll", "ntdll.dll", "ole32.dll", "oleaut32.dll", "pdh.dll",
     "rpcrt4.dll", "setupapi.dll", "shell32.dll", "shlwapi.dll", "ucrtbase.dll",
     "user32.dll", "userenv.dll", "version.dll", "winmm.dll", "wintrust.dll", "ws2_32.dll",
 ))
@@ -312,14 +310,6 @@ def package_build(build, output, source, cargo_loader=cargo_packages, steamdeck=
             raise PackageError(f"Require exactly one loadable {stem} module, found {len(matches)}.")
         regular_file(build, matches[0])
         modules += matches
-    # A stale or missing catalogue must fail packaging, not silently restore
-    # first-use compilation stalls in a downloadable archive.
-    catalog = regular_file(source, "assets/graphics/pipelines.json")
-    pipeline_resource = regular_file(build, "assets/graphics/initial_pipeline_cache.db")
-    try:
-        verify_database(pipeline_resource, read_catalog(catalog))
-    except CatalogError as error:
-        raise PackageError(str(error)) from error
     revision = run(["git", "-C", str(source), "rev-parse", "HEAD"]).decode().strip()
     if not re.fullmatch(r"[0-9a-f]{40}", revision):
         raise PackageError("Invalid packaging source Git revision.")
@@ -367,8 +357,6 @@ def package_build(build, output, source, cargo_loader=cargo_packages, steamdeck=
             copy(graphics_root, "windows-graphics.json", "LICENSES/windows-graphics.json")
         for asset in ASSETS:
             copy(build, Path("assets/launcher") / asset)
-        copy(build, "assets/graphics/initial_pipeline_cache.db")
-        copy(source, "assets/graphics/README.md")
         for public in PUBLIC_FILES:
             copy(source, public)
 
