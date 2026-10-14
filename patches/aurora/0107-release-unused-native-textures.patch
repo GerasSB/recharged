@@ -16,25 +16,6 @@ textures. The display copy now ends a native frame and ages the caches there,
 on the FIFO processor that owns them. A playing movie still keeps its last 600
 frames of textures (the credits level off about 1 GB above the menus).
 
-Copied EFB textures are cached per destination, size and format. A copy to a
-destination at a new size (after a window resize) or format left the older
-textures allocated for good; such a copy now releases them first, as the
-destination holds only its newest copy.
-
-diff --git a/lib/dolphin/gx/GXFrameBuffer.cpp b/lib/dolphin/gx/GXFrameBuffer.cpp
-index a8a3e34..844ff3a 100644
---- a/lib/dolphin/gx/GXFrameBuffer.cpp
-+++ b/lib/dolphin/gx/GXFrameBuffer.cpp
-@@ -52,6 +52,9 @@ void copy_tex(const void* dest, GXBool clear) noexcept {
-   };
-   auto it = g_gxState.copyTextureCache.find(key);
-   if (it == g_gxState.copyTextureCache.end()) {
-+    // A destination holds only its newest copy. Release the textures of copies
-+    // made to it at another size (before a window resize) or format.
-+    evict_copy_texture(dest);
-     gfx::TextureHandle handle;
-     if (gfx::tex_copy_conv::needs_conversion(texCopyFmt)) {
-       handle = gfx::new_conv_texture(dstWidth, dstHeight, texCopyFmt, "Copy Conv Texture");
 diff --git a/lib/gx/regs.cpp b/lib/gx/regs.cpp
 index 681d4a8..0513225 100644
 --- a/lib/gx/regs.cpp
