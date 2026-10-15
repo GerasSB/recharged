@@ -79,6 +79,7 @@ Highlights:
   a Mayflash DolphinBar
 - Sharp picture, 4:3 or 16:9, optional antialiasing, any window size or
   fullscreen
+- High frame rates: 120, 144, your display's rate or unlimited
 - A launcher for disc, players, controls, display and audio
 
 See the full **[feature list](docs/FEATURES.md)**.

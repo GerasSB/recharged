@@ -323,6 +323,7 @@ target_link_libraries(mscharged_original_main_credits_vi PRIVATE aurora::vi)
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/SystemUsage.cmake")
 add_library(charged_original_main_credits_host OBJECT
     src/runtime/original_main_credits.cpp src/runtime/frame_timing_log.cpp src/runtime/fps_overlay.cpp
+    src/runtime/host_frame_pacing.cpp
     src/runtime/pipeline_warmup.cpp src/runtime/pipeline_demand_log.cpp src/runtime/graphics_loading_view.cpp
     src/platform/console.cpp
     src/platform/os.cpp src/platform/host_metadata.cpp src/platform/string_format.cpp
