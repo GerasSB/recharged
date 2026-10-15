@@ -65,8 +65,11 @@ jobs:
       CCACHE_NOHASHDIR: 'true'
       CCACHE_MAXSIZE: 3G
     steps:
+      # A pull request builds its head commit, so the version names a commit
+      # of main (stable requires up-to-date branches: the files are the same).
       - uses: actions/checkout@v6
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 1
           submodules: false
           persist-credentials: false
@@ -133,11 +136,17 @@ jobs:
           path: ${{ runner.temp }}/ccache
           key: ccache-${{ matrix.platform }}-${{ github.sha }}
           restore-keys: ccache-${{ matrix.platform }}-
+      # The build's origin (release, test or dev) for the launcher's update check.
       - name: Configure original runtime
         run: >-
           cmake --preset release
           -DBUILD_TESTING=OFF
           -DMSCHARGED_FORMAT_PREPARED_SOURCES=OFF
+          -DMSCHARGED_BUILD_CHANNEL=${{ github.event_name == 'pull_request' && 'test' || github.event_name == 'push' && 'release' || 'dev' }}
+          -DMSCHARGED_BUILD_REPOSITORY=${{ github.repository }}
+          -DMSCHARGED_BUILD_PULL_REQUEST=${{ github.event.pull_request.number || 0 }}
+          -DMSCHARGED_BUILD_RUN=${{ github.run_id }}
+          -DMSCHARGED_BUILD_TIME=$(date -u +%s)
           -DCMAKE_C_COMPILER_LAUNCHER=ccache
           -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
           ${{ matrix.cmake_args }}
@@ -215,6 +224,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 1
           submodules: false
           persist-credentials: false
@@ -263,6 +273,11 @@ jobs:
           -DLLVM_MINGW_ROOT="$PWD/build/toolchain/$LLVM_MINGW"
           -DBUILD_TESTING=OFF
           -DMSCHARGED_FORMAT_PREPARED_SOURCES=OFF
+          -DMSCHARGED_BUILD_CHANNEL=${{ github.event_name == 'pull_request' && 'test' || github.event_name == 'push' && 'release' || 'dev' }}
+          -DMSCHARGED_BUILD_REPOSITORY=${{ github.repository }}
+          -DMSCHARGED_BUILD_PULL_REQUEST=${{ github.event.pull_request.number || 0 }}
+          -DMSCHARGED_BUILD_RUN=${{ github.run_id }}
+          -DMSCHARGED_BUILD_TIME=$(date -u +%s)
           -DCMAKE_C_COMPILER_LAUNCHER=ccache
           -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
       # Only the packaged targets: some Linux-only diagnostics are not portable.
