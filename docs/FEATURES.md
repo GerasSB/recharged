@@ -100,6 +100,13 @@ setting in one place: players and controllers, keyboard keys, gamepad
 profiles, display, audio, gameplay tweaks and advanced options. It asks before playing with
 unsaved changes.
 
+It also **updates the port**: it shows when a newer release is out, with its
+release notes, and installs it in place with one click; only the program's
+own files are replaced. **Release / Test** on the Play page chooses between
+official releases and test builds of changes not yet released (with the pull
+request's description as notes). The About page shows where the running build
+comes from: an official release, a test build or a local build.
+
 ## Not supported (yet)
 
 - **Other versions of the game.** Only the USA release (R4QE01, revision 1)

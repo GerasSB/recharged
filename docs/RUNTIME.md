@@ -153,6 +153,20 @@ launcher finds Dolphin's usual folders on its own; otherwise choose Dolphin's
 user folder or that save folder. The current save is first copied to `backups/`
 in the save folder. Dolphin's encrypted `data.bin` exports are not supported.
 
+## Updates
+
+At each start the launcher asks GitHub for a newer build (one anonymous request;
+**Advanced → Updates** turns it off, `[launcher] check_updates`). **Release / Test**
+on the Play page (`update_channel`, by default the build's own origin) follows
+official releases, or also the test builds of open pull requests; a test build
+moves on to the release that contains it. **Update** downloads the package for
+this system, checks its SHA-256 and every file against its
+`SOURCE-MANIFEST.json`, replaces only the files the old package listed, and
+restarts the launcher; on any failure the old files return. Settings, saves,
+caches and logs stay. A folder that was not unpacked from a package, or that
+is not writable, gets a download link instead. HTTPS uses WinHTTP on Windows
+and the system's libcurl elsewhere.
+
 ## Performance log
 
 Enable **Advanced → Diagnostics & analytics → Frame logging** to record frame
