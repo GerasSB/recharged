@@ -50,10 +50,14 @@ The builds are not signed, so the system asks once on the first start:
 
 Settings and saves are kept beside the program, so the folder can live anywhere
 you like. The launcher's **Game** page can move the saves to another folder and
-import a save from the Dolphin emulator ([saves](docs/RUNTIME.md#saves)). `SHA256SUMS` in the release lists the packages' checksums. Builds of
-changes not yet released are under the
-[**Build binaries** runs of `stable`](https://github.com/yannicksuter/mscharged-port/actions/workflows/build.yml?query=branch%3Astable+is%3Asuccess)
-(*Artifacts*, signed-in users); see [GitHub builds](docs/BUILDING_GITHUB.md).
+import a save from the Dolphin emulator ([saves](docs/RUNTIME.md#saves)). `SHA256SUMS` in the release lists the packages' checksums.
+
+The launcher shows when a newer release is out, with its notes, and **updates**
+the folder in place: settings, saves and logs stay ([updates](docs/RUNTIME.md#updates)).
+**Test builds** of changes not yet released are published as
+[pre-releases](https://github.com/yannicksuter/mscharged-port/releases) while
+their pull request is open; choose **Test** on the launcher's Play page to get
+them. See [GitHub builds](docs/BUILDING_GITHUB.md).
 
 **Something went wrong?** Each run writes `logs/mscharged.log` beside the
 program (the run before is kept as `mscharged.previous.log`). It records your
