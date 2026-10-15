@@ -5,6 +5,7 @@
 
 #include "gfx/clear.hpp"
 #include "gfx/frame_packet.hpp"
+#include "gfx/hash.hpp"
 #include "gfx/pipeline_cache.hpp"
 #include "gx/pipeline.hpp"
 #include "gx/fifo.hpp"
@@ -247,6 +248,27 @@ void VerifyHits(unsigned expectedRequests) {
   Check(after.totalPipelines == before.totalPipelines, "Demand rebuilt a prepared pipeline");
   std::printf("Prepared requests: %u hits, 0 misses, 0 ns demand wait; ready=%llu.\n",
               expectedRequests, static_cast<unsigned long long>(after.readyPipelines));
+}
+
+// What aurora_set_pipeline_demand_miss_callback reported; the configuration
+// pointer is valid only during the call.
+struct DemandMissLog {
+  std::vector<AuroraPipelineDemandMiss> misses;
+  std::vector<std::vector<unsigned char>> configs;
+};
+void RecordDemandMiss(const AuroraPipelineDemandMiss* miss, void* user) {
+  auto& log = *static_cast<DemandMissLog*>(user);
+  log.misses.push_back(*miss);
+  const auto* bytes = static_cast<const unsigned char*>(miss->config);
+  log.configs.emplace_back(bytes, bytes + miss->configSize);
+  log.misses.back().config = nullptr;
+}
+// A known configuration drawn to a render target that preparation did not cover.
+void RequestOnOtherLayout(unsigned index) {
+  auto layout = aurora::gfx::scene_render_target_layout();
+  layout.colorAttachments[0].semantic = aurora::gfx::ColorAttachmentSemantic::Auxiliary;
+  aurora::gfx::detail::finalize_render_target_layout(layout);
+  aurora::gfx::find_pipeline(Configs()[index], layout);
 }
 
 void AutomaticSelectionChecks(int argc, char** argv, AuroraBackend backend,
@@ -631,12 +653,30 @@ int main(int argc, char** argv) {
       aurora_prepare_pipelines();
       const auto empty = WaitReady();
       Check(empty.knownConfigs == 0 && empty.totalPipelines == 0, "Missing seed did not start empty");
+      DemandMissLog demand;
+      aurora_set_pipeline_demand_miss_callback(RecordDemandMiss, &demand);
       RequestKnown(false);
       const auto observed = WaitReady();
       Check(observed.demandMisses == 8 && observed.demandWaitNanoseconds > 0,
             "Cold unknown pipelines did not record demand compilation waits");
       Check(observed.knownConfigs == 8, "Observed configurations were not retained");
+      // Each wait was reported once, in draw order, with the configuration's bytes.
+      Check(demand.misses.size() == 8, "Cold demand misses were not reported once each");
+      const auto configs = Configs();
+      uint64_t reportedWait = 0;
+      for (size_t i = 0; i < configs.size(); ++i) {
+        const auto& miss = demand.misses[i];
+        Check(miss.shaderType == 0 && miss.configVersion == aurora::gfx::clear::ClearPipelineConfigVersion &&
+              miss.configSize == sizeof configs[i] && miss.newConfiguration && miss.waitNanoseconds > 0,
+              "A cold demand miss was not reported as a new configuration");
+        Check(std::memcmp(demand.configs[i].data(), &configs[i], sizeof configs[i]) == 0,
+              "A reported configuration differs from the drawn one");
+        Check(miss.configKey == aurora::xxh3_hash(configs[i], 0), "A reported key is not the cache key");
+        reportedWait += miss.waitNanoseconds;
+      }
+      Check(reportedWait == observed.demandWaitNanoseconds, "Reported waits differ from the demand statistics");
       VerifyHits(8);
+      Check(demand.misses.size() == 8, "A prepared request was reported as a demand miss");
       session.Stop();
     }
     std::filesystem::copy_file(directory / "observed" / "pipeline_cache.db",
@@ -647,6 +687,7 @@ int main(int argc, char** argv) {
 
     // Fresh local/Dawn caches: consume the bundled seed, then prove that the
     // first actual requests on this device are hits for scene/offscreen layouts.
+    DemandMissLog afterShutdown; // set in the first session; its shutdown clears it
     for (unsigned msaa : {1u, 4u}) {
       Session session;
       Start(session, argc, argv, backend, directory / ("seeded-" + std::to_string(msaa)), resources, msaa);
@@ -657,6 +698,20 @@ int main(int argc, char** argv) {
       Check(prepared.demandHits == 0 && prepared.demandMisses == 0,
             "Background preparation was counted as demand work");
       VerifyHits(msaa == 1 ? 8 : 16);
+      if (msaa == 4) {
+        RequestOnOtherLayout(1);
+        Check(afterShutdown.misses.empty(), "Shutdown did not clear the demand miss callback");
+      }
+      // A known configuration on a render target the preparation did not cover.
+      DemandMissLog known;
+      aurora_set_pipeline_demand_miss_callback(RecordDemandMiss, &known);
+      RequestOnOtherLayout(0);
+      Check(known.misses.size() == 1 && !known.misses[0].newConfiguration && known.misses[0].shaderType == 0 &&
+            known.misses[0].waitNanoseconds > 0, "A known configuration's demand miss was not reported as known");
+      aurora_set_pipeline_demand_miss_callback(nullptr, nullptr);
+      RequestOnOtherLayout(2);
+      Check(known.misses.size() == 1, "A cleared demand miss callback still received reports");
+      if (msaa == 1) aurora_set_pipeline_demand_miss_callback(RecordDemandMiss, &afterShutdown);
       const auto total = aurora_pipeline_warmup_status().totalPipelines;
       aurora_prepare_pipelines(); aurora_prepare_pipelines();
       Check(WaitReady().totalPipelines == total, "Repeated preparation duplicated runtime pipelines");

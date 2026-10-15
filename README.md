@@ -58,7 +58,9 @@ changes not yet released are under the
 program (the run before is kept as `mscharged.previous.log`). It records your
 system, displays, graphics settings and what happened; after a crash it also
 holds a crash report, and on Windows `mscharged-crash.dmp` is saved next to it.
-Please attach these files to an
+A brief stutter the first time an effect appears is logged as well, with what
+we need to prepare that effect before the game starts. Please attach these
+files to an
 [issue](https://github.com/yannicksuter/mscharged-port/issues). The log shows
 the command line and folder names, which can include your user name.
 

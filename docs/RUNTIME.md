@@ -21,9 +21,11 @@ every stadium and captain, and any others the game has used on this PC. The
 first launch compiles them all once, on several processor cores; later launches
 load them from the local cache. Nothing is prepared once the game runs: a
 pipeline missing from both compiles when it is first drawn, which can cause a
-brief stutter, and is prepared from the next launch on. Driver, GPU or renderer
-changes may require compilation again. Keep `assets/graphics/initial_pipeline_cache.db`
-in the package.
+brief stutter, and is prepared from the next launch on. The session log records
+each of these (`Graphics: drawing waited … ms to compile a new pipeline`) with
+its configuration; attach the log to an issue to get it added to the package's
+list. Driver, GPU or renderer changes may require compilation again. Keep
+`assets/graphics/initial_pipeline_cache.db` in the package.
 
 Each graphics API retains its own compatible compiled data across launches,
 including when switching away from that API and back. The session log records

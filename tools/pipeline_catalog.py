@@ -2,8 +2,10 @@
 """Generate, verify or extend Aurora's portable pipeline descriptions, never driver code.
 
 The reviewed source pins each recorded XXH3 key and configuration SHA-256.
---import merges configurations that the game recorded in runtime caches; Aurora
-derives a configuration's key from its bytes again whenever it loads a row.
+--import merges configurations that the game recorded in runtime caches, or
+that a session log (logs/mscharged.log) lists because a draw had to compile
+them; Aurora derives a configuration's key from its bytes again whenever it
+loads a row.
 The generated resource also holds the fog variants of the recorded GX
 configurations (see with_fog_variants). Ordinary builds require only the Python
 standard library and never inspect local runtime caches. The bundled format is
@@ -11,6 +13,7 @@ for the supported little-endian 64-bit hosts.
 """
 
 import argparse
+import base64
 from contextlib import closing
 import hashlib
 import json
@@ -21,12 +24,18 @@ import re
 import sqlite3
 import struct
 import tempfile
+import zlib
 
 ABI = "aurora-gx16-clear5-le64"
 LAYOUTS = {0: (5, 8), 1: (16, 2772)}
 GX = 1
 # Byte offset of PipelineConfig::shaderConfig.fogType in the GX v16 layout.
 GX_FOG_TYPE = 8
+SQLITE_HEADER = b"SQLite format 3\0"
+# A session log line for a draw that compiled a pipeline new on that PC, written
+# by src/runtime/pipeline_demand_log.cpp: the configuration is base64 of zlib.
+LOG_ENTRY = re.compile(r"\bpipeline=(gx|clear)(\d+)-([0-9a-f]{16}) frame=(\d+) config=(\S+)$")
+LOG_TYPES = {"clear": 0, "gx": GX}
 _M64 = (1 << 64) - 1
 # xxHash 0.8 XXH3 default secret (XXH3_kSecret).
 _XXH3_SECRET = bytes.fromhex(
@@ -131,11 +140,22 @@ def read_catalog(path):
 
 
 def xxh3_64(data, seed):
-    """XXH3_64bits_withSeed for inputs longer than 240 bytes, as Aurora keys a
-    configuration: the scalar long-input path of xxHash 0.8."""
+    """XXH3_64bits_withSeed, as Aurora keys a configuration: the scalar paths of
+    xxHash 0.8 for 4 to 8 bytes (clear) and more than 240 bytes (GX)."""
     length = len(data)
+    if 4 <= length <= 8:
+        seed = (seed ^ (int.from_bytes(struct.pack("<I", seed & 0xFFFFFFFF), "big") << 32)) & _M64
+        low, high = struct.unpack_from("<I", data)[0], struct.unpack_from("<I", data, length - 4)[0]
+        bitflip = ((struct.unpack_from("<Q", _XXH3_SECRET, 8)[0] ^ struct.unpack_from("<Q", _XXH3_SECRET, 16)[0])
+                   - seed) & _M64
+        h = (high + (low << 32)) ^ bitflip
+        h ^= ((h << 49 | h >> 15) ^ (h << 24 | h >> 40)) & _M64
+        h = (h * 0x9FB21C651E98DF25) & _M64
+        h ^= (h >> 35) + length
+        h = (h * 0x9FB21C651E98DF25) & _M64
+        return h ^ (h >> 28)
     if length <= 240:
-        raise CatalogError("XXH3 is implemented only for inputs longer than 240 bytes")
+        raise CatalogError("XXH3 is implemented only for inputs of 4 to 8 or more than 240 bytes")
     words = struct.unpack("<24Q", _XXH3_SECRET)
     secret = struct.pack("<24Q", *(((word + seed) if i % 2 == 0 else (word - seed)) & _M64
                                    for i, word in enumerate(words)))
@@ -257,13 +277,65 @@ def generate(path, rows):
         os.replace(candidate, path)
 
 
+def read_log(path):
+    """The configurations a session log lists: one line for each pipeline a
+    draw compiled because it was new on that PC. Rows of other configuration
+    versions are skipped; a damaged line is an error."""
+    rows = []
+    with open(path, encoding="utf-8", errors="replace") as log:
+        for number, line in enumerate(log, 1):
+            if "pipeline=" not in line or " config=" not in line:
+                continue  # Other lines, and known configurations (no config).
+            where = f"{path}:{number}: "
+            match = LOG_ENTRY.search(line.rstrip())
+            if not match:
+                raise CatalogError(where + "unreadable pipeline line")
+            name, version, key, frame, encoded = match.groups()
+            kind = LOG_TYPES[name]
+            if LAYOUTS[kind][0] != int(version):
+                continue  # Another renderer's or an obsolete configuration.
+            size = LAYOUTS[kind][1]
+            try:
+                inflater = zlib.decompressobj()
+                blob = inflater.decompress(base64.b64decode(encoded, validate=True), size + 1)
+            except (ValueError, zlib.error) as error:
+                raise CatalogError(where + f"unreadable configuration ({error})") from error
+            if len(blob) > size or (inflater.eof and (len(blob) != size or inflater.unused_data)):
+                raise CatalogError(where + "configuration has the wrong size")
+            if not inflater.eof:
+                raise CatalogError(where + "configuration is truncated")
+            if xxh3_64(blob, kind) != int(key, 16):
+                raise CatalogError(where + "configuration does not match its key")
+            if not _integer(int(frame), 0, 0xFFFFFFFF):
+                raise CatalogError(where + "invalid frame")
+            signed_key = int(key, 16) - (1 << 64) if int(key, 16) >= 1 << 63 else int(key, 16)
+            rows.append((kind, signed_key, int(version), size, blob, int(frame)))
+    return rows
+
+
+def read_recording(path):
+    """Rows of a runtime pipeline_cache.db or of a session log."""
+    path = Path(path)
+    if not path.is_file():
+        raise CatalogError(f"Missing pipeline cache or log: {path}")
+    with open(path, "rb") as file:
+        if file.read(len(SQLITE_HEADER)) != SQLITE_HEADER:
+            return read_log(path)
+    try:
+        with closing(sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True)) as db:
+            return db.execute("SELECT type,hash,config_version,config_size,config,first_frame_used "
+                              "FROM pipeline_cache").fetchall()
+    except sqlite3.Error as error:
+        raise CatalogError(f"Cannot read runtime pipeline cache {path}: {error}") from error
+
+
 def import_databases(catalog, databases):
     """Merge the game's recorded configurations into the reviewed catalogue.
 
-    Reads the runtime caches without changing them and keeps only rows of the
-    catalogue's configuration versions. A game run's cache also holds the
-    bundled resource; its fog variants are derived again, not recorded, so they
-    are skipped. Returns the number of new entries."""
+    Reads runtime caches and session logs without changing them and keeps only
+    rows of the catalogue's configuration versions. A game run's cache also
+    holds the bundled resource; its fog variants are derived again, not
+    recorded, so they are skipped. Returns the number of new entries."""
     catalog = Path(catalog)
     derived = set()
     if catalog.exists():
@@ -275,16 +347,7 @@ def import_databases(catalog, databases):
     entries = {(row["type"], row["hash"]): row for row in document["pipelines"]}
     before = len(entries)
     for database in databases:
-        path = Path(database)
-        if not path.is_file():
-            raise CatalogError(f"Missing runtime pipeline cache: {path}")
-        try:
-            with closing(sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True)) as db:
-                rows = db.execute("SELECT type,hash,config_version,config_size,config,first_frame_used "
-                                  "FROM pipeline_cache").fetchall()
-        except sqlite3.Error as error:
-            raise CatalogError(f"Cannot read runtime pipeline cache {path}: {error}") from error
-        for kind, key, version, size, blob, frame in rows:
+        for kind, key, version, size, blob, frame in read_recording(database):
             if LAYOUTS.get(kind) != (version, size) or not isinstance(blob, bytes):
                 continue  # Another renderer's or an obsolete configuration.
             if kind == GX and blob in derived:
@@ -312,8 +375,9 @@ def main():
     action = parser.add_mutually_exclusive_group(required=True)
     action.add_argument("--output", type=Path)
     action.add_argument("--verify", type=Path)
-    action.add_argument("--import", dest="databases", type=Path, nargs="+", metavar="PIPELINE_CACHE_DB",
-                        help="merge configurations recorded in runtime pipeline_cache.db files")
+    action.add_argument("--import", dest="databases", type=Path, nargs="+", metavar="CACHE_OR_LOG",
+                        help="merge configurations recorded in runtime pipeline_cache.db files or "
+                             "listed in session logs (logs/mscharged.log)")
     args = parser.parse_args()
     try:
         if args.databases:
