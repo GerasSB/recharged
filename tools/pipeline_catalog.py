@@ -5,11 +5,10 @@ The reviewed source pins each recorded XXH3 key and configuration SHA-256.
 --import merges configurations that the game recorded in runtime caches, or
 that a session log (logs/mscharged.log) lists because a draw had to compile
 them; Aurora derives a configuration's key from its bytes again whenever it
-loads a row.
-The generated resource also holds the fog variants of the recorded GX
-configurations (see with_fog_variants). Ordinary builds require only the Python
-standard library and never inspect local runtime caches. The bundled format is
-for the supported little-endian 64-bit hosts.
+loads a row. Fog and vertex array byte order are per-draw state (GX v17), so
+one recorded configuration covers every stadium's fog. Ordinary builds require
+only the Python standard library and never inspect local runtime caches. The
+bundled format is for the supported little-endian 64-bit hosts.
 """
 
 import argparse
@@ -26,11 +25,9 @@ import struct
 import tempfile
 import zlib
 
-ABI = "aurora-gx16-clear5-le64"
-LAYOUTS = {0: (5, 8), 1: (16, 2772)}
+ABI = "aurora-gx17-clear5-le64"
+LAYOUTS = {0: (5, 8), 1: (17, 2772)}
 GX = 1
-# Byte offset of PipelineConfig::shaderConfig.fogType in the GX v16 layout.
-GX_FOG_TYPE = 8
 SQLITE_HEADER = b"SQLite format 3\0"
 # A session log line for a draw that compiled a pipeline new on that PC, written
 # by src/runtime/pipeline_demand_log.cpp: the configuration is base64 of zlib.
@@ -192,46 +189,9 @@ def xxh3_64(data, seed):
     return result ^ (result >> 32)
 
 
-def with_fog_variants(rows):
-    """Add each fogged GX configuration under every fog type the catalogue uses.
-
-    The game draws an effect with the fog of the stadium it appears in, and the
-    fog type is part of the pipeline configuration. Recordings see each effect
-    only under some stadiums' fog, so every GX configuration recorded with fog
-    also gets the identical configuration with each other recorded fog type
-    (including none). Configurations only ever recorded without fog, such as
-    menus, are left alone."""
-    version, size = LAYOUTS[GX]
-    gx = [row for row in rows if row[0] == GX]
-    fog_types = sorted({row[4][GX_FOG_TYPE] for row in gx})
-    present = {row[4] for row in gx}
-    keys = {(row[0], row[1]) for row in rows}
-    bases = {}
-    for row in gx:
-        blob = row[4]
-        base = blob[:GX_FOG_TYPE] + b"\0" + blob[GX_FOG_TYPE + 1:]
-        fogged, frame = bases.get(base, (False, row[5]))
-        bases[base] = (fogged or blob[GX_FOG_TYPE] != 0, min(frame, row[5]))
-    added = []
-    for base, (fogged, frame) in bases.items():
-        if not fogged:
-            continue
-        for fog in fog_types:
-            blob = base[:GX_FOG_TYPE] + bytes([fog]) + base[GX_FOG_TYPE + 1:]
-            if blob in present:
-                continue
-            key = xxh3_64(blob, GX)
-            signed_key = key if key < (1 << 63) else key - (1 << 64)
-            if (GX, signed_key) in keys:
-                raise CatalogError(f"Fog variant key {key:016x} collides with another configuration")
-            keys.add((GX, signed_key))
-            added.append((GX, signed_key, version, size, blob, frame))
-    return sorted(rows + added, key=lambda r: (r[0], r[1] & 0xFFFFFFFFFFFFFFFF))
-
-
 def catalog_rows(path):
-    """The rows of the generated resource: the reviewed catalogue plus fog variants."""
-    return with_fog_variants(read_catalog(path))
+    """The rows of the generated resource."""
+    return read_catalog(path)
 
 
 def verify_database(path, rows):
@@ -333,14 +293,11 @@ def import_databases(catalog, databases):
     """Merge the game's recorded configurations into the reviewed catalogue.
 
     Reads runtime caches and session logs without changing them and keeps only
-    rows of the catalogue's configuration versions. A game run's cache also
-    holds the bundled resource; its fog variants are derived again, not
-    recorded, so they are skipped. Returns the number of new entries."""
+    rows of the catalogue's configuration versions. Returns the number of new
+    entries."""
     catalog = Path(catalog)
-    derived = set()
     if catalog.exists():
-        recorded = read_catalog(catalog)
-        derived = {row[4] for row in with_fog_variants(recorded)} - {row[4] for row in recorded}
+        read_catalog(catalog)
         document = json.loads(catalog.read_text(encoding="utf-8"))
     else:
         document = {"format": 1, "schema": 1, "config_abi": ABI, "pipelines": []}
@@ -350,8 +307,6 @@ def import_databases(catalog, databases):
         for kind, key, version, size, blob, frame in read_recording(database):
             if LAYOUTS.get(kind) != (version, size) or not isinstance(blob, bytes):
                 continue  # Another renderer's or an obsolete configuration.
-            if kind == GX and blob in derived:
-                continue
             entry = {"type": kind, "hash": f"{key & 0xFFFFFFFFFFFFFFFF:016x}", "version": version,
                      "first_frame": frame, "config": blob.hex(), "sha256": hashlib.sha256(blob).hexdigest()}
             existing = entries.setdefault((kind, entry["hash"]), entry)
@@ -383,15 +338,14 @@ def main():
         if args.databases:
             added = import_databases(args.catalog, args.databases)
             print(f"Pipeline catalogue: {added} new configurations imported")
-        recorded = read_catalog(args.catalog)
-        rows = with_fog_variants(recorded)
+        rows = catalog_rows(args.catalog)
         if args.output:
             generate(args.output, rows)
         elif args.verify:
             verify_database(args.verify, rows)
     except (CatalogError, OSError) as error:
         parser.exit(1, f"pipeline catalogue: {error}\n")
-    print(f"Pipeline catalogue: {len(recorded)} verified configurations, {len(rows) - len(recorded)} fog variants")
+    print(f"Pipeline catalogue: {len(rows)} verified configurations")
 
 
 if __name__ == "__main__":

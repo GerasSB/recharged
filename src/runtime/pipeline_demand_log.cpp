@@ -38,7 +38,7 @@ std::string EncodedConfig(const void* config, std::uint32_t size)
 
 std::string PipelineDemandMissLine(const AuroraPipelineDemandMiss& miss)
 {
-    // The pipeline_cache.db types; the catalogue ABI names them gx16 and clear5.
+    // The pipeline_cache.db types; the catalogue ABI names them gx17 and clear5.
     const char* type = miss.shaderType == 1 ? "gx" : miss.shaderType == 0 ? "clear" : "other";
     char text[192];
     std::snprintf(text, sizeof text,

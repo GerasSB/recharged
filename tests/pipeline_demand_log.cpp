@@ -88,13 +88,13 @@ int main()
     using mscharged::runtime::PipelineDemandMissLine;
     char padding = 0;
 
-    // A GX v16 configuration: mostly zeros, as the real ones are.
+    // A GX v17 configuration: mostly zeros, as the real ones are.
     std::vector<unsigned char> gx(2772);
-    gx[0] = 16;
+    gx[0] = 17;
     for (std::size_t i = 8; i < gx.size(); i += 97) gx[i] = static_cast<unsigned char>(i * 7 + 1);
-    auto line = PipelineDemandMissLine(Miss(gx, 1, 16, 0x1f2e3d4c5b6a7980ull, 18234, 45'230'000, true));
+    auto line = PipelineDemandMissLine(Miss(gx, 1, 17, 0x1f2e3d4c5b6a7980ull, 18234, 45'230'000, true));
     const std::string gxPrefix =
-        "Graphics: drawing waited 45.2 ms to compile a new pipeline: pipeline=gx16-1f2e3d4c5b6a7980 frame=18234 config=";
+        "Graphics: drawing waited 45.2 ms to compile a new pipeline: pipeline=gx17-1f2e3d4c5b6a7980 frame=18234 config=";
     Check(line.compare(0, gxPrefix.size(), gxPrefix) == 0, "new GX line prefix");
     Check(LineConfig(line, gx.size(), &padding) == gx, "GX config does not round-trip");
     Check(line.size() < 600, "GX line is not compressed");
@@ -102,8 +102,8 @@ int main()
           "line breaks or spaces inside the config");
 
     // A known configuration: the line has no config.
-    line = PipelineDemandMissLine(Miss(gx, 1, 16, 0x00000000000000abull, 7, 3'100'000, false));
-    Check(line == "Graphics: drawing waited 3.1 ms to compile a known pipeline: pipeline=gx16-00000000000000ab frame=7",
+    line = PipelineDemandMissLine(Miss(gx, 1, 17, 0x00000000000000abull, 7, 3'100'000, false));
+    Check(line == "Graphics: drawing waited 3.1 ms to compile a known pipeline: pipeline=gx17-00000000000000ab frame=7",
           "known GX line");
 
     // A clear v5 configuration, with a full 64-bit key and frame.
@@ -123,7 +123,7 @@ int main()
             seed = seed * 1103515245u + 12345u;
             byte = (seed >> 16) % 5 == 0 ? static_cast<unsigned char>(seed >> 24) : 0;
         }
-        line = PipelineDemandMissLine(Miss(config, 1, 16, n, n, 1'000'000, true));
+        line = PipelineDemandMissLine(Miss(config, 1, 17, n, n, 1'000'000, true));
         Check(LineConfig(line, config.size(), &padding) == config, "random config does not round-trip");
         paddings.insert(padding);
     }

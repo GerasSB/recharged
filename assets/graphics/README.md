@@ -7,7 +7,7 @@ graphics backend builds these pipelines for the current GPU. The first launch on
 a PC compiles them once, on several processor cores; later launches load the
 compiled results from the user's local cache.
 
-The reviewed source is `pipelines.json`: 532 GX v16 configurations and 2
+The reviewed source is `pipelines.json`: 237 GX v17 configurations and 2
 clear v5 configurations, in Aurora's little-endian 64-bit native configuration
 layout. The configurations were recorded by scripted runs: the boot sequence and
 menus, exhibition matches in all 17 stadiums with all 12 captains (default and
@@ -15,12 +15,9 @@ random sidekicks; Mega Strikes and skillshots during play), nine Striker
 Challenges and eight Strikers 101 lessons. This is not proof of complete
 coverage of every effect, language or mode.
 
-The game draws an effect with the fog of the stadium it appears in, and the fog
-type is part of the pipeline configuration. The generated resource therefore
-also holds, for each GX configuration recorded with fog, the same configuration
-under every other fog type the recordings use, including none (340
-configurations). Configurations only recorded without fog, such as menus, have
-no variants.
+The fog type and each vertex array's byte order are chosen per draw rather
+than being part of the configuration (since GX v17), so a configuration
+recorded in one stadium also covers that effect under every other stadium's fog.
 
 A configuration missing from the resource still compiles when it is first
 drawn, and is prepared from the next launch on. The draw waits for that compile,
@@ -28,19 +25,18 @@ so the session log (`logs/mscharged.log`) records it, with the configuration
 itself (zlib, base64) for a configuration new on that PC:
 
 ```text
-Graphics: drawing waited 15.0 ms to compile a new pipeline: pipeline=gx16-d7855b8409c7cf9b frame=62 config=eNrt...
+Graphics: drawing waited 39.8 ms to compile a new pipeline: pipeline=gx17-0e7eb3554ec81fa8 frame=62 config=eNrt...
 ```
 
 The build generator validates SHA-256, versions, byte lengths, basic field
-domains and duplicates, and computes each fog variant's XXH3 key as Aurora does.
-Packaging checks that the generated database exactly matches the source
-catalogue and its fog variants.
+domains and duplicates. Packaging checks that the generated database exactly
+matches the source catalogue.
 
 Change the catalogue deliberately when new coverage is collected; builds never
 scan a developer's runtime caches. To merge the configurations a game run
-recorded (`original-main-credits-data/pipeline_cache.db` beside the executable;
-the fog variants the resource seeded there are skipped), or the new ones that
-testers' session logs list (each line is checked against its key):
+recorded (`original-main-credits-data/pipeline_cache.db` beside the executable),
+or the new ones that testers' session logs list (each line is checked against
+its key):
 
 ```sh
 python3 tools/pipeline_catalog.py --catalog assets/graphics/pipelines.json \

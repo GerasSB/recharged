@@ -17,11 +17,13 @@ CATALOG = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(CATALOG)
 
 # Lines the game wrote (src/runtime/pipeline_demand_log.cpp) when a boot without
-# the bundled resource drew these configurations for the first time.
-GAME_LOG = """Startup: graphics ready, 0 pipelines from 0 configurations in 188 ms
-Graphics: drawing waited 2.1 ms to compile a new pipeline: pipeline=clear5-505fbb1d66a66f52 frame=3 config=eNpjZWBgYGRkZAAAADkACQ==
+# the bundled resource drew these configurations for the first time; the last
+# one is from a build before GX v17 and is skipped.
+GAME_LOG = """Startup: graphics ready, 0 pipelines from 0 configurations in 222 ms
+Graphics: drawing waited 2.4 ms to compile a new pipeline: pipeline=clear5-505fbb1d66a66f52 frame=3 config=eNpjZWBgYGRkZAAAADkACQ==
+Graphics: drawing waited 39.8 ms to compile a new pipeline: pipeline=gx17-0e7eb3554ec81fa8 frame=62 config=eNrtls0KwjAMgPNXJ0MYHnwbX81nj+nIIIbJpu7gIYGPtmlovtJLrwCABpwMVZjjx5FZ4BLX2EjimlhkPK7f29HvRr0nvAb73gJ7HYX6yeiaZ58PRjPE5zlwZ05gf0yJIfGpgwbKoRzKoRzKoRzK4XgHTGfQSg2t9Nqq6/+Hu/EIuduf5OTLf85WcLp/W95FNT8JPgEZFmss
+Graphics: drawing waited 3.1 ms to compile a known pipeline: pipeline=gx17-0e7eb3554ec81fa8 frame=90
 Graphics: drawing waited 15.0 ms to compile a new pipeline: pipeline=gx16-d7855b8409c7cf9b frame=62 config=eNrtls0KgzAMgPNXHTJwl72Nr7ZnzzIWIQaHbnrYIYGvbWKwX+mlNwBAAzpD9Z0dnJkFrjHHRhJzYpEBT9vv4+wjGQzLYP82w95HoX80BuPi695ohvg6B+6sCeyPMdEnvnXQQDmUQzmUQzmUQzmc74DpH7TSQyt7bfW93g+T8Qi1+5/U5Md3zlZwOn+b70U1Xwk+ARvda0U=
-Graphics: drawing waited 3.1 ms to compile a known pipeline: pipeline=gx16-d7855b8409c7cf9b frame=90
 """
 
 
@@ -173,54 +175,13 @@ class PipelineCatalogTests(unittest.TestCase):
             with self.assertRaises(CATALOG.CatalogError):
                 CATALOG.xxh3_64(bytes(size), CATALOG.GX)
 
-    def gx_row(self, fog, marker, frame):
+    def gx_row(self, marker, frame):
         blob = bytearray(2772)
-        blob[0] = 16
-        blob[CATALOG.GX_FOG_TYPE] = fog
-        blob[12] = marker  # Any other field: tells the synthetic configurations apart.
+        blob[0] = 17
+        blob[12] = marker  # Any field: tells the synthetic configurations apart.
         key = CATALOG.xxh3_64(bytes(blob), CATALOG.GX)
-        return {"type": 1, "version": 16, "hash": f"{key:016x}", "first_frame": frame,
+        return {"type": 1, "version": 17, "hash": f"{key:016x}", "first_frame": frame,
                 "config": bytes(blob).hex(), "sha256": hashlib.sha256(blob).hexdigest()}
-
-    def test_fog_variants_cover_every_recorded_fog_type(self):
-        # A: recorded with linear fog and without; B: menus, never fogged;
-        # C: recorded only with exponential fog.
-        self.catalog["pipelines"] += [self.gx_row(2, 1, 50), self.gx_row(0, 1, 30),
-                                      self.gx_row(0, 2, 5), self.gx_row(4, 3, 70)]
-        recorded = self.read()
-        rows = CATALOG.with_fog_variants(recorded)
-        configs = {(row[4][12], row[4][CATALOG.GX_FOG_TYPE]): row for row in rows if row[0] == CATALOG.GX}
-        self.assertEqual(sorted(configs), [(1, 0), (1, 2), (1, 4), (2, 0), (3, 0), (3, 2), (3, 4)])
-        self.assertEqual(len(rows), len(recorded) + 3)
-        self.assertEqual(configs[(1, 4)][5], 30)  # Earliest first use of its recorded variants.
-        self.assertEqual(configs[(3, 0)][5], 70)
-        for row in rows:
-            if row[0] == CATALOG.GX:
-                self.assertEqual(CATALOG.xxh3_64(row[4], CATALOG.GX), row[1] & 0xFFFFFFFFFFFFFFFF)
-        self.assertEqual(rows, sorted(rows, key=lambda r: (r[0], r[1] & 0xFFFFFFFFFFFFFFFF)))
-        self.assertEqual(CATALOG.with_fog_variants(rows), rows)
-        self.assertEqual(CATALOG.catalog_rows(self.source), rows)
-        target = self.root / "initial_pipeline_cache.db"
-        CATALOG.generate(target, rows)
-        CATALOG.verify_database(target, rows)
-        with self.assertRaisesRegex(CATALOG.CatalogError, "differs"):
-            CATALOG.verify_database(target, recorded)
-
-    def test_import_skips_bundled_fog_variants(self):
-        self.catalog["pipelines"] += [self.gx_row(2, 1, 50), self.gx_row(4, 3, 70)]
-        recorded = self.read()
-        # A game run's cache: the bundled resource, plus one configuration it drew.
-        runtime = self.root / "pipeline_cache.db"
-        CATALOG.generate(runtime, CATALOG.with_fog_variants(recorded))
-        learned = self.gx_row(0, 5, 90)
-        key = int(learned["hash"], 16)
-        with closing(sqlite3.connect(runtime)) as db:
-            db.execute("INSERT INTO pipeline_cache VALUES (?,?,?,?,?,?)",
-                       (1, key - (1 << 64) if key >= 1 << 63 else key, 16, 2772,
-                        bytes.fromhex(learned["config"]), 90))
-            db.commit()
-        self.assertEqual(CATALOG.import_databases(self.source, [runtime]), 1)
-        self.assertEqual(len(CATALOG.read_catalog(self.source)), len(recorded) + 1)
 
     def log_line(self, row, frame=7, encoded=None, name="gx"):
         blob = bytes.fromhex(row["config"])
@@ -234,7 +195,7 @@ class PipelineCatalogTests(unittest.TestCase):
         log.write_text(GAME_LOG)
         rows = CATALOG.read_log(log)
         self.assertEqual([(row[0], row[1] & 0xFFFFFFFFFFFFFFFF, row[5]) for row in rows],
-                         [(0, 0x505fbb1d66a66f52, 3), (CATALOG.GX, 0xd7855b8409c7cf9b, 62)])
+                         [(0, 0x505fbb1d66a66f52, 3), (CATALOG.GX, 0x0e7eb3554ec81fa8, 62)])
         catalogue = {(row[0], row[1]): row[4] for row in CATALOG.read_catalog(ROOT / "assets/graphics/pipelines.json")}
         for kind, key, version, size, blob, _ in rows:
             self.assertEqual(catalogue[(kind, key)], blob)
@@ -244,13 +205,13 @@ class PipelineCatalogTests(unittest.TestCase):
         self.assertEqual(len(CATALOG.read_catalog(fresh)), 2)
 
     def test_import_reads_session_logs(self):
-        gx = self.gx_row(0, 9, 0)
+        gx = self.gx_row(9, 0)
         log = self.root / "mscharged.log"
         log.write_text("=== Mario Strikers Charged native port ===\n"
                        "Graphics: drawing waited 1.0 ms to compile a known pipeline: pipeline=gx16-0123456789abcdef frame=4\n"
                        + self.log_line(gx, frame=812)
                        # Another renderer version: skipped, as in a runtime cache.
-                       + self.log_line(dict(gx, version=15), frame=3))
+                       + self.log_line(dict(gx, version=16), frame=3))
         self.read()
         self.assertEqual(CATALOG.import_databases(self.source, [log]), 1)
         rows = {row[1] & 0xFFFFFFFFFFFFFFFF: row for row in CATALOG.read_catalog(self.source)}
@@ -258,20 +219,11 @@ class PipelineCatalogTests(unittest.TestCase):
         self.assertEqual(rows[int(gx["hash"], 16)][5], 812)
         self.assertEqual(CATALOG.import_databases(self.source, [log]), 0)
 
-    def test_import_skips_logged_bundled_fog_variants(self):
-        self.catalog["pipelines"] += [self.gx_row(2, 1, 50), self.gx_row(4, 3, 70)]
-        recorded = self.read()
-        variant = next(row for row in CATALOG.with_fog_variants(recorded) if row not in recorded)
-        log = self.root / "mscharged.log"
-        log.write_text(self.log_line({"version": 16, "hash": f"{variant[1] & 0xFFFFFFFFFFFFFFFF:016x}",
-                                      "config": variant[4].hex()}))
-        self.assertEqual(CATALOG.import_databases(self.source, [log]), 0)
-
     def test_damaged_log_lines_rejected(self):
-        gx = self.gx_row(0, 9, 0)
+        gx = self.gx_row(9, 0)
         blob = bytes.fromhex(gx["config"])
         encoded = base64.b64encode(zlib.compress(blob, 9)).decode()
-        other = self.gx_row(0, 10, 0)
+        other = self.gx_row(10, 0)
         cases = {
             "unreadable configuration": [encoded[:-6] + "*" + encoded[-5:], base64.b64encode(b"not zlib").decode()],
             "truncated": [encoded[:-8]],
@@ -301,7 +253,7 @@ class PipelineCatalogTests(unittest.TestCase):
         self.assertTrue(any(row[0] == 0 for row in recorded))
         self.assertTrue(any(row[0] == 1 for row in recorded))
         rows = CATALOG.catalog_rows(ROOT / "assets/graphics/pipelines.json")
-        self.assertGreater(len(rows), len(recorded))
+        self.assertEqual(rows, recorded)
         self.assertEqual(len({(row[0], row[1]) for row in rows}), len(rows))
         target = self.root / "initial_pipeline_cache.db"
         CATALOG.generate(target, rows)

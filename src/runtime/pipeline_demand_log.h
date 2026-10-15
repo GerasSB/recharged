@@ -10,6 +10,6 @@ namespace mscharged::runtime {
 // raw bytes (zlib, base64), so testers' logs complete the bundled catalogue:
 //   tools/pipeline_catalog.py --catalog assets/graphics/pipelines.json --import mscharged.log
 // Example (config shortened):
-//   Graphics: drawing waited 45.2 ms to compile a new pipeline: pipeline=gx16-1f2e3d4c5b6a7980 frame=18234 config=eNrt...
+//   Graphics: drawing waited 45.2 ms to compile a new pipeline: pipeline=gx17-1f2e3d4c5b6a7980 frame=18234 config=eNrt...
 std::string PipelineDemandMissLine(const AuroraPipelineDemandMiss& miss);
 } // namespace mscharged::runtime
