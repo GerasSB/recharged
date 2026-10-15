@@ -17,12 +17,14 @@ CATALOG = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(CATALOG)
 
 # Lines the game wrote (src/runtime/pipeline_demand_log.cpp) when a boot without
-# the bundled resource drew these configurations for the first time; the last
-# one is from a build before GX v17 and is skipped.
+# the bundled resource drew these configurations for the first time. The third
+# is from a build with the earlier wording; the last is from a build before GX
+# v17 and is skipped.
 GAME_LOG = """Startup: graphics ready, 0 pipelines from 0 configurations in 222 ms
-Graphics: drawing waited 2.4 ms to compile a new pipeline: pipeline=clear5-505fbb1d66a66f52 frame=3 config=eNpjZWBgYGRkZAAAADkACQ==
-Graphics: drawing waited 39.8 ms to compile a new pipeline: pipeline=gx17-0e7eb3554ec81fa8 frame=62 config=eNrtls0KwjAMgPNXJ0MYHnwbX81nj+nIIIbJpu7gIYGPtmlovtJLrwCABpwMVZjjx5FZ4BLX2EjimlhkPK7f29HvRr0nvAb73gJ7HYX6yeiaZ58PRjPE5zlwZ05gf0yJIfGpgwbKoRzKoRzKoRzK4XgHTGfQSg2t9Nqq6/+Hu/EIuduf5OTLf85WcLp/W95FNT8JPgEZFmss
-Graphics: drawing waited 3.1 ms to compile a known pipeline: pipeline=gx17-0e7eb3554ec81fa8 frame=90
+Graphics: new pipeline compiled while drawing in 2.7 ms: pipeline=clear5-505fbb1d66a66f52 frame=3 config=eNpjZWBgYGRkZAAAADkACQ==
+Graphics: new pipeline compiled while drawing in 27.7 ms: pipeline=gx17-0e7eb3554ec81fa8 frame=66 config=eNrtls0KwjAMgPNXJ0MYHnwbX81nj+nIIIbJpu7gIYGPtmlovtJLrwCABpwMVZjjx5FZ4BLX2EjimlhkPK7f29HvRr0nvAb73gJ7HYX6yeiaZ58PRjPE5zlwZ05gf0yJIfGpgwbKoRzKoRzKoRzK4XgHTGfQSg2t9Nqq6/+Hu/EIuduf5OTLf85WcLp/W95FNT8JPgEZFmss
+Graphics: drawing waited 2.4 ms to compile a new pipeline: pipeline=gx17-03cd010aba7c6d6e frame=3359 config=eNrtlksKg0AMQPOzliJIF71Nr+bZ00xJIQaLVl10kcBjZmKYPGeVOwCgARdDFd5xcGUWGOIZO5J4Jha5ndfv6+r/Rq0nzIP92wf2Ogr1o9E0r77vjc4Q3+fAjTmB7TEm+sSvDhooh3Ioh3Ioh3Ioh/MdMN1BCzW00Gutrs0PT2MKucef5GTnnLMWcV6T8F6qqunN8QUY0msq
+Graphics: known pipeline compiled while drawing in 3.1 ms: pipeline=gx17-0e7eb3554ec81fa8 frame=90
 Graphics: drawing waited 15.0 ms to compile a new pipeline: pipeline=gx16-d7855b8409c7cf9b frame=62 config=eNrtls0KgzAMgPNXHTJwl72Nr7ZnzzIWIQaHbnrYIYGvbWKwX+mlNwBAAzpD9Z0dnJkFrjHHRhJzYpEBT9vv4+wjGQzLYP82w95HoX80BuPi695ohvg6B+6sCeyPMdEnvnXQQDmUQzmUQzmUQzmc74DpH7TSQyt7bfW93g+T8Qi1+5/U5Md3zlZwOn+b70U1Xwk+ARvda0U=
 """
 
@@ -187,7 +189,7 @@ class PipelineCatalogTests(unittest.TestCase):
         blob = bytes.fromhex(row["config"])
         if encoded is None:
             encoded = base64.b64encode(zlib.compress(blob, 9)).decode()
-        return (f"Graphics: drawing waited 4.0 ms to compile a new pipeline: "
+        return (f"Graphics: new pipeline compiled while drawing in 4.0 ms: "
                 f"pipeline={name}{row['version']}-{row['hash']} frame={frame} config={encoded}\n")
 
     def test_game_log_lines_hold_the_catalogue_configurations(self):
@@ -195,20 +197,21 @@ class PipelineCatalogTests(unittest.TestCase):
         log.write_text(GAME_LOG)
         rows = CATALOG.read_log(log)
         self.assertEqual([(row[0], row[1] & 0xFFFFFFFFFFFFFFFF, row[5]) for row in rows],
-                         [(0, 0x505fbb1d66a66f52, 3), (CATALOG.GX, 0x0e7eb3554ec81fa8, 62)])
+                         [(0, 0x505fbb1d66a66f52, 3), (CATALOG.GX, 0x0e7eb3554ec81fa8, 66),
+                          (CATALOG.GX, 0x03cd010aba7c6d6e, 3359)])
         catalogue = {(row[0], row[1]): row[4] for row in CATALOG.read_catalog(ROOT / "assets/graphics/pipelines.json")}
         for kind, key, version, size, blob, _ in rows:
             self.assertEqual(catalogue[(kind, key)], blob)
             self.assertEqual((version, size), CATALOG.LAYOUTS[kind])
         fresh = self.root / "fresh.json"
-        self.assertEqual(CATALOG.import_databases(fresh, [log]), 2)
-        self.assertEqual(len(CATALOG.read_catalog(fresh)), 2)
+        self.assertEqual(CATALOG.import_databases(fresh, [log]), 3)
+        self.assertEqual(len(CATALOG.read_catalog(fresh)), 3)
 
     def test_import_reads_session_logs(self):
         gx = self.gx_row(9, 0)
         log = self.root / "mscharged.log"
         log.write_text("=== Mario Strikers Charged native port ===\n"
-                       "Graphics: drawing waited 1.0 ms to compile a known pipeline: pipeline=gx16-0123456789abcdef frame=4\n"
+                       "Graphics: known pipeline compiled while drawing in 1.0 ms: pipeline=gx17-0123456789abcdef frame=4\n"
                        + self.log_line(gx, frame=812)
                        # Another renderer version: skipped, as in a runtime cache.
                        + self.log_line(dict(gx, version=16), frame=3))
@@ -240,8 +243,8 @@ class PipelineCatalogTests(unittest.TestCase):
                 log.write_text("first line\n" + self.log_line(gx, encoded=value))
                 with self.subTest(value=value), self.assertRaisesRegex(CATALOG.CatalogError, f"mscharged.log:2: .*{message}"):
                     CATALOG.import_databases(self.source, [log])
-        for line in ("Graphics: drawing waited 1.0 ms to compile a new pipeline: pipeline=gx16-0123 frame=1 config=AAAA\n",
-                     "Graphics: drawing waited 1.0 ms to compile a new pipeline: pipeline=gx16-0123456789abcdef config=AAAA\n",
+        for line in ("Graphics: new pipeline compiled while drawing in 1.0 ms: pipeline=gx17-0123 frame=1 config=AAAA\n",
+                     "Graphics: new pipeline compiled while drawing in 1.0 ms: pipeline=gx17-0123456789abcdef config=AAAA\n",
                      self.log_line(gx).replace("\n", " trailing\n")):
             log.write_text(line)
             with self.subTest(line=line), self.assertRaisesRegex(CATALOG.CatalogError, "unreadable pipeline line"):

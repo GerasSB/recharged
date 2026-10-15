@@ -14,6 +14,7 @@
 
 #include <sqlite3.h>
 
+#include <algorithm>
 #include <array>
 #include <chrono>
 #include <cstdio>
@@ -263,12 +264,15 @@ void RecordDemandMiss(const AuroraPipelineDemandMiss* miss, void* user) {
   log.configs.emplace_back(bytes, bytes + miss->configSize);
   log.misses.back().config = nullptr;
 }
-// A known configuration drawn to a render target that preparation did not cover.
+// A known configuration drawn to a render target that preparation did not cover;
+// returns once it has compiled, as an encoder would.
 void RequestOnOtherLayout(unsigned index) {
   auto layout = aurora::gfx::scene_render_target_layout();
   layout.colorAttachments[0].semantic = aurora::gfx::ColorAttachmentSemantic::Auxiliary;
   aurora::gfx::detail::finalize_render_target_layout(layout);
-  aurora::gfx::find_pipeline(Configs()[index], layout);
+  const auto ref = aurora::gfx::find_pipeline(Configs()[index], layout);
+  aurora::gfx::CompiledPipeline pipeline;
+  Check(aurora::gfx::get_pipeline(ref, pipeline), "Pipeline for another render target unavailable");
 }
 
 void AutomaticSelectionChecks(int argc, char** argv, AuroraBackend backend,
@@ -600,6 +604,45 @@ void VerifyCatalogue(int argc, char** argv, AuroraBackend backend, unsigned msaa
               startupSeconds, preparationSeconds, static_cast<unsigned long long>(after.demandHits));
   session.Stop();
 }
+
+// Measurement only (--catalog DB --demand-timing N): N catalogue GX
+// configurations missed by draws, compiled one draw after another (each waited
+// for before the next is recorded) and all requested at once, each in a new
+// session without a seed. Run with the driver's shader cache disabled.
+void DemandTiming(int argc, char** argv, AuroraBackend backend, unsigned msaa, const std::filesystem::path& input,
+                  const std::filesystem::path& directory, const std::filesystem::path& resources, unsigned count) {
+  const auto catalogue = ReadCatalogue(input);
+  std::vector<aurora::gx::PipelineConfig> configs;
+  for (const auto& entry : catalogue.configs) {
+    if (const auto* config = std::get_if<aurora::gx::PipelineConfig>(&entry); config && configs.size() < count)
+      configs.push_back(*config);
+  }
+  Check(configs.size() == count, "Catalogue holds fewer GX configurations than requested");
+  unsigned run = 0;
+  for (const bool together : {false, true, false, true}) {
+    Session session;
+    Start(session, argc, argv, backend, directory / ("timing-" + std::to_string(run++)), resources, msaa);
+    aurora_prepare_pipelines();
+    Check(WaitReady().knownConfigs == 0, "Timing session did not start empty");
+    const auto scene = aurora::gfx::scene_render_target_layout();
+    aurora::gfx::CompiledPipeline pipeline;
+    const auto started = std::chrono::steady_clock::now();
+    if (together) {
+      std::vector<aurora::gfx::PipelineRef> refs;
+      for (const auto& config : configs) refs.push_back(aurora::gfx::find_pipeline(config, scene));
+      for (const auto ref : refs) Check(aurora::gfx::get_pipeline(ref, pipeline), "Timed pipeline unavailable");
+    } else {
+      for (const auto& config : configs)
+        Check(aurora::gfx::get_pipeline(aurora::gfx::find_pipeline(config, scene), pipeline), "Timed pipeline unavailable");
+    }
+    const double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count();
+    const auto status = WaitReady();
+    std::printf("Demand timing: %u pipelines %s in %.1f ms (encoders waited %.1f ms)\n", count,
+                together ? "requested at once" : "one after another", seconds * 1e3,
+                status.demandWaitNanoseconds / 1e6);
+    session.Stop();
+  }
+}
 }
 
 int main(int argc, char** argv) {
@@ -616,9 +659,12 @@ int main(int argc, char** argv) {
          std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
     std::filesystem::path catalogue;
     unsigned catalogueMsaa = 1;
+    unsigned demandTiming = 0;
     for (int i = 1; i < argc; ++i) {
       const std::string arg = argv[i];
-      if (arg == "--directory" && i + 1 < argc) {
+      if (arg == "--demand-timing" && i + 1 < argc) {
+        demandTiming = static_cast<unsigned>(std::stoul(argv[++i]));
+      } else if (arg == "--directory" && i + 1 < argc) {
         directory = std::filesystem::path(reinterpret_cast<const char8_t*>(argv[++i]));
       } else if (arg == "--catalog" && i + 1 < argc) {
         catalogue = std::filesystem::path(reinterpret_cast<const char8_t*>(argv[++i]));
@@ -632,11 +678,15 @@ int main(int argc, char** argv) {
         else if (value == "dx12") backend = BACKEND_D3D12;
         else if (value == "metal") backend = BACKEND_METAL;
         else throw std::runtime_error("Unknown backend");
-      } else throw std::runtime_error("Usage: pipeline_warmup_gpu_tests [--backend vulkan|dx12|metal] [--directory NEW_PATH] [--catalog DB --msaa 1|4]");
+      } else throw std::runtime_error("Usage: pipeline_warmup_gpu_tests [--backend vulkan|dx12|metal] [--directory NEW_PATH] [--catalog DB --msaa 1|4 [--demand-timing N]]");
     }
     Check(!std::filesystem::exists(directory), "Fixture directory must be new (preserves existing caches)");
     const auto resources = directory / "resources";
     std::filesystem::create_directories(resources);
+    if (!catalogue.empty() && demandTiming != 0) {
+      DemandTiming(argc, argv, backend, catalogueMsaa, catalogue, directory, resources, demandTiming);
+      return 0;
+    }
     if (!catalogue.empty()) {
       VerifyCatalogue(argc, argv, backend, catalogueMsaa, catalogue, directory, resources);
       std::printf("Catalogue GPU passed (%u checks); evidence: %s\n", checks, Utf8(directory).c_str());
@@ -655,26 +705,42 @@ int main(int argc, char** argv) {
       Check(empty.knownConfigs == 0 && empty.totalPipelines == 0, "Missing seed did not start empty");
       DemandMissLog demand;
       aurora_set_pipeline_demand_miss_callback(RecordDemandMiss, &demand);
-      RequestKnown(false);
+      // Recording does not wait for missing pipelines: all eight compile at
+      // once, and each draw waits only when it is encoded (get_pipeline).
+      const auto configs = Configs();
+      const auto scene = aurora::gfx::scene_render_target_layout();
+      std::vector<aurora::gfx::PipelineRef> refs;
+      for (const auto& config : configs) refs.push_back(aurora::gfx::find_pipeline(config, scene));
+      Check(aurora_pipeline_warmup_status().pendingPipelines > 0, "Recording waited for missing pipelines");
+      for (const auto ref : refs) {
+        aurora::gfx::CompiledPipeline pipeline;
+        Check(aurora::gfx::get_pipeline(ref, pipeline), "Encoding did not wait for a missing pipeline");
+      }
       const auto observed = WaitReady();
       Check(observed.demandMisses == 8 && observed.demandWaitNanoseconds > 0,
             "Cold unknown pipelines did not record demand compilation waits");
       Check(observed.knownConfigs == 8, "Observed configurations were not retained");
-      // Each wait was reported once, in draw order, with the configuration's bytes.
+      // Each miss was reported once, as its pipeline compiled, with its bytes.
       Check(demand.misses.size() == 8, "Cold demand misses were not reported once each");
-      const auto configs = Configs();
-      uint64_t reportedWait = 0;
-      for (size_t i = 0; i < configs.size(); ++i) {
-        const auto& miss = demand.misses[i];
+      std::array<unsigned, 8> reported{};
+      uint64_t reportedCompile = 0;
+      for (size_t n = 0; n < demand.misses.size(); ++n) {
+        const auto& miss = demand.misses[n];
         Check(miss.shaderType == 0 && miss.configVersion == aurora::gfx::clear::ClearPipelineConfigVersion &&
-              miss.configSize == sizeof configs[i] && miss.newConfiguration && miss.waitNanoseconds > 0,
+              miss.configSize == sizeof configs[0] && miss.newConfiguration && miss.compileNanoseconds > 0,
               "A cold demand miss was not reported as a new configuration");
-        Check(std::memcmp(demand.configs[i].data(), &configs[i], sizeof configs[i]) == 0,
-              "A reported configuration differs from the drawn one");
+        const auto i = static_cast<size_t>(std::find_if(configs.begin(), configs.end(), [&](const auto& config) {
+          return std::memcmp(demand.configs[n].data(), &config, sizeof config) == 0;
+        }) - configs.begin());
+        Check(i < configs.size(), "A reported configuration differs from every drawn one");
         Check(miss.configKey == aurora::xxh3_hash(configs[i], 0), "A reported key is not the cache key");
-        reportedWait += miss.waitNanoseconds;
+        ++reported[i];
+        reportedCompile += miss.compileNanoseconds;
       }
-      Check(reportedWait == observed.demandWaitNanoseconds, "Reported waits differ from the demand statistics");
+      Check(std::all_of(reported.begin(), reported.end(), [](unsigned count) { return count == 1; }),
+            "A drawn configuration was not reported exactly once");
+      // The encoder waited while the eight compiled together: less than their sum.
+      Check(observed.demandWaitNanoseconds < reportedCompile, "Encoding waited longer than the compiles took");
       VerifyHits(8);
       Check(demand.misses.size() == 8, "A prepared request was reported as a demand miss");
       session.Stop();
@@ -707,7 +773,7 @@ int main(int argc, char** argv) {
       aurora_set_pipeline_demand_miss_callback(RecordDemandMiss, &known);
       RequestOnOtherLayout(0);
       Check(known.misses.size() == 1 && !known.misses[0].newConfiguration && known.misses[0].shaderType == 0 &&
-            known.misses[0].waitNanoseconds > 0, "A known configuration's demand miss was not reported as known");
+            known.misses[0].compileNanoseconds > 0, "A known configuration's demand miss was not reported as known");
       aurora_set_pipeline_demand_miss_callback(nullptr, nullptr);
       RequestOnOtherLayout(2);
       Check(known.misses.size() == 1, "A cleared demand miss callback still received reports");

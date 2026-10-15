@@ -42,8 +42,8 @@ std::string PipelineDemandMissLine(const AuroraPipelineDemandMiss& miss)
     const char* type = miss.shaderType == 1 ? "gx" : miss.shaderType == 0 ? "clear" : "other";
     char text[192];
     std::snprintf(text, sizeof text,
-                  "Graphics: drawing waited %.1f ms to compile a %s pipeline: pipeline=%s%u-%016llx frame=%u",
-                  double(miss.waitNanoseconds) / 1e6, miss.newConfiguration ? "new" : "known", type,
+                  "Graphics: %s pipeline compiled while drawing in %.1f ms: pipeline=%s%u-%016llx frame=%u",
+                  miss.newConfiguration ? "new" : "known", double(miss.compileNanoseconds) / 1e6, type,
                   unsigned(miss.configVersion), static_cast<unsigned long long>(miss.configKey), unsigned(miss.frame));
     std::string line = text;
     // A known configuration is already in a catalogue or this PC's cache.

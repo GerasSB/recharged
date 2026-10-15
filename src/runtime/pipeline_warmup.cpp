@@ -129,7 +129,7 @@ void LogGraphicsPipelineStats()
         " configurations, " + std::to_string(status.readyPipelines) + " ready, " +
         std::to_string(status.demandHits) + " demand hits, " +
         std::to_string(status.demandMisses) + " demand misses, " +
-        std::to_string(status.demandWaitNanoseconds / 1000000) + " ms resolving misses");
+        std::to_string(status.demandWaitNanoseconds / 1000000) + " ms waiting for them");
 }
 
 } // namespace mscharged::runtime

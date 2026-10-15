@@ -104,3 +104,4 @@
 0108-report-pipeline-demand-misses.patch
 0109-host-paced-video-frames.patch
 0110-select-fog-and-array-byte-order-per-draw.patch
+0111-compile-draw-pipelines-in-parallel.patch

@@ -20,12 +20,12 @@ than being part of the configuration (since GX v17), so a configuration
 recorded in one stadium also covers that effect under every other stadium's fog.
 
 A configuration missing from the resource still compiles when it is first
-drawn, and is prepared from the next launch on. The draw waits for that compile,
-so the session log (`logs/mscharged.log`) records it, with the configuration
-itself (zlib, base64) for a configuration new on that PC:
+drawn, and is prepared from the next launch on. The frame waits for that
+compile, so the session log (`logs/mscharged.log`) records it, with the
+configuration itself (zlib, base64) for a configuration new on that PC:
 
 ```text
-Graphics: drawing waited 39.8 ms to compile a new pipeline: pipeline=gx17-0e7eb3554ec81fa8 frame=62 config=eNrt...
+Graphics: new pipeline compiled while drawing in 39.8 ms: pipeline=gx17-0e7eb3554ec81fa8 frame=62 config=eNrt...
 ```
 
 The build generator validates SHA-256, versions, byte lengths, basic field
