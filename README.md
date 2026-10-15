@@ -29,6 +29,7 @@ macOS** are available.
    | Linux, x86_64 | `mscharged-<version>-linux-x86_64.tar.gz` |
    | Steam Deck (SteamOS 3.7 or newer) | `mscharged-<version>-steamdeck-x86_64.tar.gz` |
    | macOS, Apple Silicon (M1 or newer) | `mscharged-<version>-macos-arm64.tar.gz` |
+   | macOS 15 or newer, Intel | `mscharged-<version>-macos-x86_64.tar.gz` |
 
 2. Unpack it into a folder of your choice and keep all its files together.
 3. Start **`mscharged.exe`** (Windows) or **`mscharged`** (Linux, macOS).
@@ -94,6 +95,7 @@ workflow (badge above: latest `stable` build).
 | Steam Deck (SteamOS 3.7+) | Ubuntu 24.04, GCC 14, Vulkan | `.tar.gz` | Not yet tested on a Steam Deck |
 | Windows x86_64 | Cross-compiled with LLVM-MinGW, Vulkan | `.zip` | Playable; tested on Windows |
 | macOS Apple Silicon | macOS 15, Apple Clang, Metal | `.tar.gz` | Playable; tested on Apple Silicon |
+| macOS Intel | macOS 15, Apple Clang, Metal | `.tar.gz` | Not yet tested on an Intel Mac |
 
 ## Game data
 

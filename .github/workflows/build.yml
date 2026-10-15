@@ -40,6 +40,13 @@ jobs:
           - platform: macos-arm64
             runner: macos-15
             jobs: 3
+            arch: arm64
+          # Intel Macs: GitHub's last x86_64 macOS image, same Xcode and
+          # deployment target as the Apple Silicon build.
+          - platform: macos-x86_64
+            runner: macos-15-intel
+            jobs: 4
+            arch: x86_64
     defaults:
       run:
         shell: bash
@@ -81,8 +88,10 @@ jobs:
           "g++-$GCC_VERSION" --version
       - name: Install macOS tools
         if: runner.os == 'macOS'
+        env:
+          MACOS_ARCH: ${{ matrix.arch }}
         run: |
-          test "$(uname -m)" = arm64
+          test "$(uname -m)" = "$MACOS_ARCH"
           # Aurora needs std::jthread (Apple Clang 17). Xcode 26 on the macOS 15
           # image keeps the deployment target at macOS 15.
           sudo xcode-select -s /Applications/Xcode_26.3.app
@@ -351,7 +360,7 @@ jobs:
         working-directory: release
         run: |
           ls -la
-          test "$(ls *.tar.gz *.zip | wc -l)" -eq 4
+          test "$(ls *.tar.gz *.zip | wc -l)" -eq 5
           sha256sum *.tar.gz *.zip > SHA256SUMS
           cat SHA256SUMS
       - name: Draft the release
