@@ -85,6 +85,11 @@ The launcher's **Gameplay** page (or `[gameplay]` in `mscharged.ini`) turns them
   Stadium: the same running speed, ball roll and bounce, no sliding on ice or
   mud and no slow sand in the Sand Tomb. Stadium looks and hazards stay;
   online matches are unchanged.
+- **Mirror match**: both teams can pick the same captain in Domination. The
+  away team then wears the captain's away kit if the game has one (Bowser,
+  Bowser Jr., Daisy, Diddy Kong, Donkey Kong, Petey and Yoshi); with Mario,
+  Luigi, Peach, Wario and Waluigi both teams look the same. Online matches
+  are unchanged.
 
 `--no-tweaks` turns them off for one run.
 

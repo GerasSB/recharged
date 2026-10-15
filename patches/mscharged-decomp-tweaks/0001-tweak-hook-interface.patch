@@ -16,7 +16,7 @@ new file mode 100644
 index 0000000..df94716
 --- /dev/null
 +++ b/include/mscharged_tweaks.h
-@@ -0,0 +1,75 @@
+@@ -0,0 +1,76 @@
 +#ifndef MSCHARGED_TWEAKS_H
 +#define MSCHARGED_TWEAKS_H
 +
@@ -39,6 +39,7 @@ index 0000000..df94716
 +    MSCHARGED_TWEAK_UNLOCK_ALL = 3,
 +    MSCHARGED_TWEAK_CPU_VS_CPU = 4,
 +    MSCHARGED_TWEAK_FAST_TERRAIN = 5,
++    MSCHARGED_TWEAK_MIRROR_MATCH = 6,
 +};
 +
 +bool mscharged_tweak_enabled(int tweak);
