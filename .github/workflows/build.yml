@@ -106,7 +106,7 @@ jobs:
           rustup default stable
           cargo --version
       - name: Prepare pinned dependencies
-        run: python tools/setup_dependencies.py
+        run: python tools/setup_dependencies.py --shallow
       # Outside the checkout: an untracked folder there marks the version .dirty.
       # (The runner context is not available in job-level env.)
       - name: Place compiler cache
@@ -216,7 +216,7 @@ jobs:
           rustup target add x86_64-pc-windows-gnullvm
           cargo --version
       - name: Prepare pinned dependencies
-        run: python tools/setup_dependencies.py
+        run: python tools/setup_dependencies.py --shallow
       # Outside the checkout: an untracked folder there marks the version .dirty.
       # (The runner context is not available in job-level env.)
       - name: Place compiler cache
