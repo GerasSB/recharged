@@ -102,4 +102,5 @@
 0106-expose-native-address-generation.patch
 0107-release-unused-native-textures.patch
 0108-report-pipeline-demand-misses.patch
+0109-host-paced-video-frames.patch
 0110-select-fog-and-array-byte-order-per-draw.patch
