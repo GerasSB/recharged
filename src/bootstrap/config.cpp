@@ -37,7 +37,7 @@ Values Encode(const Settings& s)
     Values values{{"game.disc", s.disc}, {"game.save_folder", s.save_folder}, {"game.language", s.language},
             {"display.width", std::to_string(s.width)}, {"display.height", std::to_string(s.height)},
             {"display.fullscreen", s.fullscreen ? "true" : "false"},
-            {"display.vsync", s.vsync ? "true" : "false"},
+            {"display.vsync", s.vsync ? "true" : "false"}, {"display.frame_rate", s.frame_rate},
             {"display.backend", s.backend}, {"display.aspect", s.aspect}, {"display.picture", s.picture},
             {"display.antialiasing", s.antialiasing}, {"display.resolution", s.resolution},
             {"audio.master_volume", std::to_string(s.master_volume)},
@@ -51,13 +51,13 @@ Values Encode(const Settings& s)
             {"controls.mouse_pointer", s.mouse_pointer ? "true" : "false"},
             {"controls.bluetooth_search", s.bluetooth_search ? "true" : "false"},
             {"controls.sensor_bar", s.sensor_bar},
-            {"display.show_fps", s.show_fps ? "true" : "false"},
             {"display.fps_overlay", s.fps_overlay ? "true" : "false"},
             {"display.fps_overlay_corner", s.fps_overlay_corner},
             {"display.monitor", std::to_string(s.monitor)},
             {"advanced.graphics_validation", s.graphics_validation ? "true" : "false"},
             {"advanced.log_level", s.log_level},
             {"advanced.verbose_console", s.verbose_console ? "true" : "false"},
+            {"advanced.frame_logging", s.frame_logging ? "true" : "false"},
             {"launcher.ui_scale", s.ui_scale}};
     for (std::size_t n = 0; n < KeyActionCount; ++n)
         values.emplace(std::string("keyboard.") + kKeyActions[n].key, s.keys[n]);
@@ -118,6 +118,14 @@ Settings Decode(const Values& values)
     number("display.height", s.height, 1, 16384);
     boolean("display.fullscreen", s.fullscreen);
     boolean("display.vsync", s.vsync);
+    if (const auto it = values.find("display.frame_rate"); it != values.end())
+    {
+        if (!ParseFrameRate(it->second))
+            throw std::runtime_error("Invalid configuration: display.frame_rate must be original, display, unlimited "
+                "or a number of frames per second from " + std::to_string(kMinFrameRate) + " to "
+                + std::to_string(kMaxFrameRate));
+        s.frame_rate = it->second;
+    }
     choice("display.backend", s.backend, {"auto", "vulkan", "metal", "d3d12"});
     choice("display.aspect", s.aspect, {"auto", "4:3", "16:9", "16:10", "21:9"});
     choice("display.picture", s.picture, {"soft", "clean", "sharp"});
@@ -215,13 +223,13 @@ Settings Decode(const Values& values)
     boolean("controls.mouse_pointer", s.mouse_pointer);
     boolean("controls.bluetooth_search", s.bluetooth_search);
     choice("controls.sensor_bar", s.sensor_bar, {"bottom", "top"});
-    boolean("display.show_fps", s.show_fps);
     boolean("display.fps_overlay", s.fps_overlay);
     choice("display.fps_overlay_corner", s.fps_overlay_corner, {"top-left", "top-right", "bottom-left", "bottom-right"});
     number("display.monitor", s.monitor, 0, 15);
     boolean("advanced.graphics_validation", s.graphics_validation);
     choice("advanced.log_level", s.log_level, {"error", "warning", "info", "debug"});
     boolean("advanced.verbose_console", s.verbose_console);
+    boolean("advanced.frame_logging", s.frame_logging);
     choice("launcher.ui_scale", s.ui_scale, {"auto", "75", "100", "125", "150", "175", "200"});
     for (std::size_t n = 0; n < kGameTweaks.size(); ++n)
     {
@@ -286,7 +294,8 @@ Values Parse(const std::string& contents, std::string* updated = nullptr, Values
                 if (!values.emplace(full_key, value).second)
                     throw std::runtime_error("Invalid configuration: duplicate " + full_key);
                 key_line = true;
-                drop = updated && OwnedSection(section) && !kept.count(full_key);
+                drop = updated && ((OwnedSection(section) && !kept.count(full_key))
+                    || full_key == "display.show_fps"); // Retired title-bar counter; accept old INIs.
                 if (const auto it = replacements.find(full_key); it != replacements.end())
                 {
                     if (it->second != value)

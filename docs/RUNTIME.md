@@ -8,6 +8,30 @@ configuration, and the [feature list](FEATURES.md) for what is supported.
 ## Graphics prerequisites
 
 Linux uses Vulkan; macOS selects Metal and remains under runtime validation.
+On Windows, **Advanced → Graphics API** selects Vulkan or DirectX 12 for the
+next game launch (`display.backend = vulkan` or `d3d12` in the INI). Existing
+`auto` settings keep Vulkan. A failed selection reports an error without
+switching APIs. Keep the three shader compiler DLLs included in the Windows ZIP
+beside `mscharged.exe`.
+
+Before the game starts, **Preparing graphics** builds the game's drawing and
+effect pipelines for the selected graphics API and GPU: the ones listed in the
+package's `assets/graphics/initial_pipeline_cache.db`, recorded from runs through
+every stadium and captain, and any others the game has used on this PC. The
+first launch compiles them all once, on several processor cores; later launches
+load them from the local cache. Nothing is prepared once the game runs: a
+pipeline missing from both compiles when it is first drawn, which can cause a
+brief stutter, and is prepared from the next launch on. The session log records
+each of these (`Graphics: new pipeline compiled while drawing in … ms`) with
+its configuration; attach the log to an issue to get it added to the package's
+list. Driver, GPU or renderer changes may require compilation again. Keep
+`assets/graphics/initial_pipeline_cache.db` in the package.
+
+Each graphics API retains its own compatible compiled data across launches,
+including when switching away from that API and back. The session log records
+the preparation time and pipeline cache hits, misses and time spent resolving
+misses.
+
 Install the [build prerequisites](BUILDING.md#requirements), then initialize the
 required pinned sources from the repository root:
 
@@ -17,7 +41,8 @@ python3 tools/setup_dependencies.py
 
 The first graphics build is large. Adjust parallelism for available memory.
 Real GPU tests are opt-in; the Vulkan test gate requires Linux and installed
-validation layers. Windows and other disc regions remain unsupported.
+validation layers. DirectX 12 rendering and performance still need validation
+on real Windows hardware. Other disc regions remain unsupported.
 
 ## Original frontend sequence
 
@@ -99,6 +124,22 @@ the DolphinBar slot or Bluetooth address; **Advanced → Verbose console** or
 HID devices the launcher sees and how each Remote answers (also in
 `logs/mscharged.log`).
 
+## Steam Deck
+
+Use the `steamdeck-x86_64` package (SteamOS 3.7 or newer).
+
+1. In Desktop Mode, unpack it to a folder you can write to, such as
+   `~/Games/mscharged`, and start `mscharged`. Choose the disc on the
+   **Game** page; on **Controls**, set player 1 to `gamepad1` (Steam presents
+   the Deck's buttons and sticks as a gamepad).
+2. In Steam, choose *Games → Add a Non-Steam Game to My Library* and add
+   `mscharged` from that folder.
+3. Start it from the library in Game Mode and press **Play** in the launcher.
+
+In Game Mode (gamescope) the game opens fullscreen; `--window` in the
+shortcut's launch options keeps a window. The Steam Deck build has not been
+tested on a Deck yet.
+
 ## Saves
 
 The game keeps its Wii saves (`Strikers2` and `banner.bin`) in
@@ -114,19 +155,44 @@ in the save folder. Dolphin's encrypted `data.bin` exports are not supported.
 
 ## Performance log
 
-`MSCHARGED_FRAME_LOG=frames.csv` writes one row per original game frame (frame
-time, game-thread and process CPU, VI fields, presents, draws, pipeline creations)
-and, on exit, `frames.csv.summary.txt` with the frame-time distribution and the
-longest frames.
+Enable **Advanced → Diagnostics & analytics → Frame logging** to record frame
+times (`advanced.frame_logging = true` in the INI; off by default). Each game
+session writes a new `frame-times_<timestamp>_<process>.csv` directly beside the
+executable, with one row per original game frame: frame time, game-thread and
+process CPU, VI fields, presents, draws and pipeline creations. On exit, an
+adjacent `.csv.summary.txt` reports the distribution and longest frames.
+**Frame recordings → Open folder** opens that location. It must be writable;
+logging failures are reported in the session log. The old `MSCHARGED_FRAME_LOG`
+environment variable no longer enables logging or selects its output path.
+
+The same card includes **Clear shader cache**, which removes compiled shaders and
+the pipelines learned on this PC for all graphics APIs. The next launch prepares
+the bundled pipelines again.
+Clearing is refused while a game is using the cache. Saves, settings and frame
+recordings are kept.
 
 ## Run options
 
 Both tests accept `--config FILE`, `--disc FILE` (also `--disk`), `--window`,
-`--fullscreen`, `--size WIDTHxHEIGHT`, `--aspect auto|4:3|16:9` and `--no-tweaks`
+`--fullscreen`, `--size WIDTHxHEIGHT`, `--aspect auto|4:3|16:9`,
+`--frame-rate original|display|unlimited|FPS` and `--no-tweaks`
 (the `[gameplay]` tweaks off). These override INI settings for this run without saving. The default layout is 16:9; resizing
 preserves the selected layout and fills unused space with bars. The launcher also
-saves the start display, VSync, the frame rate counter (window title or on
-screen), speaker volume, graphics validation and log detail in `mscharged.ini`.
+saves the start display, VSync, the performance overlay, speaker volume,
+graphics validation and log detail in `mscharged.ini`.
+
+**Display → Frame rate** (`frame_rate` in `[display]`) draws above the console's
+60 FPS: `display` follows the refresh rate of the window's display, `unlimited`
+sets no limit, and a number from 30 to 1000 caps the rate. VSync holds any rate
+to the display's. The game keeps its speed; the VI keeps its real 59.94 Hz for
+movies and everything else that counts it. The session log's `Frame rate:` line
+shows how frames are paced.
+
+**Display → Performance overlay** shows `FPS | GPU | CPU | LAT` in the selected
+corner, including in fullscreen. GPU and CPU show total system usage, including
+other apps, sampled twice per second. GPU shows the busiest reported device or
+engine; drivers or permissions that hide usage counters show `N/A`. LAT stays
+`N/A` until networking is available. The window title contains no FPS counter.
 
 ## Other checks
 

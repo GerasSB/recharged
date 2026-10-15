@@ -8,6 +8,7 @@
 #include "imgui_stdlib.h"
 
 #include "bootstrap/launch_options.h"
+#include "bootstrap/graphics_backend.h"
 #include "launcher/player_lineup.h"
 #include "launcher/ui_kit.h"
 #include "launcher/ui_metrics.h"
@@ -19,6 +20,7 @@
 #include "platform/app_icon.h"
 #include "platform/path.h"
 #include "platform/save_import.h"
+#include "platform/shader_cache.h"
 #include "platform/session_log.h"
 #include "platform/gamepad_bindings.h"
 #include "platform/key_bindings.h"
@@ -599,6 +601,8 @@ private:
         if (!SupportedRelease(*check_.info))
             return "Only the USA version of Mario Strikers Charged (R4QE01) is supported for now.";
         const auto settings = EffectiveLaunch().settings;
+        try { ResolveGraphicsBackend(settings.backend); }
+        catch (const std::invalid_argument& error) { return error.what(); }
         if (settings.aspect != "auto" && settings.aspect != "4:3" && settings.aspect != "16:9")
             return "Choose Automatic, 4:3 or 16:9 as the aspect ratio on the Display page.";
         if (settings.language != "auto" && settings.language != "english" && settings.language != "french"
@@ -636,6 +640,7 @@ private:
         command += s.fullscreen ? " --fullscreen" : " --window";
         command += " --size " + std::to_string(s.width) + "x" + std::to_string(s.height);
         command += " --aspect " + s.aspect;
+        command += " --frame-rate " + s.frame_rate;
         // Tweaks come from the INI; without any here, keep the INI's off too.
         if (s.GameTweakMask() == 0 && file_.settings.GameTweakMask() != 0) command += " --no-tweaks";
         return command;
@@ -892,8 +897,10 @@ private:
     {
         const auto s = EffectiveLaunch().settings;
         std::string aspect = s.aspect == "auto" ? "Automatic aspect" : s.aspect;
+        std::string detail = aspect + (s.vsync ? "  -  VSync on" : "  -  VSync off");
+        if (s.frame_rate != "original") detail += "  -  " + FrameRateLabel(s.frame_rate);
         return {s.fullscreen ? "Fullscreen" : std::to_string(s.width) + " x " + std::to_string(s.height) + " window",
-                aspect + (s.vsync ? "  -  VSync on" : "  -  VSync off"), color::info};
+                detail, color::info};
     }
 
     Summary LanguageSummary() const
@@ -1126,7 +1133,8 @@ private:
     void GamePage()
     {
         PageHeader("Game", "Your Mario Strikers Charged disc image. ISO and RVZ files are read directly; nothing is extracted.");
-        if (options_.launch.disc || options_.launch.size || options_.launch.fullscreen || options_.launch.aspect)
+        if (options_.launch.disc || options_.launch.size || options_.launch.fullscreen || options_.launch.aspect
+            || options_.launch.frame_rate)
         {
             Chip("Command-line options apply to this run only", color::info, Icon::Info);
             ImGui::Dummy({0, Dp(2)});
@@ -1403,10 +1411,11 @@ private:
     {
         PageHeader("Display", "How the game window opens and how sharply the game is drawn.");
         const auto run = EffectiveLaunch().settings;
-        if (options_.launch.size || options_.launch.fullscreen || options_.launch.aspect)
+        if (options_.launch.size || options_.launch.fullscreen || options_.launch.aspect || options_.launch.frame_rate)
         {
             const std::string text = "This run: " + std::to_string(run.width) + " x " + std::to_string(run.height) + ", "
-                + run.aspect + (run.fullscreen ? ", fullscreen" : ", windowed") + " (command line, not saved)";
+                + run.aspect + (run.fullscreen ? ", fullscreen" : ", windowed") + ", " + FrameRateLabel(run.frame_rate)
+                + " (command line, not saved)";
             Chip(text.c_str(), color::info, Icon::Info);
             ImGui::Dummy({0, Dp(2)});
         }
@@ -1474,24 +1483,76 @@ private:
 
             Row("VSync", "Synchronizes frames with your display to prevent tearing.");
             if (Toggle("##vsync", &draft_.vsync)) dirty_ = true;
+
+            Row("Frame rate", "Original is the console's 60 FPS. Higher rates draw more frames for smoother motion "
+                "while the game keeps its own speed; Display follows your display's refresh rate.");
+            FrameRateChoice();
             EndRows();
         }
         EndCard();
 
-        BeginCard("##frame_rate", "Frame rate", "The game's frames per second while you play.", Icon::Info);
+        BeginCard("##frame_rate", "Performance overlay", "FPS, system GPU and CPU usage, and network latency.", Icon::Info);
         if (BeginRows("##frame_rate_rows"))
         {
-            Row("In the window title", "Next to the game's name in the title bar; not visible in fullscreen.");
-            if (Toggle("##fps", &draft_.show_fps)) dirty_ = true;
-
-            Row("On screen", "A small counter in a corner of the game window, also in fullscreen.");
+            Row("On screen", "A compact row in a corner, also in fullscreen. Latency shows N/A until online play is available.");
             if (Toggle("##fps_overlay", &draft_.fps_overlay)) dirty_ = true;
 
-            Row("Corner", "Where the on-screen counter sits.");
+            Row("Corner", "Where the performance overlay sits.");
             FpsCornerChoice();
             EndRows();
         }
         EndCard();
+    }
+
+    // The refresh rate of the display the game opens on (display.monitor), 0
+    // when unknown.
+    double StartDisplayRefresh() const
+    {
+        SDL_DisplayID display = SDL_GetPrimaryDisplay();
+        if (draft_.monitor > 0 && draft_.monitor <= int(display_ids_.size()))
+            display = display_ids_[std::size_t(draft_.monitor - 1)];
+        const SDL_DisplayMode* mode = display ? SDL_GetDesktopDisplayMode(display) : nullptr;
+        if (!mode) return 0.0;
+        if (mode->refresh_rate_numerator > 0 && mode->refresh_rate_denominator > 0)
+            return double(mode->refresh_rate_numerator) / double(mode->refresh_rate_denominator);
+        return KnownRefreshRate(mode->refresh_rate) ? double(mode->refresh_rate) : 0.0;
+    }
+
+    static std::string FrameRateLabel(const std::string& value)
+    {
+        if (value == "original") return "original frame rate";
+        if (value == "display") return "display refresh rate";
+        if (value == "unlimited") return "unlimited FPS";
+        return value + " FPS";
+    }
+
+    void FrameRateChoice()
+    {
+        static constexpr const char* values[] = {"original", "display", "120", "144", "unlimited"};
+        int selected = -1;
+        for (int i = 0; i < 5; ++i) if (draft_.frame_rate == values[i]) selected = i;
+        if (Segmented("##frame_rate", &selected, {"Original", "Display", "120", "144", "Unlimited"},
+                      ImGui::GetContentRegionAvail().x))
+        { draft_.frame_rate = values[selected]; dirty_ = true; }
+        const auto rate = ParseFrameRate(draft_.frame_rate);
+        if (!rate) return;
+        std::string note;
+        if (selected < 0) note = "Saved value: " + draft_.frame_rate + " FPS. ";
+        if (rate->kind != FrameRate::Kind::Original)
+        {
+            const double display = StartDisplayRefresh();
+            const auto pacing = DecideFramePacing(*rate, display, draft_.vsync);
+            const auto hz = [](double value) { return std::to_string(int(std::lround(value))); };
+            if (pacing.vsync_paces && KnownRefreshRate(display))
+                note += "VSync holds it to this display's " + hz(display) + " Hz.";
+            else if (KnownRefreshRate(display) && pacing.target_hz > display + 0.5)
+                note += "This display refreshes at " + hz(display) + " Hz, so it cannot show every frame.";
+            else if (pacing.target_hz == 0.0)
+                note += "No limit: the game draws as fast as your computer allows.";
+            else if (KnownRefreshRate(display))
+                note += "This display refreshes at " + hz(display) + " Hz.";
+        }
+        if (!note.empty()) TextWrappedColored(CurrentFonts().caption, color::muted, note.c_str());
     }
 
     void FpsCornerChoice()
@@ -2741,8 +2802,26 @@ private:
 
     void GameplayPage()
     {
+        const ImVec2 header = ImGui::GetCursorScreenPos();
+        const float right = header.x + ImGui::GetContentRegionAvail().x;
         PageHeader("Gameplay", "Optional tweaks that change the original game. With all of them off, the game plays "
                                "as on the Wii.");
+        const ImVec2 content = ImGui::GetCursorScreenPos();
+        const auto& fonts = CurrentFonts();
+        const ImVec2 label = TextSize(fonts.body, "All tweaks");
+        DrawLabel(ImGui::GetWindowDrawList(), fonts.body,
+                  {right - Dp(60) - label.x, header.y + (FontSize(fonts.title) - label.y) * 0.5f},
+                  Col(color::muted), "All tweaks");
+        ImGui::SetCursorScreenPos({right - Dp(48), header.y + (FontSize(fonts.title) - Dp(28)) * 0.5f});
+        bool all_enabled = std::all_of(draft_.tweaks.begin(), draft_.tweaks.end(), [](bool enabled) { return enabled; });
+        if (Toggle("##all_tweaks", &all_enabled))
+        {
+            draft_.tweaks.fill(all_enabled);
+            dirty_ = true;
+        }
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Turn all gameplay tweaks on or off.");
+        ImGui::SetCursorScreenPos(content);
+
         BeginCard("##menus", "Menus & startup", nullptr, Icon::Play);
         if (BeginRows("##menus_rows"))
         {
@@ -2757,6 +2836,7 @@ private:
         {
             TweakRow(GameTweak::NoMegaStrikes);
             TweakRow(GameTweak::CpuVsCpu);
+            TweakRow(GameTweak::FastTerrain);
             TweakRow(GameTweak::UnlockAll);
             EndRows();
         }
@@ -2797,23 +2877,56 @@ private:
         BeginCard("##graphics", "Graphics", nullptr, Icon::Display);
         if (BeginRows("##graphics_rows"))
         {
-#if defined(__APPLE__)
-            const char* api = "Metal";
+            Row("Graphics API", "Used the next time you start the game.");
+#if defined(_WIN32)
+            const std::string selected = draft_.backend == "auto" ? kGraphicsBackends.front().value : draft_.backend;
+            const char* preview = "Choose a graphics API";
+            for (const auto& choice : kGraphicsBackends)
+                if (selected == choice.value) preview = choice.label;
+            ImGui::SetNextItemWidth(-1);
+            if (ImGui::BeginCombo("##graphics_api", preview))
+            {
+                for (const auto& choice : kGraphicsBackends)
+                    if (ImGui::Selectable(choice.label, selected == choice.value))
+                    { draft_.backend = choice.value; dirty_ = true; }
+                ImGui::EndCombo();
+            }
 #else
-            const char* api = "Vulkan"; // Windows builds Dawn with Vulkan only (cmake/Dawn.cmake)
-#endif
-            Row("Graphics API", "Chosen for your system by this build.");
             ImGui::SetCursorPosY(ImGui::GetCursorPosY() + Dp(4));
-            Chip(api, color::info);
-            Row("API validation", "Checks every graphics call for errors. Useful for bug reports, but slower.");
-            if (Toggle("##validation", &draft_.graphics_validation)) dirty_ = true;
+            Chip(kGraphicsBackends.front().label, color::info);
+#endif
             EndRows();
         }
         EndCard();
 
-        BeginCard("##diagnostics", "Diagnostics", nullptr, Icon::Info);
+        BeginCard("##diagnostics", "Diagnostics & analytics", "Local tools for investigating performance and graphics issues.", Icon::Info);
         if (BeginRows("##diagnostic_rows"))
         {
+            Row("Frame logging", "Records frame times for each game session. Saves a new CSV and summary beside the executable.");
+            if (Toggle("##frame_logging", &draft_.frame_logging)) dirty_ = true;
+
+            const auto recordingsFolder = PathUtf8(base_);
+            Row("Frame recordings", recordingsFolder.c_str());
+            if (SecondaryButton("open_frame_recordings", "Open folder", {ImGui::GetContentRegionAvail().x, Dp(40)},
+                                true, Icon::Folder))
+                OpenPath(base_);
+
+            Row("Shader cache", "Clears compiled shaders for all graphics APIs. The next launch prepares them again.");
+            if (SecondaryButton("clear_shader_cache", "Clear shader cache", {ImGui::GetContentRegionAvail().x, Dp(40)},
+                                true, Icon::Refresh))
+            {
+                try
+                {
+                    const auto cleared = platform::ClearShaderCache(platform::ShaderCacheDirectory(base_));
+                    Notice(cleared.removed_files ? "Shader cache cleared. Graphics will be prepared again on the next launch."
+                                                : "The shader cache is already empty.", NoticeKind::Success);
+                }
+                catch (const std::exception& error) { Notice(error.what(), NoticeKind::Error); }
+            }
+
+            Row("API validation", "Checks every graphics call for errors. Useful for bug reports, but slower.");
+            if (Toggle("##validation", &draft_.graphics_validation)) dirty_ = true;
+
             Row("Log detail", "Which messages reach the console: errors, warnings, info or debug.");
             const char* values[] = {"error", "warning", "info", "debug"};
             int level = 2;
@@ -2824,6 +2937,13 @@ private:
             Row("Verbose console", "Also prints development traces and the game's own debug output. Useful for bug reports.");
             if (Toggle("##verbose_console", &draft_.verbose_console)) dirty_ = true;
 
+            EndRows();
+        }
+        EndCard();
+
+        BeginCard("##configuration", "Configuration", nullptr, Icon::Sliders);
+        if (BeginRows("##configuration_rows"))
+        {
             const std::string settings_path = PathUtf8(file_.path);
             Row("Settings file", settings_path.c_str());
             if (SecondaryButton("open_settings", "Open folder", {ImGui::GetContentRegionAvail().x, Dp(40)},

@@ -229,7 +229,7 @@ target_compile_options(mscharged_original_main_credits_module PRIVATE
     "$<$<COMPILE_LANGUAGE:CXX>:-Wno-invalid-offsetof;-fcheck-new>")
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     target_compile_options(mscharged_original_main_credits_module PRIVATE
-        "$<$<COMPILE_LANGUAGE:CXX>:-fno-gnu-unique;-fno-assume-sane-operators-new-delete;-fno-devirtualize-speculatively>")
+        "$<$<COMPILE_LANGUAGE:CXX>:-fno-gnu-unique;${MSCHARGED_GCC_NO_SANE_NEW_DELETE};-fno-devirtualize-speculatively>")
     # Retail loops that write past an array (PauseMenuScene's hover counts)
     # keep their full iteration count: GCC must not derive a shorter one from
     # the out-of-bounds store. Console idioms GCC reports by default: `register`,
@@ -300,7 +300,7 @@ target_compile_options(mscharged_original_main_credits_focus PRIVATE
     "$<$<COMPILE_LANGUAGE:CXX>:-Wno-invalid-offsetof;-fcheck-new>")
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     target_compile_options(mscharged_original_main_credits_focus PRIVATE
-        "$<$<COMPILE_LANGUAGE:CXX>:-fno-gnu-unique;-fno-assume-sane-operators-new-delete;-fno-devirtualize-speculatively>")
+        "$<$<COMPILE_LANGUAGE:CXX>:-fno-gnu-unique;${MSCHARGED_GCC_NO_SANE_NEW_DELETE};-fno-devirtualize-speculatively>")
 else()
     target_compile_options(mscharged_original_main_credits_focus PRIVATE
         "$<$<COMPILE_LANGUAGE:CXX>:-fno-assume-sane-operator-new;-Wno-register>")
@@ -320,8 +320,11 @@ target_compile_definitions(mscharged_original_main_credits_vi PRIVATE
 target_compile_options(mscharged_original_main_credits_vi PRIVATE -ffunction-sections -fdata-sections)
 target_link_libraries(mscharged_original_main_credits_vi PRIVATE aurora::vi)
 
+include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/SystemUsage.cmake")
 add_library(charged_original_main_credits_host OBJECT
     src/runtime/original_main_credits.cpp src/runtime/frame_timing_log.cpp src/runtime/fps_overlay.cpp
+    src/runtime/host_frame_pacing.cpp
+    src/runtime/pipeline_warmup.cpp src/runtime/pipeline_demand_log.cpp src/runtime/graphics_loading_view.cpp
     src/platform/console.cpp
     src/platform/os.cpp src/platform/host_metadata.cpp src/platform/string_format.cpp
     src/platform/report.cpp src/platform/thread.cpp src/platform/os_version.cpp)
@@ -341,14 +344,16 @@ target_compile_definitions(charged_original_main_credits_host PRIVATE
 target_compile_options(charged_original_main_credits_host PRIVATE
     -O2 -ffunction-sections -fdata-sections -fno-strict-aliasing -ffp-contract=off)
 target_link_libraries(charged_original_main_credits_host PRIVATE
+    charged_system_usage
     charged_app_icon
     charged_native_module_loader
     "$<LINK_LIBRARY:WHOLE_ARCHIVE,aurora::gx,aurora::mtx,aurora::os>"
     aurora::core aurora::dvd charged_host charged_session_log charged_wii_string_format charged_native_stm
+    absl::flat_hash_map
     charged_native_system_settings charged_native_video_device charged_credits_movie_hardware
     charged_native_hardware_owner
     charged_native_video_output_device charged_native_filesystem_boot
-    charged_native_ipc_boot_buffer charged_original_rtc Threads::Threads ${CMAKE_DL_LIBS})
+    charged_native_ipc_boot_buffer charged_original_rtc ZLIB::ZLIB Threads::Threads ${CMAKE_DL_LIBS})
 
 function(mscharged_link_original_main_credits target)
     mscharged_link_original_hbm_debug_host("${target}")
@@ -406,6 +411,8 @@ endfunction()
 
 add_executable(mscharged-original-main-credits-check
     tests/diagnostics/original_main_credits_window.cpp)
+include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/PipelineCatalog.cmake")
+mscharged_stage_pipeline_catalog(mscharged-original-main-credits-check)
 mscharged_link_original_main_credits(mscharged-original-main-credits-check)
 
 # The user opts into this combined executable by enabling both existing options.

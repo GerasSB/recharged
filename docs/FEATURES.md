@@ -39,13 +39,19 @@ the reconstructed source, unchanged.
 
 ## Picture and sound
 
-- Vulkan on Linux and Windows, Metal on macOS.
+- Vulkan on Linux; a Vulkan / DirectX 12 choice on Windows (Advanced → Graphics API);
+  Metal on macOS. DirectX 12 still needs real Windows hardware validation.
 - Window or fullscreen on any monitor, freely sized, 4:3 or 16:9.
 - **3D at your window's resolution** (default) instead of the Wii's 640 x 448,
   or fixed 2x-4x; menus and the HUD keep their original artwork.
 - Picture styles: **sharp** (default) or clean fill the window with the game's
   picture; soft keeps the console's TV look, with the TV signal's empty border.
 - Optional **4x antialiasing**.
+- **High frame rates**: the console's 60 FPS by default, or 120, 144, your
+  display's refresh rate or unlimited (Display → Frame rate). The game keeps its
+  own speed: matches still simulate at their fixed 50 Hz and every frame is
+  drawn from the game's own blend of its last two steps, so the extra frames
+  are real motion, not interpolation added by the port.
 - V-sync, an FPS counter (window title, or on screen also in fullscreen),
   master volume and mute; music, effects and voice levels stay in the game's
   own options.
@@ -53,17 +59,21 @@ the reconstructed source, unchanged.
 
 ## Optional tweaks
 
-Off by default; with all of them off the game plays as on the Wii. Two fixes
+Off by default; with all of them off the game plays as on the Wii. Three fixes
 of the original game are always on: a goal net no longer stays dented after a
-goal ([#19](https://github.com/yannicksuter/mscharged-port/issues/19)), and
+goal ([#19](https://github.com/yannicksuter/mscharged-port/issues/19)),
 electrocuted players flash with the game's lightning texture instead of a
-debug texture ([#33](https://github.com/yannicksuter/mscharged-port/issues/33)).
+debug texture ([#33](https://github.com/yannicksuter/mscharged-port/issues/33)),
+and the NK ("No Kritter") bug is gone: a Boo deke into his own goalie, a
+teleport into a goal or a Chain Chomp hit during a deke no longer lets later
+shots pass through the goalies
+([#38](https://github.com/yannicksuter/mscharged-port/issues/38)).
 The launcher's **Gameplay** page (or `[gameplay]` in `mscharged.ini`) turns them on:
 
 - **Skip intro**: start at the main menu, without the notice screens, studio
   logo, intro movie and title screen.
-- **Fast menus**: skip menu transitions, also on the screens after a match
-  (matches, movies and credits unchanged).
+- **Fast menus**: skip menu transitions, also in the pause menu and on the
+  screens after a match (matches, movies and credits unchanged).
 - **No Mega Strikes** for both teams, the usual competitive rule. Skillshots
   stay, and Strikers 101 lessons keep their own rules.
 - **Unlock everything**: all characters, stadiums and cheats, through the
@@ -71,6 +81,10 @@ The launcher's **Gameplay** page (or `[gameplay]` in `mscharged.ini`) turns them
 - **CPU vs CPU**: in Domination, press Done on Choose Sides without picking a
   side and the CPU plays both teams. Choose Sides in the pause menu can also
   hand a match over to the CPU.
+- **Fast terrain**: every stadium plays like the fast, dry field of Bowser
+  Stadium: the same running speed, ball roll and bounce, no sliding on ice or
+  mud and no slow sand in the Sand Tomb. Stadium looks and hazards stay;
+  online matches are unchanged.
 
 `--no-tweaks` turns them off for one run.
 

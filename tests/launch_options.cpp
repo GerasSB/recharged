@@ -39,7 +39,7 @@ int main()
     fs::create_directories(root / "config"); fs::create_directories(root / "working");
     const auto path = root / "config/settings.ini";
     const std::string original = "\xEF\xBB\xBF; untouched\r\n[game]\r\ndisc = \"games/INI disc.rvz\"\r\n"
-        "language = french\r\n[display]\r\nwidth = 960\r\nheight = 640\r\nfullscreen = true\r\naspect = 4:3\r\n"
+        "language = french\r\n[display]\r\nbackend = d3d12\r\nwidth = 960\r\nheight = 640\r\nfullscreen = true\r\naspect = 4:3\r\n"
         "[future]\r\nunknown = retained\r\n";
     std::ofstream(path, std::ios::binary) << original;
     const auto stamp = fs::last_write_time(path);
@@ -49,6 +49,11 @@ int main()
         const auto baseline = ResolveLaunch(file, {});
         Check(baseline.disc_path == root / "config/games/INI disc.rvz", "INI-relative disc base changed");
         Check(baseline.settings.language == "french", "INI text language lost before native handoff");
+        Check(baseline.settings.backend == "d3d12", "INI graphics backend lost before native handoff");
+        auto graphics_draft = file.settings;
+        graphics_draft.backend = "vulkan";
+        Check(ResolveLaunch(file, {}, &graphics_draft).settings.backend == "vulkan"
+            && file.settings.backend == "d3d12", "Launcher backend choice did not override the INI for launch");
         Check(baseline.settings.width == 960 && baseline.settings.height == 640 && baseline.settings.fullscreen,
             "INI display values not retained");
         Check(baseline.disc_source == SettingSource::Config && baseline.width_source == SettingSource::Config
@@ -143,6 +148,37 @@ int main()
             Check(tweakedFile.settings.GameTweakMask() != 0 && Read(tweaked).find("skip_intro = true") != std::string::npos,
                 "--no-tweaks changed the INI");
         }
+        // --frame-rate: this run's display.frame_rate, apart from the tweaks.
+        for (const char* value : {"original", "display", "unlimited", "30", "120", "144", "1000"})
+            Check(*Parse({"test", "--frame-rate", value}).frame_rate == value, "--frame-rate value not parsed");
+        Check(*Parse({"test", "--frame-rate=165"}).frame_rate == "165", "--frame-rate=VALUE not parsed");
+        for (const char* bad : {"--frame-rate=", "--frame-rate=29", "--frame-rate=1001", "--frame-rate=0120",
+                "--frame-rate=60.5", "--frame-rate=Display", "--frame-rate=-120", "--frame-rate=uncapped"})
+            Reject([&] { Parse({"test", bad}); });
+        {
+            const auto paced = root / "config/paced.ini";
+            std::ofstream(paced, std::ios::binary) << "[display]\nframe_rate = 144\n";
+            const auto pacedFile = LoadConfig(paced);
+            const auto played = ResolveLaunch(pacedFile, {});
+            Check(played.settings.frame_rate == "144" && played.frame_rate_source == SettingSource::Config
+                && DescribeLaunch(played).find("frame rate: 144 (INI)") != std::string::npos, "INI frame rate not resolved");
+            LaunchOptions run; run.frame_rate = "display";
+            const auto overridden = ResolveLaunch(pacedFile, run);
+            Check(overridden.settings.frame_rate == "display" && overridden.frame_rate_source == SettingSource::CommandLine,
+                "--frame-rate did not override the INI");
+            LaunchOptions retail; retail.no_tweaks = true;
+            Check(ResolveLaunch(pacedFile, retail).settings.frame_rate == "144", "--no-tweaks changed the frame rate");
+            run.frame_rate = "original";
+            Check(ResolveLaunch(pacedFile, run).settings.frame_rate == "original", "--frame-rate original ignored");
+            Check(pacedFile.settings.frame_rate == "144" && Read(paced).find("frame_rate = 144") != std::string::npos,
+                "--frame-rate changed the INI");
+            Settings draft = pacedFile.settings; draft.frame_rate = "unlimited";
+            const auto launcher = ResolveLaunch(pacedFile, {}, &draft);
+            Check(launcher.settings.frame_rate == "unlimited" && launcher.frame_rate_source == SettingSource::Launcher,
+                "Launcher frame rate draft lost");
+            std::ofstream(paced, std::ios::binary) << "[display]\nframe_rate = 25\n";
+            Reject([&] { LoadConfig(paced); });
+        }
         Settings draft = file.settings; draft.disc = "launcher.rvz"; draft.width = 1111; draft.aspect = "auto"; draft.language = "spanish";
         const auto edited = ResolveLaunch(file, {}, &draft);
         Check(edited.disc_source == SettingSource::Launcher && edited.width_source == SettingSource::Launcher
@@ -172,6 +208,18 @@ int main()
         Check(absolute.disc_path == root / "absolute.rvz", "Absolute CLI path changed");
         Check(Read(path) == original && fs::last_write_time(path) == stamp, "Run overrides wrote the INI");
         Check(DescribeLaunch(resolved).find("command line") != std::string::npos, "Resolved setting source not described");
+        auto game_mode = baseline;
+        ApplyGameModeDisplay(game_mode, false);
+        Check(game_mode.settings.fullscreen == baseline.settings.fullscreen
+            && game_mode.fullscreen_source == baseline.fullscreen_source, "Desktop launch changed by Game Mode rule");
+        game_mode.settings.fullscreen = false;
+        ApplyGameModeDisplay(game_mode, true);
+        Check(game_mode.settings.fullscreen && game_mode.fullscreen_source == SettingSource::GameMode
+            && DescribeLaunch(game_mode).find("Steam Game Mode") != std::string::npos, "Game Mode did not open fullscreen");
+        auto windowed = ResolveLaunch(file, Parse({"test", "--window"}));
+        ApplyGameModeDisplay(windowed, true);
+        Check(!windowed.settings.fullscreen && windowed.fullscreen_source == SettingSource::CommandLine,
+            "Game Mode overrode an explicit --window");
         std::ofstream(path) << "[display]\nwidth = 600\nheight = 900\n";
         const auto tall = LoadConfig(path);
         Check(tall.settings.width == 600 && tall.settings.height == 900,

@@ -53,7 +53,7 @@ function(mscharged_add_original_frontend_diagnostic)
     mscharged_add_original_shutdown_records(mscharged_original_frontend_module)
     foreach(_property IN ITEMS
             COMPILE_FEATURES COMPILE_DEFINITIONS COMPILE_OPTIONS INCLUDE_DIRECTORIES
-            LINK_LIBRARIES LINK_OPTIONS LINK_DEPENDS)
+            LINK_LIBRARIES LINK_OPTIONS LINK_DEPENDS MSCHARGED_ORIGINAL_EXPORT_MAP)
         get_target_property(_value mscharged_original_main_credits_module ${_property})
         if(_value)
             set_property(TARGET mscharged_original_frontend_module PROPERTY ${_property} "${_value}")
@@ -122,6 +122,12 @@ function(mscharged_add_original_frontend_diagnostic)
     # same original sources keeps their original code unchanged.
     target_compile_definitions(mscharged_original_frontend_module PRIVATE MSCHARGED_TWEAKS=1)
     target_sources(mscharged_original_frontend_module PRIVATE src/platform/game_tweaks.cpp)
+    # Graphics preparation happens only before the game starts (all known
+    # pipelines, runtime/pipeline_warmup.cpp). The resource-driven variant
+    # (MSCHARGED_AUTOMATIC_PREWARM, src/platform/automatic_pipeline_*.cpp,
+    # decomp patches 0705-0713) stays off: its loading gates stopped menus and
+    # matches until compilation finished, and holding frontend models back left
+    # their impostors unset while scene scripts animated them (a crash).
     # dynamic_lookup defers unfinished methods, but missing game vtable/VTT
     # data must be detected before the owner tries to load this module.
     set(_vtable_check "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_original_module_vtables.py")

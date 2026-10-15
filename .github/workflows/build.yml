@@ -28,9 +28,31 @@ jobs:
           - platform: linux-x86_64
             runner: ubuntu-26.04
             jobs: 4
+            gcc: 15
+          # Steam Deck: SteamOS 3.7 has glibc 2.40 and the GCC 14 C++ runtime.
+          # Ubuntu 24.04 (glibc 2.39) with GCC 14 builds binaries that need
+          # nothing newer; the packager checks every binary against SteamOS.
+          - platform: steamdeck-x86_64
+            runner: ubuntu-24.04
+            jobs: 4
+            gcc: 14
+            package_args: --steamdeck
           - platform: macos-arm64
             runner: macos-15
             jobs: 3
+            arch: arm64
+          # Intel Macs: cross-compiled on the Apple Silicon runner (same Xcode
+          # and deployment target); the macos-15-intel runner built about three
+          # times slower. Rosetta runs the x86_64 executable check.
+          - platform: macos-x86_64
+            runner: macos-15
+            jobs: 3
+            arch: x86_64
+            rust_target: x86_64-apple-darwin
+            cmake_args: >-
+              -DCMAKE_APPLE_SILICON_PROCESSOR=x86_64
+              -DCMAKE_OSX_ARCHITECTURES=x86_64
+              -DRust_CARGO_TARGET=x86_64-apple-darwin
     defaults:
       run:
         shell: bash
@@ -55,19 +77,31 @@ jobs:
         run: python -B tests/test_package_build.py
       - name: Install Linux tools
         if: runner.os == 'Linux'
+        env:
+          GCC_VERSION: ${{ matrix.gcc }}
         run: |
           sudo apt-get update
-          sudo apt-get install -y g++-15 cmake ninja-build make tcl pkg-config ccache \
+          sudo apt-get install -y "g++-$GCC_VERSION" cmake ninja-build make tcl pkg-config ccache \
             libasound2-dev libpulse-dev libx11-dev libxext-dev libxrandr-dev \
             libxcursor-dev libxi-dev libxfixes-dev libxss-dev libxtst-dev libx11-xcb-dev libegl-dev \
             libwayland-dev libxkbcommon-dev wayland-protocols libdecor-0-dev \
             libudev-dev libdbus-1-dev libvulkan-dev
-          echo 'CC=gcc-15' >> "$GITHUB_ENV"
-          echo 'CXX=g++-15' >> "$GITHUB_ENV"
+          echo "CC=gcc-$GCC_VERSION" >> "$GITHUB_ENV"
+          echo "CXX=g++-$GCC_VERSION" >> "$GITHUB_ENV"
+          # ubuntu-24.04's apt CMake 3.28 repeats whole-archive libraries when
+          # linking; the runner's newer CMake in /usr/local/bin comes first.
+          cmake --version
+          "g++-$GCC_VERSION" --version
       - name: Install macOS tools
         if: runner.os == 'macOS'
+        env:
+          MACOS_ARCH: ${{ matrix.arch }}
         run: |
+          # Both macOS packages build on Apple Silicon; x86_64 is cross-compiled.
           test "$(uname -m)" = arm64
+          if [ "$MACOS_ARCH" = x86_64 ] && ! arch -x86_64 /usr/bin/true 2>/dev/null; then
+            sudo softwareupdate --install-rosetta --agree-to-license
+          fi
           # Aurora needs std::jthread (Apple Clang 17). Xcode 26 on the macOS 15
           # image keeps the deployment target at macOS 15.
           sudo xcode-select -s /Applications/Xcode_26.3.app
@@ -77,18 +111,24 @@ jobs:
           echo 'CC=clang' >> "$GITHUB_ENV"
           echo 'CXX=clang++' >> "$GITHUB_ENV"
       - name: Select Rust toolchain
+        env:
+          RUST_TARGET: ${{ matrix.rust_target }}
         run: |
           rustup toolchain install stable --profile minimal
           rustup default stable
+          if [ -n "$RUST_TARGET" ]; then rustup target add "$RUST_TARGET"; fi
           cargo --version
       - name: Prepare pinned dependencies
-        run: python tools/setup_dependencies.py
+        run: python tools/setup_dependencies.py --shallow
       # Outside the checkout: an untracked folder there marks the version .dirty.
       # (The runner context is not available in job-level env.)
       - name: Place compiler cache
         run: echo "CCACHE_DIR=$RUNNER_TEMP/ccache" >> "$GITHUB_ENV"
+      # Restored and saved in separate steps: a failure after the build (such
+      # as an upload error) must not discard a cold build's cache.
       - name: Restore compiler cache
-        uses: actions/cache@v4
+        id: ccache
+        uses: actions/cache/restore@v4
         with:
           path: ${{ runner.temp }}/ccache
           key: ccache-${{ matrix.platform }}-${{ github.sha }}
@@ -100,6 +140,7 @@ jobs:
           -DMSCHARGED_FORMAT_PREPARED_SOURCES=OFF
           -DCMAKE_C_COMPILER_LAUNCHER=ccache
           -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+          ${{ matrix.cmake_args }}
       # Only the packaged targets.
       - name: Build original runtime
         run: >-
@@ -108,13 +149,30 @@ jobs:
       - name: Compiler cache statistics
         if: always()
         run: ccache --show-stats || true
+      # Also after a failed or timed-out build: the next run resumes from it.
+      - name: Save compiler cache
+        if: always() && steps.ccache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/ccache
+          key: ${{ steps.ccache.outputs.cache-primary-key }}
       - name: Check executable
+        env:
+          MACOS_ARCH: ${{ matrix.arch }}
         run: |
+          if [ -n "$MACOS_ARCH" ]; then
+            for binary in build/release/mscharged \
+                build/release/mscharged_original_{frontend,main_credits}_module.{so,dylib,bundle}; do
+              [ -e "$binary" ] || continue
+              lipo -archs "$binary"
+              test "$(lipo -archs "$binary")" = "$MACOS_ARCH"
+            done
+          fi
           ./build/release/mscharged --version | tee build/release/ci-version.txt
           grep -F 'original frontend runtime' build/release/ci-version.txt
           ./build/release/mscharged --help
       - name: Package binaries and notices
-        run: python tools/package_build.py --build-dir build/release --output-dir build/artifacts
+        run: python tools/package_build.py --build-dir build/release --output-dir build/artifacts ${{ matrix.package_args }}
       # Pull requests to stable upload too, so the packages can be tested
       # before the promotion is merged.
       # Uploaded as the package file itself (no zip around it); the artifact
@@ -182,17 +240,22 @@ jobs:
           rustup target add x86_64-pc-windows-gnullvm
           cargo --version
       - name: Prepare pinned dependencies
-        run: python tools/setup_dependencies.py
+        run: python tools/setup_dependencies.py --shallow
       # Outside the checkout: an untracked folder there marks the version .dirty.
       # (The runner context is not available in job-level env.)
       - name: Place compiler cache
         run: echo "CCACHE_DIR=$RUNNER_TEMP/ccache" >> "$GITHUB_ENV"
+      # Restored and saved in separate steps: a failure after the build (such
+      # as an upload error) must not discard a cold build's cache.
       - name: Restore compiler cache
-        uses: actions/cache@v4
+        id: ccache
+        uses: actions/cache/restore@v4
         with:
           path: ${{ runner.temp }}/ccache
           key: ccache-windows-x86_64-${{ github.sha }}
           restore-keys: ccache-windows-x86_64-
+      - name: Prepare pinned Windows shader compilers
+        run: python tools/setup_windows_graphics.py
       - name: Configure original runtime
         run: >-
           cmake --preset release -B build/windows
@@ -210,6 +273,13 @@ jobs:
       - name: Compiler cache statistics
         if: always()
         run: ccache --show-stats || true
+      # Also after a failed or timed-out build: the next run resumes from it.
+      - name: Save compiler cache
+        if: always() && steps.ccache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/ccache
+          key: ${{ steps.ccache.outputs.cache-primary-key }}
       - name: Check executable
         run: |
           test -f build/windows/mscharged.exe
@@ -334,7 +404,7 @@ jobs:
         working-directory: release
         run: |
           ls -la
-          test "$(ls *.tar.gz *.zip | wc -l)" -eq 3
+          test "$(ls *.tar.gz *.zip | wc -l)" -eq 5
           sha256sum *.tar.gz *.zip > SHA256SUMS
           cat SHA256SUMS
       - name: Draft the release

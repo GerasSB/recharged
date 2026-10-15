@@ -37,7 +37,14 @@ into the game module built with `MSCHARGED_TWEAKS` and take the original path
 unless their tweak is enabled; a fix is always on there and has no switch
 (0006: resting goal nets are redrawn, issue #19; 0009: the electrocution
 overlay's texture, which the disc keeps only in an unused debug bundle, is
-loaded, issue #33). Every other target compiles the original code. The game module receives the enabled set from the
+loaded, issue #33; 0010: a ball lost by an intangible player gets its player
+and goalie collisions back, and the goalie no longer takes the ball from an
+intangible teammate, issue #38). 0011, an owner-approved presentation change,
+is always on as well: main skips the original "Loading" bitmap shown between
+the port's graphics preparation and the boot scene. 0013 and 0014 are the
+display option "Frame rate" (`[display] frame_rate`) above the original: the
+swap presents each frame through the host instead of waiting for a VI retrace,
+and the few steps the original makes once per drawn frame keep its pace. Every other target compiles the original code. The game module receives the enabled set from the
 host before original main (`src/platform/game_tweaks.cpp`). Keep these patches
 apart from the faithful series and refresh them on every pin update.
 
@@ -53,6 +60,11 @@ The decomp carries the same fix; drop the patch once the pin includes it.
 Patch 0701 clears that pointer member before `Variant(eVariantType, T)` stores
 a narrower value, so a pointer-width read of a stored 32-bit word sees the
 word, as on the Wii, for every reader. It stays after 0690 is dropped.
+
+Patch 0714 releases a destroyed GL target's EFB copies through
+`GXDestroyCopyTex`. On the console a copy is written into the target's memory,
+so no call is needed; native GX keeps copies in host textures keyed by that
+address, and each match left its crowd and captain impostor copies allocated.
 
 Patch 0585 restores the original SDK texture-binding loop and its panic,
 null and unpacked branches. Native address conversion publishes structural
@@ -712,6 +724,12 @@ ImGui draws recorded in surface pixels and drawn after the picture in the same
 surface pass, while the surface keeps the size they were laid out for. The
 overlay frame reads no input and leaves the cursor, mouse capture and gamepads
 alone; screenshots and the game's frames never contain it.
+`0107-release-unused-native-textures.patch` ages Aurora's texture caches at each
+display copy in native GX mode. Their cleanup ran only in the diagnostic frame
+loop, so every texture the game had prepared stayed in GPU memory, including
+each decoded movie frame (about 1.7 GB over the credits; a Windows player's
+out-of-video-memory crash held about 6.4 GB of small textures). A playing movie
+still keeps its last 600 frames of textures.
 
 ## Dawn series
 

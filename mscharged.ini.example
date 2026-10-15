@@ -17,6 +17,13 @@ width = 1280
 height = 720
 fullscreen = false
 vsync = true
+# Frame rate: original (the console's 60 FPS), display (your display's refresh
+# rate), unlimited, or a cap from 30 to 1000 FPS. Higher rates draw more frames
+# for smoother motion; the game keeps its own speed. VSync holds any rate to
+# the display's.
+frame_rate = original
+# Windows: vulkan or d3d12. macOS: metal. Linux: vulkan.
+# auto preserves the platform default (Vulkan on Windows/Linux, Metal on macOS).
 backend = auto
 # Game layout: auto (by window shape), 4:3 or 16:9.
 aspect = 16:9
@@ -29,9 +36,8 @@ antialiasing = 4x
 # 3D render size: window (one pixel per window pixel, default), native (the
 # Wii's 640x448) or 2x, 3x, 4x of it. The game's view stays the same.
 resolution = window
-# Frames per second in the game window title.
-show_fps = true
-# Frames per second drawn in a corner of the game window, also in fullscreen.
+# Performance overlay: FPS | GPU % | CPU % | LAT N/A, also in fullscreen.
+# GPU/CPU are total system usage; unavailable driver counters show N/A.
 fps_overlay = false
 # Corner of that counter: top-left, top-right, bottom-left or bottom-right.
 fps_overlay_corner = top-right
@@ -134,18 +140,22 @@ shake_nunchuk = Q
 # Optional tweaks that change the original game. All off plays it unchanged;
 # --no-tweaks turns them off for one run.
 # skip_intro: start at the main menu (no notices, logo, intro or title screen).
-# fast_menus: skip menu transitions, also on the screens after a match
-# (matches, movies and credits unchanged).
+# fast_menus: skip menu transitions, also in the pause menu and on the
+# screens after a match (matches, movies and credits unchanged).
 # no_mega_strikes: Mega Strikes off for both teams; Skillshots stay (Strikers
 # 101 lessons keep their own rules).
 # unlock_all: all characters, stadiums and cheats; the save is not changed.
 # cpu_vs_cpu: in Domination, Done on Choose Sides also works with no side
 # picked; the CPU then plays both teams (from the pause menu too).
+# fast_terrain: every stadium plays like Bowser Stadium's fast, dry field
+# (speed, ball roll and bounce; no sliding, no slow sand in the Sand Tomb);
+# looks and hazards stay, online matches unchanged.
 skip_intro = false
 fast_menus = false
 no_mega_strikes = false
 unlock_all = false
 cpu_vs_cpu = false
+fast_terrain = false
 
 [advanced]
 # Backend graphics debug layers (slower; turn on for bug reports). WebGPU
@@ -156,6 +166,8 @@ cpu_vs_cpu = false
 graphics_validation = false
 log_level = info
 verbose_console = false
+# Record frame times to a new CSV and summary beside the executable each session.
+frame_logging = false
 
 [launcher]
 # Launcher interface size: auto, or a percentage from 75 to 200.

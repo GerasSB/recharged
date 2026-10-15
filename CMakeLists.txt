@@ -1,5 +1,14 @@
 cmake_minimum_required(VERSION 3.25)
-project(mscharged_port VERSION 1.0.8 LANGUAGES C CXX)
+project(mscharged_port VERSION 1.0.9 LANGUAGES C CXX)
+
+# The game module replaces the global operator new/delete with allocators whose
+# scopes are global state. GCC 15 assumes replaceable new/delete leave global
+# state alone unless told otherwise; GCC 11.2-14 never assume it (PR101480) and
+# do not know the option, so it is passed only where it exists.
+set(MSCHARGED_GCC_NO_SANE_NEW_DELETE "")
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 15)
+    set(MSCHARGED_GCC_NO_SANE_NEW_DELETE -fno-assume-sane-operators-new-delete)
+endif()
 if(WIN32 AND MINGW)
     # COFF weak definitions cannot be exported from mscharged.exe to the game
     # DLLs (OSReport and friends would bind to address 0). Plain definitions,
@@ -208,6 +217,7 @@ add_library(charged_host STATIC
     src/bootstrap/launch_options.cpp
     src/platform/disc.cpp
     src/platform/save_import.cpp
+    src/platform/shader_cache.cpp
 )
 target_include_directories(charged_host PUBLIC src)
 target_compile_features(charged_host PUBLIC cxx_std_17)
@@ -313,9 +323,25 @@ if(BUILD_TESTING)
     add_executable(config_tests tests/config.cpp)
     target_link_libraries(config_tests PRIVATE charged_host)
     add_test(NAME configuration COMMAND config_tests)
+    add_executable(shader_cache_tests tests/shader_cache.cpp)
+    target_link_libraries(shader_cache_tests PRIVATE charged_host)
+    add_test(NAME shader_cache COMMAND shader_cache_tests)
+    set_tests_properties(shader_cache PROPERTIES TIMEOUT 30)
     add_executable(launch_options_tests tests/launch_options.cpp)
     target_link_libraries(launch_options_tests PRIVATE charged_host)
     add_test(NAME launch_options COMMAND launch_options_tests)
+    add_executable(graphics_backend_tests tests/graphics_backend.cpp)
+    target_include_directories(graphics_backend_tests PRIVATE src)
+    target_compile_features(graphics_backend_tests PRIVATE cxx_std_17)
+    add_test(NAME graphics_backend COMMAND graphics_backend_tests)
+    add_test(NAME windows_graphics_dependencies
+        COMMAND "${Python3_EXECUTABLE}" -B "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_windows_graphics.py")
+    if(WIN32 AND MSCHARGED_BUILD_GX_CHECK)
+        add_executable(windows_graphics_runtime_tests tests/windows_graphics_runtime.cpp)
+        target_compile_features(windows_graphics_runtime_tests PRIVATE cxx_std_17)
+        add_dependencies(windows_graphics_runtime_tests copy_d3dcompiler_dll)
+        add_test(NAME windows_graphics_runtime COMMAND windows_graphics_runtime_tests)
+    endif()
     # Opt-in game tweaks: off means the original code (tweak patches) and the
     # original answers (the game module's tweak state).
     add_test(NAME tweak_patches
@@ -330,10 +356,22 @@ if(BUILD_TESTING)
     target_include_directories(frame_rate_tests PRIVATE src)
     target_compile_features(frame_rate_tests PRIVATE cxx_std_17)
     add_test(NAME frame_rate COMMAND frame_rate_tests)
+    add_executable(frame_pacing_tests tests/frame_pacing.cpp)
+    target_include_directories(frame_pacing_tests PRIVATE src)
+    target_compile_features(frame_pacing_tests PRIVATE cxx_std_17)
+    add_test(NAME frame_pacing COMMAND frame_pacing_tests)
     add_executable(fps_overlay_layout_tests tests/fps_overlay_layout.cpp)
     target_include_directories(fps_overlay_layout_tests PRIVATE src)
     target_compile_features(fps_overlay_layout_tests PRIVATE cxx_std_17)
     add_test(NAME fps_overlay_layout COMMAND fps_overlay_layout_tests)
+    include(cmake/SystemUsage.cmake)
+    add_executable(system_usage_tests tests/system_usage.cpp)
+    target_link_libraries(system_usage_tests PRIVATE charged_system_usage)
+    add_test(NAME system_usage COMMAND system_usage_tests)
+    add_executable(pipeline_warmup_tests tests/pipeline_warmup.cpp)
+    target_include_directories(pipeline_warmup_tests PRIVATE src)
+    target_compile_features(pipeline_warmup_tests PRIVATE cxx_std_17)
+    add_test(NAME pipeline_warmup COMMAND pipeline_warmup_tests)
     add_executable(frame_timing_log_tests tests/frame_timing_log.cpp src/runtime/frame_timing_log.cpp)
     target_include_directories(frame_timing_log_tests PRIVATE src)
     target_compile_features(frame_timing_log_tests PRIVATE cxx_std_17)
@@ -347,3 +385,5 @@ message(STATUS "Configured development tools (launcher: ${MSCHARGED_BUILD_LAUNCH
 include(cmake/OriginalSourceWarnings.cmake)
 mscharged_apply_gnu_original_warning_policy()
 mscharged_apply_macos_original_warning_policy()
+include(cmake/GameModulePortOptimization.cmake)
+mscharged_optimize_game_module_port_sources()
