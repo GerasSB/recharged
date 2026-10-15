@@ -7,7 +7,7 @@ graphics backend builds these pipelines for the current GPU. The first launch on
 a PC compiles them once, on several processor cores; later launches load the
 compiled results from the user's local cache.
 
-The reviewed source is `pipelines.json`: 531 GX v16 configurations and 2
+The reviewed source is `pipelines.json`: 532 GX v16 configurations and 2
 clear v5 configurations, in Aurora's little-endian 64-bit native configuration
 layout. The configurations were recorded by scripted runs: the boot sequence and
 menus, exhibition matches in all 17 stadiums with all 12 captains (default and
@@ -18,7 +18,7 @@ coverage of every effect, language or mode.
 The game draws an effect with the fog of the stadium it appears in, and the fog
 type is part of the pipeline configuration. The generated resource therefore
 also holds, for each GX configuration recorded with fog, the same configuration
-under every other fog type the recordings use, including none (337
+under every other fog type the recordings use, including none (340
 configurations). Configurations only recorded without fog, such as menus, have
 no variants.
 
