@@ -241,6 +241,7 @@ add_library(charged_host STATIC
     src/bootstrap/config.cpp
     src/bootstrap/launch_options.cpp
     src/platform/disc.cpp
+    src/platform/game_release.cpp
     src/platform/save_import.cpp
     src/platform/shader_cache.cpp
 )

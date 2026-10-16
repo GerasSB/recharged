@@ -15,8 +15,8 @@ struct DiscInfo
     uint32_t file_count;
 };
 
-// The port runs the USA release, the one the decompilation reconstructs.
-inline bool SupportedRelease(const DiscInfo& info) { return info.game_id == "R4QE01"; }
+// A release in platform/game_release.h whose game module is in this build.
+bool SupportedRelease(const DiscInfo& info);
 
 // "USA", "Europe", "Japan", "Korea" from the disc ID's region letter.
 const char* DiscRegionName(const std::string& game_id);
