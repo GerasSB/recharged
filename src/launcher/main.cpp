@@ -9,6 +9,7 @@
 
 #include "bootstrap/launch_options.h"
 #include "bootstrap/graphics_backend.h"
+#include "launcher/disc_search.h"
 #include "launcher/player_lineup.h"
 #include "launcher/release_notes.h"
 #include "launcher/ui_kit.h"
@@ -358,6 +359,7 @@ public:
         const bool headless = video && (std::string(video) == "dummy" || std::string(video) == "offscreen");
         if (!capture_ || (!options_.screenshot.empty() && !headless)) SDL_ShowWindow(window_);
         if (config_ok_ && !EffectiveLaunch().disc_path.empty() && !options_.smoke_test) CheckDisc();
+        StartDiscSearch();
 
         bool quit = false;
         unsigned frame = 0;
@@ -415,7 +417,7 @@ public:
             RenderHero();
             ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData(), renderer_);
             const bool update_settled = update_preview_ || (!UpdateBusy() && !(update_capture_install_ && update_.offer));
-            if (!options_.screenshot.empty() && frame >= 12 && ((!pending_ && update_settled) || frame > 600))
+            if (!options_.screenshot.empty() && frame >= 12 && ((!pending_ && !searching_ && update_settled) || frame > 600))
             {
                 SDL_SetRenderScale(renderer_, 1.0f, 1.0f);
                 auto pixels = std::unique_ptr<SDL_Surface, decltype(&SDL_DestroySurface)>(
@@ -1119,10 +1121,14 @@ private:
             Notice("The disc from the command line is used for this run.", NoticeKind::Info);
             return;
         }
+        // Relative inside the settings folder (it moves along with it),
+        // absolute elsewhere; links stay as they are.
         std::error_code error;
-        const auto absolute = fs::absolute(PathFromUtf8(path));
-        auto relative = fs::relative(absolute, file_.path.parent_path(), error);
-        draft_.disc = PathUtf8(error ? absolute : relative);
+        const auto absolute = fs::absolute(PathFromUtf8(path), error).lexically_normal();
+        const auto folder = fs::absolute(file_.path, error).parent_path().lexically_normal();
+        const auto relative = absolute.lexically_relative(folder);
+        const bool inside = !error && !relative.empty() && *relative.begin() != "..";
+        draft_.disc = PathUtf8(inside ? relative : absolute);
         dirty_ = true;
         check_ = {};
         if (!pending_) CheckDisc();
@@ -1153,6 +1159,62 @@ private:
             });
         }
         catch (const std::exception& e) { pending_ = false; check_.error = e.what(); }
+    }
+
+    // No disc chosen, or the chosen one is gone: look for one in the game
+    // folder and the usual places, in the background (each image is opened
+    // to check it).
+    void StartDiscSearch()
+    {
+        if (!config_ok_ || options_.launch.disc || options_.smoke_test) return;
+        std::error_code error;
+        const auto chosen = EffectiveLaunch().disc_path;
+        if (!chosen.empty() && fs::exists(chosen, error)) return;
+        const auto user_folder = [](SDL_Folder which) {
+            const char* path = SDL_GetUserFolder(which);
+            return path ? PathFromUtf8(path) : fs::path();
+        };
+        const auto settings = fs::absolute(file_.path, error).parent_path();
+        const auto home = user_folder(SDL_FOLDER_HOME), downloads = user_folder(SDL_FOLDER_DOWNLOADS);
+        search_from_ = draft_.disc;
+        searching_ = true;
+        search_ = std::async(std::launch::async, [settings, home, downloads] {
+            try
+            {
+                std::vector<fs::path> drives;
+#if defined(__linux__)
+                const char* user = std::getenv("USER");
+                drives = launcher::RemovableDrives("/run/media", user ? user : "");
+#endif
+                const auto folders = launcher::DiscSearchFolders(settings, home, downloads, drives);
+                return launcher::PickDisc(launcher::FindDiscImages(folders),
+                                          [](const fs::path& path) { return InspectDisc(path); });
+            }
+            catch (const std::exception&) { return launcher::DiscSearchResult{}; }
+        });
+    }
+
+    void DiscSearchDone(const launcher::DiscSearchResult& result)
+    {
+        // A disc the player chose meanwhile stays.
+        if (draft_.disc != search_from_ || options_.launch.disc) return;
+        if (result.disc.empty())
+        {
+            if (!result.other.empty())
+                Notice("Found Mario Strikers Charged for " + std::string(RegionName(result.other_id)) + " ("
+                           + result.other_id + ") at " + PathUtf8(result.other)
+                           + ". Only the USA version (R4QE01) runs for now.",
+                       NoticeKind::Warning);
+            return;
+        }
+        const bool replaced = !draft_.disc.empty(), clean = !dirty_;
+        SelectDisc(PathUtf8(result.disc));
+        std::string text = (replaced ? "Your disc image is gone; found " : "Found your game disc: ")
+            + PathUtf8(result.disc.filename()) + (replaced ? " instead." : ".");
+        if (result.supported > 1) text += " There are more copies; choose another on the Game page.";
+        // Nothing else changed yet: keep it, so Play starts without asking first.
+        if (clean) Save();
+        Notice(text, NoticeKind::Success);
     }
 
     void Browse()
@@ -1221,6 +1283,13 @@ private:
                 check_ = std::move(result);
                 region_prompt_ = check_.info && !SupportedRelease(*check_.info);
             }
+            // The disc changed during the check: check the new one.
+            else CheckDisc();
+        }
+        if (searching_ && search_.wait_for(std::chrono::seconds(0)) == std::future_status::ready)
+        {
+            searching_ = false;
+            DiscSearchDone(search_.get());
         }
     }
 
@@ -1293,6 +1362,7 @@ private:
         if (update_.state == UpdateService::State::Installing || update_.state == UpdateService::State::Installed)
             return "Finishing the update...";
         if (!config_ok_) return "Fix the settings file problem shown below first.";
+        if (searching_) return "Looking for your game disc...";
         if (pending_) return "Checking your disc...";
         if (DiscSelection().empty()) return "Choose your Mario Strikers Charged disc image (ISO or RVZ).";
         if (!check_.info || check_.selection != DiscSelection())
@@ -1559,12 +1629,12 @@ private:
         Icon icon = Icon::Check;
         std::string headline = "Ready to play";
         std::string detail;
-        if (pending_)
+        if (pending_ || searching_)
         {
             tint = color::info;
             icon = Icon::None;
-            headline = "Checking your disc";
-            detail = "Reading the game partition...";
+            headline = searching_ ? "Looking for your game disc" : "Checking your disc";
+            detail = searching_ ? "In the game folder and the usual places..." : "Reading the game partition...";
             Spinner({pos.x + Dp(11), pos.y + Dp(12)}, Dp(8), Col(tint));
         }
         else if (!blocker.empty())
@@ -1615,6 +1685,7 @@ private:
 
     Summary DiscSummary() const
     {
+        if (searching_) return {"Looking...", "Searching for your disc image", color::info};
         if (pending_) return {"Checking...", "Reading the disc header", color::info};
         if (DiscSelection().empty()) return {"No disc selected", "Choose an ISO or RVZ image", color::warning};
         if (check_.info && check_.selection == DiscSelection())
@@ -2073,7 +2144,14 @@ private:
             draw->AddText(font, FontSize(font), {text_x, pos.y + y}, Col(tint), text.c_str(), nullptr,
                           width - (text_x - pos.x) - Dp(16));
         };
-        if (pending_)
+        if (searching_)
+        {
+            Spinner(icon_center, Dp(14), Col(color::info));
+            line(fonts.label, Dp(20), color::text, "Looking for your disc");
+            line(fonts.caption, Dp(46), color::muted,
+                 "In the game folder, Games, Emulation/roms/wii, Downloads and removable drives...");
+        }
+        else if (pending_)
         {
             Spinner(icon_center, Dp(14), Col(color::info));
             line(fonts.label, Dp(20), color::text, "Checking the disc");
@@ -3932,6 +4010,10 @@ private:
     bool region_prompt_ = false;
     DiscCheck check_;
     std::future<DiscCheck> future_;
+    // The background search for a disc image when none is chosen.
+    std::future<launcher::DiscSearchResult> search_;
+    bool searching_ = false;
+    std::string search_from_;
     std::vector<std::string> displays_;
     std::vector<SDL_DisplayID> display_ids_;
     std::shared_ptr<DialogResult> dialog_ = std::make_shared<DialogResult>();
