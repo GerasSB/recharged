@@ -16,7 +16,7 @@ new file mode 100644
 index 0000000..1a1099f
 --- /dev/null
 +++ b/include/mscharged_tweaks.h
-@@ -0,0 +1,93 @@
+@@ -0,0 +1,94 @@
 +#ifndef MSCHARGED_TWEAKS_H
 +#define MSCHARGED_TWEAKS_H
 +
@@ -41,6 +41,7 @@ index 0000000..1a1099f
 +    MSCHARGED_TWEAK_FAST_TERRAIN = 5,
 +    MSCHARGED_TWEAK_MIRROR_MATCH = 6,
 +    MSCHARGED_TWEAK_THUNDER_ISLAND_WALLS = 7,
++    MSCHARGED_TWEAK_BLUE_PEACH = 8,
 +};
 +
 +bool mscharged_tweak_enabled(int tweak);

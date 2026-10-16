@@ -25,6 +25,7 @@ enum class GameTweak : unsigned
     FastTerrain = 5,
     MirrorMatch = 6,
     ThunderIslandWalls = 7,
+    BluePeach = 8,
 };
 
 struct GameTweakInfo
@@ -35,7 +36,7 @@ struct GameTweakInfo
     const char* description; // launcher description
 };
 
-inline constexpr std::array<GameTweakInfo, 8> kGameTweaks{{
+inline constexpr std::array<GameTweakInfo, 9> kGameTweaks{{
     {GameTweak::SkipIntro, "skip_intro", "Skip intro",
      "Starts at the main menu: no notice screens, studio logo, intro movie or title screen. Loading still takes as long."},
     {GameTweak::FastMenus, "fast_menus", "Fast menus",
@@ -61,6 +62,9 @@ inline constexpr std::array<GameTweakInfo, 8> kGameTweaks{{
      "Thunder Island's open sides get the electric fence of every other stadium: the ball and items bounce off, and "
      "players knocked into it are electrocuted instead of falling off the island. The fence stays invisible; online "
      "matches are unchanged."},
+    {GameTweak::BluePeach, "blue_peach", "Blue Peach",
+     "Peach's team wears her unused blue and yellow kit on the field: Peach, her sidekicks and her goalie. The game "
+     "has no blue menu pictures, Mega Strike hand, banners or crowd for it, so those stay pink."},
 }};
 
 inline constexpr unsigned GameTweakBit(GameTweak tweak) { return 1u << unsigned(tweak); }

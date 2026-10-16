@@ -110,6 +110,11 @@ The launcher's **Gameplay** page (or `[gameplay]` in `mscharged.ini`) turns them
   (Mario white with red trim, Luigi sky blue, Wario blue, Waluigi orange).
   In the menus these four and Peach show both teams in the home kit. Online
   matches are unchanged.
+- **Blue Peach**: Peach's team wears her blue and yellow kit on the field
+  (Peach, her sidekicks and her goalie). The game has it on the disc but only
+  uses it against a captain of her colours, and nobody else is pink. Her menu
+  pictures, Mega Strike hand, stadium banners and crowd have no blue version
+  and stay pink.
 
 `--no-tweaks` turns them off for one run.
 

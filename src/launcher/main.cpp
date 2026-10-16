@@ -3825,6 +3825,7 @@ private:
         {
             TweakRow(GameTweak::CpuVsCpu);
             TweakRow(GameTweak::MirrorMatch);
+            TweakRow(GameTweak::BluePeach);
             TweakRow(GameTweak::UnlockAll);
             EndRows();
         }

@@ -87,7 +87,8 @@ int main()
             && unsigned(mscharged::GameTweak::CpuVsCpu) == MSCHARGED_TWEAK_CPU_VS_CPU
             && unsigned(mscharged::GameTweak::FastTerrain) == MSCHARGED_TWEAK_FAST_TERRAIN
             && unsigned(mscharged::GameTweak::MirrorMatch) == MSCHARGED_TWEAK_MIRROR_MATCH
-            && unsigned(mscharged::GameTweak::ThunderIslandWalls) == MSCHARGED_TWEAK_THUNDER_ISLAND_WALLS,
+            && unsigned(mscharged::GameTweak::ThunderIslandWalls) == MSCHARGED_TWEAK_THUNDER_ISLAND_WALLS
+            && unsigned(mscharged::GameTweak::BluePeach) == MSCHARGED_TWEAK_BLUE_PEACH,
             "Host tweak bits and the game hooks' IDs must agree");
 
         // Before configuration and with an empty set: the original game.
