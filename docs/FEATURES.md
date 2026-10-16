@@ -107,12 +107,12 @@ The launcher's **Gameplay** page (or `[gameplay]` in `mscharged.ini`) turns them
   fence of every other stadium, invisible but with its sparks: the ball and
   items bounce off it, and players knocked into it are electrocuted instead
   of falling off the island. Online matches are unchanged.
-- **Mirror match**: both teams can pick the same captain in Domination. On
-  the field the away team wears an away kit: the game's own, or for Mario,
-  Luigi, Wario and Waluigi, who have none, one made from their own kit
-  (Mario white with red trim, Luigi sky blue, Wario blue, Waluigi orange).
-  In the menus these four and Peach show both teams in the home kit. Online
-  matches are unchanged.
+- **Mirror match**: both teams can pick the same captain in Domination. The
+  away team wears an away kit, in the menus as on the field: the game's own,
+  or for Mario, Luigi, Wario and Waluigi, who have none, one made from their
+  own kit (Mario blue, Luigi sky blue, Wario blue, Waluigi orange). Peach
+  wears her blue kit; its menu pictures and Mega Strike hand are made the
+  same way. Online matches are unchanged.
 - **Blue Peach**: Peach's team wears her blue and yellow kit on the field
   (Peach, her sidekicks and her goalie). The game has it on the disc but only
   uses it against a captain of her colours, and nobody else is pink. Her menu

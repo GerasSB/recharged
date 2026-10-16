@@ -156,9 +156,9 @@ shake_nunchuk = Q
 # fast_terrain: every stadium plays like Bowser Stadium's fast, dry field
 # (speed, ball roll and bounce; no sliding, no slow sand in the Sand Tomb);
 # looks and hazards stay, online matches unchanged.
-# mirror_match: both teams can pick the same captain in Domination; on the
-# field the away team wears an away kit (made from the home kit for Mario,
-# Luigi, Wario and Waluigi). Online matches unchanged.
+# mirror_match: both teams can pick the same captain in Domination; the away
+# team wears an away kit in the menus and on the field (made from the home kit
+# for Mario, Luigi, Wario and Waluigi). Online matches unchanged.
 # thunder_island_walls: Thunder Island's open sides get the (invisible)
 # electric fence of every other stadium: the ball and items bounce off, and
 # knocked players are electrocuted instead of falling off. Online unchanged.
