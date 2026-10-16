@@ -58,7 +58,8 @@ bool sOriginalFrame = true;
 unsigned long sOriginalFrameCount;
 } // namespace
 
-// Original SDK (the native VI): the TV format, VI_PAL being 1.
+// Original SDK (the native VI): the TV format, VI_PAL being 1. The European
+// game boots in VI_EURGB60 (5), which runs NTSC fields like VI_NTSC (0).
 extern "C" unsigned int VIGetTvFormat(void);
 // The original match (Game.cpp): set from match loading until the match ends.
 class cGame;

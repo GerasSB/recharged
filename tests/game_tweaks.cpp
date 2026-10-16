@@ -12,7 +12,8 @@ extern "C" void charged_configure_tweaks(unsigned mask);
 extern "C" void charged_configure_performance_mode(bool enabled);
 extern "C" void charged_configure_frame_pacing(void (*swap)());
 
-// The native VI's TV format (VI_NTSC 0, VI_PAL 1) for the original frame.
+// The native VI's TV format (VI_NTSC 0, VI_PAL 1, VI_EURGB60 5) for the
+// original frame.
 unsigned gTvFormat;
 extern "C" unsigned int VIGetTvFormat(void) { return gTvFormat; }
 // The original match (Game.cpp), present while a match runs.
@@ -201,6 +202,10 @@ int main()
         gTvFormat = 1;
         const auto pal = OriginalFramesOver(10.0, 1.0f / 144.0f);
         Check(pal >= 499 && pal <= 500, "PAL original frames at 144 FPS");
+        // The European game boots in EuRGB60, which runs NTSC fields.
+        gTvFormat = 5;
+        const auto eurgb60 = OriginalFramesOver(10.0, 1.0f / 144.0f);
+        Check(eurgb60 >= 598 && eurgb60 <= 600, "EuRGB60 original frames at 144 FPS");
         gTvFormat = 0;
         const auto locked = OriginalFramesOver(10.0, 1.0f / 120.0f, 2);
         Check(locked >= 298 && locked <= 300, "Two-field original frames at 120 FPS");

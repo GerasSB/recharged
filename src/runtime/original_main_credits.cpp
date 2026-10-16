@@ -502,8 +502,10 @@ int mscharged::RunOriginalMainCredits(int argc, char** argv,
             mscharged::platform::CreateVirginRTCImage());
         __OSInitSram();
         Check(__OSSyncSram(), "Original SRAM initialization did not complete its real EXI read");
-        // Explicit USA native preference; independent SC and VI settings.
-        const mscharged::NativeSystemSettings settings{systemLanguage,0,0,std::uint8_t(widescreen),1};
+        // A European release boots like a PAL Wii set to 60 Hz (EuRGB60): the
+        // original game then takes the USA picture, movie and pacing path.
+        const bool eurgb60=release->code==mscharged::GameCode::Europe;
+        const mscharged::NativeSystemSettings settings{systemLanguage,0,std::uint8_t(eurgb60),std::uint8_t(widescreen),1};
         mscharged::ConfigureNativeSystemSettings(settings);
         // No virtual Wii address record has been supplied. Original SC queries
         // retain their unavailable-record result, without inferring a country.
@@ -511,7 +513,7 @@ int mscharged::RunOriginalMainCredits(int argc, char** argv,
         // No native IPL.IDL record is supplied. The original shutdown source
         // owns its zero/default destination and interprets actual absence.
         mscharged::ConfigureNativeSystemIdleMode(nullptr,0);
-        mscharged::platform::ConfigureNativeVideoHardware(VI_TVMODE_NTSC_INT,false);
+        mscharged::platform::ConfigureNativeVideoHardware(eurgb60?VI_TVMODE_EURGB60_INT:VI_TVMODE_NTSC_INT,false);
         if(nativeSend) {
             // display.picture: host desktop presentation of the original XFB.
             mscharged::platform::ConfigureNativeVideoOutputHardware(settings,
@@ -567,6 +569,7 @@ int mscharged::RunOriginalMainCredits(int argc, char** argv,
         }
         mscharged::platform::DesktopWpadSettings desktop{true,false,true,mscharged::platform::QueryPresentedDesktopDpd,
             nullptr,true,true,-1,mscharged::platform::ParseKeyBindings(launch.settings.keys)};
+        desktop.kpad_sensor_height=release->code==mscharged::GameCode::Usa;
         // Each gamepad's profile (controls.gamepadN_profile).
         for (std::size_t pad = 0; pad < desktop.gamepad_profiles.size(); ++pad) {
             const auto& profile = launch.settings.PadProfileOf(pad);
