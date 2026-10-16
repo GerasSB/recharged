@@ -1,8 +1,9 @@
 // Mirror match away kits made from the home kit's textures and pictures
 // (src/platform/away_kits.cpp): kit texels take the away colour, everything
 // else keeps its bytes; team textures change only where they differ from the
-// reference teams; CMPR, RGB5A3 and RGBA8 textures; bundles get the away
-// texture under its new name.
+// reference teams; pictures change only in areas, not single texels or thin
+// lines; CMPR, RGB5A3 and RGBA8 textures; bundles get the away texture under
+// its new name.
 #include "platform/away_kits.h"
 
 #include <cstdint>
@@ -20,8 +21,9 @@ const char* mscharged_tweak_away_kit_reference(const char* captain, int index);
 bool mscharged_tweak_make_away_kit(const char* captain, bool team, void* bundle, unsigned long size, unsigned source,
     unsigned target, const void* reference0, unsigned long size0, unsigned texture0, const void* reference1,
     unsigned long size1, unsigned texture1);
-bool mscharged_tweak_recolour_away_texture(const char* captain, bool team, void* texture, unsigned long size,
+bool mscharged_tweak_recolour_away_texture(const char* captain, int kind, void* texture, unsigned long size,
     const void* reference0, unsigned long size0, const void* reference1, unsigned long size1);
+bool mscharged_tweak_away_kit_photos(const char* captain);
 }
 
 namespace
@@ -107,6 +109,38 @@ std::vector<std::uint8_t> Texture16(const std::uint32_t colours[4][4], std::uint
         }
     }
     return t;
+}
+
+// A 16x16 RGBA8 picture, one level, texel by texel.
+template<class Colour> std::vector<std::uint8_t> Picture(Colour colour)
+{
+    std::vector<std::uint8_t> t(32 + 16 * 64, 0);
+    Put32(t, 0, 1);
+    Put32(t, 4, 3);
+    t[15] = 16;
+    t[17] = 16;
+    for (int y = 0; y < 16; ++y)
+        for (int x = 0; x < 16; ++x)
+        {
+            std::uint32_t c = colour(x, y);
+            std::uint8_t* p = &t[32 + ((y / 4) * 4 + x / 4) * 64];
+            int i = (y % 4) * 4 + x % 4;
+            p[2 * i] = 255;
+            p[2 * i + 1] = std::uint8_t(c >> 16);
+            p[32 + 2 * i] = std::uint8_t(c >> 8);
+            p[32 + 2 * i + 1] = std::uint8_t(c);
+        }
+    return t;
+}
+
+// A texel of such a picture: r, g, b.
+void PictureTexel(const std::vector<std::uint8_t>& t, int x, int y, float rgb[3])
+{
+    const std::uint8_t* p = &t[32 + ((y / 4) * 4 + x / 4) * 64];
+    int i = (y % 4) * 4 + x % 4;
+    rgb[0] = p[2 * i + 1];
+    rgb[1] = p[32 + 2 * i];
+    rgb[2] = p[32 + 2 * i + 1];
 }
 
 // The first texel of a 16x16 RGB5A3 or RGBA8 texture's tile: r, g, b (0..255) and alpha.
@@ -308,9 +342,9 @@ int main()
             {
                 std::vector<std::uint8_t> picture = Texture16(mario, format, alpha);
                 before = picture;
-                Check(mscharged_tweak_recolour_away_texture("mario", false, picture.data(), picture.size(), nullptr, 0,
+                Check(mscharged_tweak_recolour_away_texture("mario", 0, picture.data(), picture.size(), nullptr, 0,
                           nullptr, 0),
-                    "An RGB5A3 or RGBA8 picture recolours");
+                    "An RGB5A3 or RGBA8 texture recolours");
                 unsigned a = 0, b = 0;
                 float o[3];
                 TileColour(picture, format, 0, c, a);
@@ -325,19 +359,49 @@ int main()
         // the references differ, turns blue.
         std::vector<std::uint8_t> sidekick = Texture16(wario, 1), s0 = Texture16(ref0, 1), s1 = Texture16(ref1, 1);
         before = sidekick;
-        Check(mscharged_tweak_recolour_away_texture("wario", true, sidekick.data(), sidekick.size(), s0.data(),
+        Check(mscharged_tweak_recolour_away_texture("wario", 1, sidekick.data(), sidekick.size(), s0.data(),
                   s0.size(), s1.data(), s1.size()),
             "A team picture recolours");
         unsigned a = 0;
         TileColour(sidekick, 1, 0, c, a);
         Check(c[2] > c[0] + 60, "Its team colour turns blue");
         Check(std::memcmp(&sidekick[32 + 2 * 32], &before[32 + 2 * 32], 32) == 0, "Its other texels keep their bytes");
-        Check(!mscharged_tweak_recolour_away_texture("wario", true, sidekick.data(), sidekick.size(), nullptr, 0,
+        Check(!mscharged_tweak_recolour_away_texture("wario", 1, sidekick.data(), sidekick.size(), nullptr, 0,
                   s1.data(), s1.size()),
             "A team picture needs both references");
-        Check(!mscharged_tweak_recolour_away_texture("bowser", false, sidekick.data(), sidekick.size(), nullptr, 0,
+        Check(!mscharged_tweak_recolour_away_texture("bowser", 0, sidekick.data(), sidekick.size(), nullptr, 0,
                   nullptr, 0),
             "A captain without a made kit recolours nothing");
+        Check(!mscharged_tweak_recolour_away_texture("mario", 3, sidekick.data(), sidekick.size(), nullptr, 0,
+                  nullptr, 0),
+            "An unknown kind recolours nothing");
+
+        // Painted pictures: the cap is an area of red; a thin line and a
+        // single texel of red shading in the skin stay, unlike in a kit texture.
+        auto painting = [&](int x, int y) {
+            if (x < 10 && y < 10) return kRed;
+            if (x == 13 || (x == 5 && y == 13)) return kRed;
+            return kSkin;
+        };
+        std::vector<std::uint8_t> picture = Picture(painting), kitPicture = picture;
+        Check(mscharged_tweak_recolour_away_texture("mario", 2, picture.data(), picture.size(), nullptr, 0, nullptr, 0),
+            "A picture recolours");
+        Check(mscharged_tweak_recolour_away_texture("mario", 0, kitPicture.data(), kitPicture.size(), nullptr, 0,
+                  nullptr, 0),
+            "The same picture as a kit texture recolours");
+        PictureTexel(picture, 0, 0, c);
+        Check(c[2] > c[0] + 80, "The picture's cap turns blue to its corner");
+        PictureTexel(picture, 9, 9, c);
+        Check(c[2] > c[0] + 80, "and to its edge");
+        PictureTexel(picture, 13, 4, c);
+        Check(c[0] > 200 && c[2] < 60, "A thin line stays red in a picture");
+        PictureTexel(picture, 5, 13, c);
+        Check(c[0] > 200 && c[2] < 60, "A single texel stays red in a picture");
+        PictureTexel(kitPicture, 13, 4, c);
+        Check(c[2] > c[0] + 80, "A kit texture's thin line turns blue");
+        Check(mscharged_tweak_away_kit_photos("mario") && !mscharged_tweak_away_kit_photos("luigi")
+                && !mscharged_tweak_away_kit_photos("bowser") && !mscharged_tweak_away_kit_photos(nullptr),
+            "Only Mario's photos recolour");
 
         // A texture the engine cannot recolour still gets the away name, so
         // the away team never looks for a missing texture.
@@ -350,7 +414,7 @@ int main()
         Check(!FindBundleTexture(bundle, target).empty(), "It still gets the away name");
         std::vector<std::uint8_t> truncated = Texture16(mario, 1);
         truncated.resize(truncated.size() - 1);
-        Check(!mscharged_tweak_recolour_away_texture("mario", false, truncated.data(), truncated.size(), nullptr, 0,
+        Check(!mscharged_tweak_recolour_away_texture("mario", 0, truncated.data(), truncated.size(), nullptr, 0,
                   nullptr, 0),
             "A texture shorter than its levels is not recoloured");
         Check(FindBundleTexture(std::vector<std::uint8_t>(8, 0), source).empty(), "A truncated bundle has no textures");

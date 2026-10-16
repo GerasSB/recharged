@@ -22,19 +22,24 @@ in the captain's away kit. The tweak completes it:
   Wario and orange for Waluigi, and registered under the away kit's name.
   Sidekick and goalie team textures are compared with the same texture of
   two other teams, read from the disc, so only their team colour changes.
-- The away team wears its kit and colour in the menus too.
-  NeedsAlternateColour and GetTeamColour cannot tell two teams of one
-  captain apart, so these hooks pass the side: the player indicators and the
-  defensive play overlay on the field; captain and sidekick select, Choose
-  Sides and the pointers in the menus; the holograms, the captain icon of the
-  match's HUD and the Mega Strike hand. Where the game has a whole away kit,
-  the one a captain wears against a captain of his colours (Bowser, Bowser
-  Jr., Daisy, Diddy Kong, Donkey Kong, Petey and Yoshi), its own pictures
-  show. For the others the home pictures are recoloured as they load: the
-  portrait in the away PDA and the captain on the sidekick field plan (copies
-  added to the front end's pool with the scene, MirrorMatchAwayPicture), the
-  sidekick images and the HUD icon (each as its load completes; sidekick
-  images are compared with the same image of two other teams), the
+- The away team wears its kit and colour in the menus and the match's
+  overlays too. NeedsAlternateColour and GetTeamColour cannot tell two teams
+  of one captain apart, so these hooks pass the side: the player indicators
+  and the defensive play overlay on the field; captain and sidekick select,
+  Choose Sides and the pointers in the menus; the holograms, the HUD's
+  captain icon, the goal banner's emblem, the super ability picture, the
+  Mega Strike hand and the newspaper photo of an away winner. Where the game
+  has a whole away kit, the one a captain wears against a captain of his
+  colours (Bowser, Bowser Jr., Daisy, Diddy Kong, Donkey Kong, Petey and
+  Yoshi), its own pictures show; the icon, banner, super ability picture and
+  photo stay as the game has them. For the others the home pictures are
+  recoloured: the portrait in the away PDA and the captain on the sidekick
+  field plan (copies added to the front end's pool with the scene,
+  MirrorMatchAwayPicture); the sidekick images, HUD icon, super ability
+  picture and newspaper photo as each load completes (sidekick images
+  compared with the same image of two other teams; photos only for Mario,
+  as the others' have their colour in the background); the banner's emblem
+  texture, switched in place between its home and away versions; the
   hologram's kit (its home textures load once more as the alternate ones)
   and the Mega Strike hand (the captain's extra textures load once more).
   Peach's blue field kit and hologram are on the disc; her pictures and hand
@@ -72,23 +77,72 @@ index 2eec3f5..3659959 100644
 +#endif
 +
  #endif // GAME_DB_CHARACTERINFO_H
+diff --git a/include/Game/FE/Overlay/OverlayHandlerSuperAbility.h b/include/Game/FE/Overlay/OverlayHandlerSuperAbility.h
+index 9f3f66f..da1d4d0 100644
+--- a/include/Game/FE/Overlay/OverlayHandlerSuperAbility.h
++++ b/include/Game/FE/Overlay/OverlayHandlerSuperAbility.h
+@@ -8,6 +8,11 @@
+ class TLComponentInstance;
+ 
+ extern eTeamID gSuperAbilityTeam;
++#if defined(MSCHARGED_TWEAKS)
++// Port tweak "Mirror match": the side whose captain the overlay shows; the
++// team alone does not tell two teams of one captain apart.
++extern int gSuperAbilitySide;
++#endif
+ 
+ class SuperAbilityOverlay : public BaseOverlayHandler
+ {
 diff --git a/include/Game/FE/feTextureResource.h b/include/Game/FE/feTextureResource.h
-index 1106630..59d6ab5 100644
+index 1106630..d1974ca 100644
 --- a/include/Game/FE/feTextureResource.h
 +++ b/include/Game/FE/feTextureResource.h
-@@ -16,4 +16,12 @@ public:
+@@ -16,4 +16,16 @@ public:
      /* 0x1E */ u16 m_uHeight;
  }; // total size: 0x20
  
 +#if defined(MSCHARGED_TWEAKS)
-+// Port tweak "Mirror match": a copy of front-end picture `source` (a texture of
-+// the permanent front-end bundle) in `captain`'s away kit, for the captains
-+// whose away kit the port makes. Added to the front end's resource pool for the
-+// scene that asks for it, and released with it; 0 if it cannot be made.
++// Port tweak "Mirror match": a copy of front-end picture `source` in
++// `captain`'s away kit, for the captains whose away kit the port makes. Added
++// to the front end's resource pool for the scene that asks for it, and released
++// with it; 0 if it cannot be made.
 +unsigned long MirrorMatchAwayPicture(unsigned long source, const char* captain);
++// Its home and away versions (header and levels) in the caller's buffers of
++// `capacity` bytes, for switching a texture in place.
++bool MirrorMatchMakePicture(unsigned long source, const char* captain, void* home, void* away, unsigned long capacity,
++    unsigned long* size);
 +#endif
 +
  #endif // _FETEXTURERESOURCE_H_
+diff --git a/include/Game/SH/SHStrikerTimesBase.h b/include/Game/SH/SHStrikerTimesBase.h
+index a8044ad..6d3ee15 100644
+--- a/include/Game/SH/SHStrikerTimesBase.h
++++ b/include/Game/SH/SHStrikerTimesBase.h
+@@ -94,4 +94,10 @@ public:
+     /* 0x420 */ FEScrollBar mScrollBar;
+ }; // size 0x5D4
+ 
++#if defined(MSCHARGED_TWEAKS)
++// Port tweak "Mirror match": the article's photo shows `captain` in his away
++// kit (recoloured as it loads), for the next newspaper scene created.
++void MirrorMatchArticleAwayKit(const char* captain);
++#endif
++
+ #endif // GAME_SH_SH_STRIKER_TIMES_BASE_H
+diff --git a/src/Game/AI/DesireSuperPower.cpp b/src/Game/AI/DesireSuperPower.cpp
+index 27f7fc4..0b46c4f 100644
+--- a/src/Game/AI/DesireSuperPower.cpp
++++ b/src/Game/AI/DesireSuperPower.cpp
+@@ -321,6 +321,9 @@ bool DesireSuperPower::Initialize(void* context)
+         if (fielder->m_pBall != 0 && g_pGame->IsGameplayOrOvertime())
+         {
+             gSuperAbilityTeam = (eTeamID)GameInfoManager::Instance()->GetTeam(fielder->m_pTeam->m_nSide);
++#if defined(MSCHARGED_TWEAKS)
++            gSuperAbilitySide = fielder->m_pTeam->m_nSide;
++#endif
+             ((SuperAbilityOverlay*)g_pOverlayManager->GetScene(OVERLAY_SUPER_ABILITY))->Start();
+             PlaySound(fielder->m_uSoundSlotId, 0x790F135F, 0, 0);
+             fn_80060A00(g_pGame, fielder);
 diff --git a/src/Game/AI/GoalieActions.cpp b/src/Game/AI/GoalieActions.cpp
 index 2517660..3e849b1 100644
 --- a/src/Game/AI/GoalieActions.cpp
@@ -446,8 +500,97 @@ index dc86883..d347dbc 100644
      playerText->SetAssetColour(teamColour);
  }
  
+diff --git a/src/Game/FE/Overlay/OverlayHandlerGoal.cpp b/src/Game/FE/Overlay/OverlayHandlerGoal.cpp
+index 5b274ef..831f304 100644
+--- a/src/Game/FE/Overlay/OverlayHandlerGoal.cpp
++++ b/src/Game/FE/Overlay/OverlayHandlerGoal.cpp
+@@ -28,6 +28,62 @@
+ #include <string.h>
+ 
+ #include "Game/SharedStaticStorage.h"
++#include "mscharged_tweaks.h"
++#if defined(MSCHARGED_TWEAKS)
++#include "Game/FE/feTextureResource.h"
++#include "Game/FE/tlImageInstance.h"
++#include "NL/gl/gl.h"
++#include "NL/gl/glTexture.h"
++
++// Port tweak "Mirror match": with one captain on both teams, the away team's
++// goal banner shows his emblem in its away kit where the port makes the kit.
++// One banner shows at a time, so the emblem's texture holds the home or the
++// away version, switched in place as AsyncImage swaps images: nothing is added
++// to the match's resource pool. The texture switched (0 before the away
++// team's first banner of the match), whether it holds the away version, and
++// both versions (header and levels).
++static unsigned long sMirrorMatchEmblem;
++static bool sMirrorMatchEmblemAway;
++static unsigned long sMirrorMatchEmblemSize;
++static unsigned char sMirrorMatchEmblems[2][0x10000];
++
++static void MirrorMatchShowEmblem(TLComponentInstance* component, int side)
++{
++    const CharacterInfo& home = GetCharacterInfo(GetCharacterIndexFromCaptain(GameInfoManager::Instance()->GetTeam(0)));
++    const CharacterInfo& away = GetCharacterInfo(GetCharacterIndexFromCaptain(GameInfoManager::Instance()->GetTeam(1)));
++    if (component == 0 || !MirrorMatchAwayKit(1, away, home) || HasWholeAwayKit(away))
++    {
++        return;
++    }
++    char szImage[32];
++    nlSNPrintf(szImage, sizeof(szImage), "lowerthird_%s", away.mName);
++    TLImageInstance* image = FEFinder<TLImageInstance, 2>::Find(component, away.mName, szImage);
++    if (image == 0 || image->m_pTextureResource == 0)
++    {
++        return;
++    }
++    unsigned long texture = image->m_pTextureResource->GetTextureHandle();
++    bool showAway = side == 1;
++    if (texture != sMirrorMatchEmblem)
++    {
++        if (!showAway
++            || !MirrorMatchMakePicture(texture, away.mName, sMirrorMatchEmblems[0], sMirrorMatchEmblems[1],
++                sizeof(sMirrorMatchEmblems[0]), &sMirrorMatchEmblemSize))
++        {
++            return;
++        }
++        sMirrorMatchEmblem = texture;
++        sMirrorMatchEmblemAway = false;
++    }
++    if (showAway == sMirrorMatchEmblemAway || !glTextureLoad(texture))
++    {
++        return;
++    }
++    glFinish();
++    glTextureReplace(texture, sMirrorMatchEmblems[showAway], sMirrorMatchEmblemSize);
++    sMirrorMatchEmblemAway = showAway;
++}
++#endif
+ 
+ static inline void CreateGoalEventHandler(GoalOverlay* goalOverlay);
+ 
+@@ -74,6 +130,11 @@ void GoalOverlay::OnMegastrikeEnd(MegaStrikeEndData*)
+ GoalOverlay::GoalOverlay()
+     : BaseOverlayHandler(0x18, POSITION_BOTTOM)
+ {
++#if defined(MSCHARGED_TWEAKS)
++    // Port tweak "Mirror match": each match loads its banners anew.
++    sMirrorMatchEmblem = 0;
++    sMirrorMatchEmblemAway = false;
++#endif
+     mIsCreated = false;
+     mIsInOvertime = false;
+     CreateGoalEventHandler(this);
+@@ -484,6 +545,9 @@ void GoalOverlay::SetWinnerTitle(int homeAway, bool isMatchEnd, int numGoals)
+     TLComponentInstance* component = FEFinder<TLComponentInstance, 4>::Find<TLSlide>(slide, "Layer", "lowerthirdgraphic");
+     if (component != NULL)
+         component->SetActiveSlide(GetTeamName(winningTeam), true, false);
++#if defined(MSCHARGED_TWEAKS)
++    MirrorMatchShowEmblem(component, homeAway);
++#endif
+ }
+ 
+ void GoalOverlay::DoCupWinOverlay(int cup)
 diff --git a/src/Game/FE/Overlay/OverlayHandlerHUD.cpp b/src/Game/FE/Overlay/OverlayHandlerHUD.cpp
-index a36bd14..dcb540b 100644
+index a36bd14..eeeb48f 100644
 --- a/src/Game/FE/Overlay/OverlayHandlerHUD.cpp
 +++ b/src/Game/FE/Overlay/OverlayHandlerHUD.cpp
 @@ -26,6 +26,7 @@
@@ -476,7 +619,7 @@ index a36bd14..dcb540b 100644
 +    {
 +        return;
 +    }
-+    if (!mscharged_tweak_recolour_away_texture(sMirrorMatchIconCaptain, false, image->m_loadBuffer,
++    if (!mscharged_tweak_recolour_away_texture(sMirrorMatchIconCaptain, MSCHARGED_AWAY_PICTURE, image->m_loadBuffer,
 +            image->mTextureSize, 0, 0, 0, 0))
 +    {
 +        nlPrintf("Mirror match: the %s icon keeps the home colours\n", sMirrorMatchIconCaptain);
@@ -512,6 +655,66 @@ index a36bd14..dcb540b 100644
  }
  
  void HUDOverlay::UpdateScore()
+diff --git a/src/Game/FE/Overlay/OverlayHandlerSuperAbility.cpp b/src/Game/FE/Overlay/OverlayHandlerSuperAbility.cpp
+index 017cc05..b98846d 100644
+--- a/src/Game/FE/Overlay/OverlayHandlerSuperAbility.cpp
++++ b/src/Game/FE/Overlay/OverlayHandlerSuperAbility.cpp
+@@ -8,10 +8,24 @@
+ #include "Game/FE/feHelpFuncs_decl.h"
+ #include "Game/Render/RLViewLayers.h"
+ #include "NL/nlPrint.h"
++#include "mscharged_tweaks.h"
++#if defined(MSCHARGED_TWEAKS)
++#include "Game/DB/CharacterInfo.h"
++#include "Game/GameInfo.h"
++#endif
+ 
+ float gSuperAbilityDisplayTime = 2.0f;
+ static const char* sSuperAbilityResource = "art/fe/superabilityUI.res";
+ eTeamID gSuperAbilityTeam;
++#if defined(MSCHARGED_TWEAKS)
++int gSuperAbilitySide;
++
++// Port tweak "Mirror match": with one captain on both teams, the away team's
++// picture shows his away kit where the port makes it: it is recoloured once
++// its load completes, before AsyncImage::Update adds it. The captain whose
++// picture is made, or 0.
++static const char* sMirrorMatchPictureCaptain;
++#endif
+ 
+ SuperAbilityOverlay::SuperAbilityOverlay()
+     : BaseOverlayHandler(1, POSITION_ALL)
+@@ -49,6 +63,18 @@ void SuperAbilityOverlay::Update(float dt)
+     }
+     if (!mImageLoaded)
+     {
++#if defined(MSCHARGED_TWEAKS)
++        if (sMirrorMatchPictureCaptain != 0 && mImage.mLoadState == LS_LOAD_COMPLETE && mImage.m_loadBuffer != 0)
++        {
++            if (!mscharged_tweak_recolour_away_texture(sMirrorMatchPictureCaptain, MSCHARGED_AWAY_PICTURE,
++                    mImage.m_loadBuffer, mImage.mTextureSize, 0, 0, 0, 0))
++            {
++                nlPrintf("Mirror match: the %s super ability picture keeps the home colours\n",
++                    sMirrorMatchPictureCaptain);
++            }
++            sMirrorMatchPictureCaptain = 0;
++        }
++#endif
+         mImageLoaded = mImage.Update(true);
+         if (mImageLoaded)
+         {
+@@ -79,4 +105,11 @@ void SuperAbilityOverlay::Start()
+     char path[64];
+     nlSNPrintf(path, sizeof(path), "fe/super_abilities/%s_super_image", GetTeamName(gSuperAbilityTeam));
+     mImage.QueueLoad(path, false);
++#if defined(MSCHARGED_TWEAKS)
++    const CharacterInfo& home = GetCharacterInfo(GetCharacterIndexFromCaptain(GameInfoManager::Instance()->GetTeam(0)));
++    const CharacterInfo& away = GetCharacterInfo(GetCharacterIndexFromCaptain(GameInfoManager::Instance()->GetTeam(1)));
++    sMirrorMatchPictureCaptain = gSuperAbilitySide == 1 && MirrorMatchAwayKit(1, away, home) && !HasWholeAwayKit(away)
++        ? away.mName
++        : 0;
++#endif
+ }
 diff --git a/src/Game/FE/feCaptainComponent.cpp b/src/Game/FE/feCaptainComponent.cpp
 index 5f62102..d3c7ff9 100644
 --- a/src/Game/FE/feCaptainComponent.cpp
@@ -808,10 +1011,10 @@ index 2ecd370..12dd818 100644
          model->mOriginalTexture = original;
          model->SetReplacementTexture(replacement);
 diff --git a/src/Game/FE/feTextureResource.cpp b/src/Game/FE/feTextureResource.cpp
-index 3f26479..682ad85 100644
+index 3f26479..3d6f0ae 100644
 --- a/src/Game/FE/feTextureResource.cpp
 +++ b/src/Game/FE/feTextureResource.cpp
-@@ -1,6 +1,14 @@
+@@ -1,6 +1,15 @@
  #include "Game/FE/feTextureResource.h"
  
  #include "NL/gl/glTexture.h"
@@ -822,20 +1025,77 @@ index 3f26479..682ad85 100644
 +#include "NL/nlPrint.h"
 +#include "NL/nlString.h"
 +#include "mscharged_tweaks.h"
++#include <string.h>
 +#endif
  
  FETextureResource::FETextureResource()
  {
-@@ -31,3 +39,61 @@ u32 FETextureResource::GetTextureHandle() const
+@@ -31,3 +40,117 @@ u32 FETextureResource::GetTextureHandle() const
  {
      return m_glTextureHandle;
  }
 +
 +#if defined(MSCHARGED_TWEAKS)
-+// Port tweak "Mirror match". The copy is read from the bundle the front end
-+// loaded its permanent textures from, recoloured and added above the current
-+// scene's mark in the front end's pool, so it goes when that scene does. Its
-+// name follows from the original's: a scene makes each copy once.
++// Port tweak "Mirror match". Whether a bundle name of the resource manager
++// was set (the on-demand one is set when the first match loads).
++static bool MirrorMatchBundleName(const char* name)
++{
++    for (int i = 0; i < 0x20; i++)
++    {
++        if (name[i] == 0)
++        {
++            return i != 0;
++        }
++    }
++    return false;
++}
++
++// Reads front-end texture `source` (its header and levels) from the bundle the
++// front end loads it from: the permanent one, or in matches the on-demand one.
++// Into `buffer` when it fits, else into a new allocation; 0 when the texture
++// is in neither.
++static void* MirrorMatchReadTexture(unsigned long source, void* buffer, unsigned long capacity, unsigned long* size)
++{
++    FEResourceManager* manager = FEResourceManager::Instance();
++    const char* bundles[2] = { manager->m_szPermanentBundleFileName, manager->m_szOnDemandBundleFileName };
++    for (int i = 0; i < 2; i++)
++    {
++        BundleFile bundle;
++        if (!MirrorMatchBundleName(bundles[i]) || !bundle.Open(bundles[i], false))
++        {
++            continue;
++        }
++        u32 index = bundle.FindHashIndex(source, false);
++        BundleFileDirectoryEntry entry;
++        if (index == -1U || !bundle.GetFileInfoByIndex(index, &entry))
++        {
++            bundle.Close();
++            continue;
++        }
++        void* data = buffer;
++        if (entry.m_length > capacity)
++        {
++            AllocatorStack[AllocatorStackDepth++] = &VirtualAllocator;
++            CurrentAllocator = &VirtualAllocator;
++            data = nlMalloc(entry.m_length, 0x20, true);
++            --AllocatorStackDepth;
++            AllocatorStack[AllocatorStackDepth] = 0;
++            CurrentAllocator = AllocatorStack[AllocatorStackDepth - 1];
++        }
++        if (data != 0)
++        {
++            bundle.ReadFileByIndex(index, data, entry.m_length);
++            *size = entry.m_length;
++        }
++        bundle.Close();
++        return data;
++    }
++    return 0;
++}
++
++// The copy is added above the current scene's mark in the front end's pool,
++// so it goes when that scene does. Its name follows from the original's: a
++// scene makes each copy once.
 +unsigned long MirrorMatchAwayPicture(unsigned long source, const char* captain)
 +{
 +    char szName[32];
@@ -846,46 +1106,46 @@ index 3f26479..682ad85 100644
 +        return texture;
 +    }
 +    GLResourcePool* pool = FEResourceManager::Instance()->GetResourcePool();
-+    BundleFile bundle;
-+    if (pool == 0 || !bundle.Open(FEResourceManager::Instance()->m_szPermanentBundleFileName, false))
++    unsigned long size = 0;
++    void* data = pool != 0 ? MirrorMatchReadTexture(source, 0, 0, &size) : 0;
++    if (data == 0)
 +    {
 +        return 0;
 +    }
-+    u32 index = bundle.FindHashIndex(source, false);
-+    BundleFileDirectoryEntry entry;
 +    const char* szPool;
 +    unsigned long poolSize;
 +    unsigned long freeHeaders = 0;
 +    unsigned long freeData = 0;
 +    unsigned long peak;
-+    if (index == -1U || !bundle.GetFileInfoByIndex(index, &entry)
-+        || !pool->GetPoolMemoryInfo(0, &szPool, &poolSize, &freeHeaders, &peak, 0)
-+        || !pool->GetPoolMemoryInfo(1, &szPool, &poolSize, &freeData, &peak, 0) || freeHeaders < 0x400
-+        || freeData < entry.m_length + 0x400)
-+    {
-+        bundle.Close();
-+        return 0;
-+    }
-+    AllocatorStack[AllocatorStackDepth++] = &VirtualAllocator;
-+    CurrentAllocator = &VirtualAllocator;
-+    void* data = nlMalloc(entry.m_length, 0x20, true);
-+    --AllocatorStackDepth;
-+    AllocatorStack[AllocatorStackDepth] = 0;
-+    CurrentAllocator = AllocatorStack[AllocatorStackDepth - 1];
-+    if (data == 0)
-+    {
-+        bundle.Close();
-+        return 0;
-+    }
-+    bundle.ReadFileByIndex(index, data, entry.m_length);
-+    bundle.Close();
-+    bool made = mscharged_tweak_recolour_away_texture(captain, false, data, entry.m_length, 0, 0, 0, 0);
++    bool made = pool->GetPoolMemoryInfo(0, &szPool, &poolSize, &freeHeaders, &peak, 0)
++        && pool->GetPoolMemoryInfo(1, &szPool, &poolSize, &freeData, &peak, 0) && freeHeaders >= 0x400
++        && freeData >= size + 0x400
++        && mscharged_tweak_recolour_away_texture(captain, MSCHARGED_AWAY_PICTURE, data, size, 0, 0, 0, 0);
 +    if (made)
 +    {
-+        glTextureAdd(texture, data, entry.m_length, pool);
++        glTextureAdd(texture, data, size, pool);
 +    }
 +    nlFree(data);
 +    return made ? texture : 0;
++}
++
++bool MirrorMatchMakePicture(unsigned long source, const char* captain, void* home, void* away, unsigned long capacity,
++    unsigned long* size)
++{
++    unsigned long length = 0;
++    void* data = MirrorMatchReadTexture(source, home, capacity, &length);
++    if (data == 0)
++    {
++        return false;
++    }
++    if (data != home)
++    {
++        nlFree(data);
++        return false;
++    }
++    memcpy(away, home, length);
++    *size = length;
++    return mscharged_tweak_recolour_away_texture(captain, MSCHARGED_AWAY_PICTURE, away, length, 0, 0, 0, 0);
 +}
 +#endif
 diff --git a/src/Game/Render/FrontEndPresentation_interp.cpp b/src/Game/Render/FrontEndPresentation_interp.cpp
@@ -1071,7 +1331,7 @@ index 622df78..60c387f 100644
  }
  
 diff --git a/src/Game/SH/SHChooseSidekicks.cpp b/src/Game/SH/SHChooseSidekicks.cpp
-index 49bbb30..db3cf48 100644
+index 49bbb30..46c752f 100644
 --- a/src/Game/SH/SHChooseSidekicks.cpp
 +++ b/src/Game/SH/SHChooseSidekicks.cpp
 @@ -34,8 +34,72 @@
@@ -1130,8 +1390,8 @@ index 49bbb30..db3cf48 100644
 +            sizes[i] = entry.m_length;
 +        }
 +    }
-+    if (!mscharged_tweak_recolour_away_texture(sMirrorMatchCaptain, true, image->m_loadBuffer, image->mTextureSize,
-+            references[0], sizes[0], references[1], sizes[1]))
++    if (!mscharged_tweak_recolour_away_texture(sMirrorMatchCaptain, MSCHARGED_AWAY_TEAM_TEXTURE, image->m_loadBuffer,
++            image->mTextureSize, references[0], sizes[0], references[1], sizes[1]))
 +    {
 +        nlPrintf("Mirror match: the %s %s image keeps the home colours\n", szSidekick, szKind);
 +    }
@@ -1252,3 +1512,97 @@ index 3a8d01f..75bc592 100644
  
      for (int index = 0; index < 4; ++index)
      {
+diff --git a/src/Game/SH/SHPausePostGame.cpp b/src/Game/SH/SHPausePostGame.cpp
+index 58e77b3..b41c195 100644
+--- a/src/Game/SH/SHPausePostGame.cpp
++++ b/src/Game/SH/SHPausePostGame.cpp
+@@ -28,6 +28,7 @@
+ #include "NL/nlPrint.h"
+ #include "NL/nlString.h"
+ #include "NL/nlFunction.inl"
++#include "mscharged_tweaks.h"
+ 
+ int gPostGameCountdownSeconds = 10;
+ 
+@@ -307,6 +308,18 @@ void PausePostGameScene::BuildStoryArticle()
+         mHeadlineText = Format(headline, g_pLocalization->GetString(seriesWinner.mDisplayNameKey), wMaxWins, wMinWins);
+     }
+     SetArticleImageName(winner, NEWS_MOOD_POSITIVE, -1);
++#if defined(MSCHARGED_TWEAKS)
++    // Port tweak "Mirror match": with one captain on both teams, the photo of
++    // an away winner shows his away kit where the port makes it (and the
++    // game's photos of him take it cleanly).
++    const CharacterInfo& homeInfo = GetCharacterInfo(GetCharacterIndexFromCaptain(homeTeam));
++    const CharacterInfo& awayInfo = GetCharacterInfo(GetCharacterIndexFromCaptain(awayTeam));
++    if (homeScore <= awayScore && MirrorMatchAwayKit(1, awayInfo, homeInfo) && !HasWholeAwayKit(awayInfo)
++        && mscharged_tweak_away_kit_photos(awayInfo.mName))
++    {
++        MirrorMatchArticleAwayKit(awayInfo.mName);
++    }
++#endif
+ }
+ 
+ void PausePostGameScene::OnSelectRematch()
+diff --git a/src/Game/SH/SHStrikerTimesBase.cpp b/src/Game/SH/SHStrikerTimesBase.cpp
+index 5b6d534..37972c4 100644
+--- a/src/Game/SH/SHStrikerTimesBase.cpp
++++ b/src/Game/SH/SHStrikerTimesBase.cpp
+@@ -27,9 +27,37 @@
+ #include "NL/nlLocalization.h"
+ #include "NL/nlString.h"
+ #include "Game/FE/feDPD.h"
++#include "mscharged_tweaks.h"
+ #include "Game/FE/FEAudio.h"
+ #include "Game/SH/SHNavigation.h"
+ 
++#if defined(MSCHARGED_TWEAKS)
++// Port tweak "Mirror match": the captain whose article photo is recoloured as
++// its loads complete (both the story's and the headline's), or 0.
++static const char* sMirrorMatchArticleCaptain;
++static bool sMirrorMatchArticlePending[2];
++
++void MirrorMatchArticleAwayKit(const char* captain)
++{
++    sMirrorMatchArticleCaptain = captain;
++    sMirrorMatchArticlePending[0] = sMirrorMatchArticlePending[1] = captain != 0;
++}
++
++static void MirrorMatchRecolourArticleImage(AsyncImage& image, bool& pending)
++{
++    if (!pending || sMirrorMatchArticleCaptain == 0 || image.mLoadState != LS_LOAD_COMPLETE || image.m_loadBuffer == 0)
++    {
++        return;
++    }
++    pending = false;
++    if (!mscharged_tweak_recolour_away_texture(sMirrorMatchArticleCaptain, MSCHARGED_AWAY_PICTURE, image.m_loadBuffer,
++            image.mTextureSize, 0, 0, 0, 0))
++    {
++        nlPrintf("Mirror match: the %s article photo keeps the home colours\n", sMirrorMatchArticleCaptain);
++    }
++}
++#endif
++
+ static inline void ShowDoneButtons(TLSlide* first)
+ {
+     TLSlide* slide = first;
+@@ -62,6 +90,9 @@ SHStrikerTimesBase::SHStrikerTimesBase()
+     , mHeadlineImage("art/fe/StrikerTimesUI.res", 0)
+     , mLogoImage("art/fe/StrikerTimesUI.res", 0)
+ {
++#if defined(MSCHARGED_TWEAKS)
++    MirrorMatchArticleAwayKit(0);
++#endif
+     mDoneButton.mIgnoreInputLock = true;
+     mDoneButton.mDisabled = true;
+     FEPointerEvent event;
+@@ -166,6 +197,10 @@ void SHStrikerTimesBase::Update(float dt)
+     {
+         if (!mContentInitialized)
+             InitializeContent();
++#if defined(MSCHARGED_TWEAKS)
++        MirrorMatchRecolourArticleImage(mStoryImage, sMirrorMatchArticlePending[0]);
++        MirrorMatchRecolourArticleImage(mHeadlineImage, sMirrorMatchArticlePending[1]);
++#endif
+         mStoryImage.Update(true);
+         mHeadlineImage.Update(true);
+     }

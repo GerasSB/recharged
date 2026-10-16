@@ -50,6 +50,7 @@ struct AwayKit
     Band strong;               // clearly the kit's colour
     Band weak;                 // its shading and highlights, when connected to strong texels
     const char* references[2]; // teams compared with on team textures
+    bool photos;               // the game's photos of him recolour cleanly (their backgrounds lack his colour)
 };
 
 namespace
@@ -57,19 +58,21 @@ namespace
 // Contrasting kits none of the game's teams wears at home, after each
 // character's best-known colours where he has some: Mario's blue, after his
 // overalls and the away side's blue in the menus.
+// Luigi's, Wario's, Waluigi's and Peach's newspaper photos have grass, crowds
+// or stands in their colours behind them.
 const AwayKit kKits[] = {
     {"mario", 0xBBFFCF5Eu, 0x2B5FE3u, {345.0f, 12.0f, 0.55f, 0.55f, 0.25f}, {335.0f, 10.0f, 0.22f, 0.45f, 0.18f},
-        {"luigi", "waluigi"}},
+        {"luigi", "waluigi"}, true},
     {"luigi", 0x4442532Du, 0x3D9BE9u, {95.0f, 150.0f, 0.45f, 0.45f, 0.15f}, {80.0f, 165.0f, 0.15f, 0.15f, 0.05f},
-        {"mario", "wario"}},
+        {"mario", "wario"}, false},
     {"wario", 0x31A701C7u, 0x2E5CD8u, {40.0f, 58.0f, 0.55f, 0.55f, 0.30f}, {36.0f, 64.0f, 0.30f, 0.30f, 0.10f},
-        {"luigi", "waluigi"}},
+        {"luigi", "waluigi"}, false},
     {"waluigi", 0xD04A32DFu, 0xF08A24u, {255.0f, 290.0f, 0.45f, 0.45f, 0.18f}, {228.0f, 315.0f, 0.15f, 0.15f, 0.05f},
-        {"luigi", "wario"}},
+        {"luigi", "wario"}, false},
     // Peach's blue kit is on the disc (peach_alt.rlt), her menu pictures and
     // Mega Strike hand in it are not: those are made in its colour.
     {"peach", 0u, 0x5DB9FFu, {312.0f, 338.0f, 0.30f, 0.30f, 0.30f}, {300.0f, 341.0f, 0.10f, 0.18f, 0.10f},
-        {"luigi", "wario"}},
+        {"luigi", "wario"}, false},
 };
 
 std::uint32_t BE32(const std::uint8_t* p)
@@ -511,6 +514,36 @@ void KitMask(const AwayKit& kit, const Level& level, const HostVector<Texel>& te
     }
 }
 
+// Pictures are paintings: single texels and thin lines of hair and skin
+// shading have the kit's hue as well, kits are areas. Keeps the kit texels next
+// to one whose 3x3 neighbourhood is all kit (a morphological opening).
+void OpenMask(const Level& level, HostVector<std::uint8_t>& mask)
+{
+    const int w = level.width, h = level.height;
+    HostVector<std::uint8_t> core(mask.size(), 0);
+    for (int y = 1; y + 1 < h; ++y)
+        for (int x = 1; x + 1 < w; ++x)
+        {
+            bool all = true;
+            for (int dy = -1; dy <= 1 && all; ++dy)
+                for (int dx = -1; dx <= 1 && all; ++dx) all = mask[std::size_t(y + dy) * w + x + dx] == kKit;
+            core[std::size_t(y) * w + x] = all;
+        }
+    for (int y = 0; y < h; ++y)
+        for (int x = 0; x < w; ++x)
+        {
+            std::uint8_t& m = mask[std::size_t(y) * w + x];
+            bool near = false;
+            for (int dy = -1; dy <= 1 && m == kKit && !near; ++dy)
+                for (int dx = -1; dx <= 1 && !near; ++dx)
+                {
+                    int nx = x + dx, ny = y + dy;
+                    near = nx >= 0 && ny >= 0 && nx < w && ny < h && core[std::size_t(ny) * w + nx];
+                }
+            if (!near) m = kNone;
+        }
+}
+
 // Team texels of a team texture: those that differ from both references, as
 // only the team colour does, and have the kit's hue (where the other teams'
 // emblems differ in shape, this texture is white or grey).
@@ -669,6 +702,7 @@ const AwayKit* FindGeneratedAwayKit(const char* captain)
 std::uint32_t AwayKitColour(const AwayKit& kit) { return kit.colour; }
 std::uint32_t AwayKitSourceTexture(const AwayKit& kit) { return kit.source; }
 const char* AwayKitReference(const AwayKit& kit, int index) { return kit.references[index & 1]; }
+bool AwayKitPhotos(const AwayKit& kit) { return kit.photos; }
 
 bool RecolourAwayKit(const AwayKit& kit, AwayKitTexture kind, std::span<std::uint8_t> texture,
     std::span<const std::uint8_t> reference0, std::span<const std::uint8_t> reference1)
@@ -684,8 +718,12 @@ bool RecolourAwayKit(const AwayKit& kit, AwayKitTexture kind, std::span<std::uin
     {
         const Level& level = levels[l];
         DecodeLevel(texture, format, level, texels);
-        if (kind == AwayKitTexture::Kit)
+        if (kind != AwayKitTexture::Team)
+        {
             KitMask(kit, level, texels, mask);
+            // Small mip levels have no room for the opening's 3x3 cores.
+            if (kind == AwayKitTexture::Picture && level.width >= 16 && level.height >= 16) OpenMask(level, mask);
+        }
         else
         {
             if (!DecodeReference(reference0, format, level, l, ref0)
@@ -741,18 +779,26 @@ const char* mscharged_tweak_away_kit_reference(const char* captain, int index)
     return kit ? AwayKitReference(*kit, index) : nullptr;
 }
 
-bool mscharged_tweak_recolour_away_texture(const char* captain, bool team, void* texture, unsigned long size,
+bool mscharged_tweak_away_kit_photos(const char* captain)
+{
+    const AwayKit* kit = FindGeneratedAwayKit(captain);
+    return kit && AwayKitPhotos(*kit);
+}
+
+// The kinds of mscharged_tweaks.h (0 kit texture, 1 team texture, 2 picture).
+bool mscharged_tweak_recolour_away_texture(const char* captain, int kind, void* texture, unsigned long size,
     const void* reference0, unsigned long size0, const void* reference1, unsigned long size1)
 {
     const AwayKit* kit = FindGeneratedAwayKit(captain);
-    if (!kit || !texture || (team && (!reference0 || !reference1))) return false;
+    bool team = kind == 1;
+    if (!kit || !texture || kind < 0 || kind > 2 || (team && (!reference0 || !reference1))) return false;
     std::span<const std::uint8_t> r0, r1;
     if (team)
     {
         r0 = {static_cast<const std::uint8_t*>(reference0), size0};
         r1 = {static_cast<const std::uint8_t*>(reference1), size1};
     }
-    return RecolourAwayKit(*kit, team ? AwayKitTexture::Team : AwayKitTexture::Kit,
+    return RecolourAwayKit(*kit, kind == 0 ? AwayKitTexture::Kit : team ? AwayKitTexture::Team : AwayKitTexture::Picture,
         {static_cast<std::uint8_t*>(texture), size}, r0, r1);
 }
 

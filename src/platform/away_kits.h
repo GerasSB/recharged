@@ -25,11 +25,14 @@ std::uint32_t AwayKitSourceTexture(const AwayKit& kit);
 // The two teams whose version of a team texture or picture tells its
 // team-coloured texels apart: those differ between teams.
 const char* AwayKitReference(const AwayKit& kit, int index);
+// Whether the game's photos of him (the post-match newspaper) recolour cleanly.
+bool AwayKitPhotos(const AwayKit& kit);
 
 enum class AwayKitTexture
 {
-    Kit,  // the captain's kit texture or a picture of him: texels in the kit's colour
-    Team, // a team texture or picture: texels that differ from the references
+    Kit,     // the captain's kit texture: texels in the kit's colour
+    Team,    // a team texture or picture: texels that differ from the references
+    Picture, // a painted picture of him: areas in the kit's colour (not single texels or thin lines)
 };
 
 // Recolours one Wii texture in place: its 32-byte header and levels as a
