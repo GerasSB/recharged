@@ -3266,6 +3266,44 @@ private:
         pad_capture_action_ = pad_capture_slot_ = -1;
     }
 
+    // A copy of the profile on screen, which the page then edits; false when
+    // all profile slots are taken.
+    bool CopyShownProfile()
+    {
+        auto& profiles = draft_.pad_profiles;
+        if (profiles.size() >= kMaxGamepadProfiles) return false;
+        auto copy = ShownProfile(edit_profile_);
+        copy.name = NewProfileName();
+        copy.controller = PageKind();
+        profiles.push_back(copy);
+        EditProfile(int(profiles.size()) - 1);
+        dirty_ = true;
+        return true;
+    }
+
+    // The built-in Default never changes: a change to it goes into a copy,
+    // which the page's gamepad plays with from then on. Null when all
+    // profile slots are taken.
+    Settings::PadProfile* OwnCopyForChange()
+    {
+        if (!CopyShownProfile())
+        {
+            Notice("Default cannot change and all 16 profiles are in use. Delete one to make your own.",
+                   NoticeKind::Warning);
+            return nullptr;
+        }
+        auto& copy = draft_.pad_profiles.back();
+        std::string user = "It is not assigned to a gamepad yet.";
+        if (pad_slot_ < kGamepadSlots)
+        {
+            draft_.pad_profile_names[pad_slot_] = copy.name;
+            user = "Gamepad " + std::to_string(pad_slot_ + 1) + " plays with it.";
+        }
+        Notice("Default cannot change, so your changes go into " + copy.name + ", a copy. " + user,
+               NoticeKind::Info);
+        return &copy;
+    }
+
     void ProfileCard()
     {
         auto& profiles = draft_.pad_profiles;
@@ -3319,20 +3357,13 @@ private:
         TextColored(CurrentFonts().caption, color::muted, controller.c_str());
         const auto users = ProfileUsers(edit_profile_);
         TextColored(CurrentFonts().caption, color::muted,
-                    ((builtin ? std::string("Built-in, cannot be changed; New makes an editable copy. ") : std::string())
+                    ((builtin ? std::string("Built-in: changing a button below makes your own copy. ") : std::string())
                      + (users.empty() ? "No gamepad plays with this profile." : "Used by " + users + "."))
                         .c_str());
         ImGui::Dummy(Dp(0, 4));
-        if (SecondaryButton("##new_profile", "New", Dp(110, 36), profiles.size() < kMaxGamepadProfiles, Icon::Copy))
-        {
-            auto copy = ShownProfile(edit_profile_);
-            copy.name = NewProfileName();
-            copy.controller = PageKind();
-            profiles.push_back(copy);
-            EditProfile(int(profiles.size()) - 1);
-            dirty_ = true;
-            Notice(copy.name + " starts as a copy of the profile you were editing.", NoticeKind::Info);
-        }
+        if (SecondaryButton("##new_profile", "New", Dp(110, 36), profiles.size() < kMaxGamepadProfiles, Icon::Copy)
+            && CopyShownProfile())
+            Notice(profiles.back().name + " starts as a copy of the profile you were editing.", NoticeKind::Info);
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip(profiles.size() < kMaxGamepadProfiles ? "A new profile, copied from this one"
                                                                     : "Up to 16 profiles");
@@ -3375,14 +3406,15 @@ private:
         ImGui::Dummy(Dp(0, 6));
         PageHeader("Gamepad profiles", "Mario Strikers Charged is played with a Wii Remote and Nunchuk. Your "
                    "controller stands in for them: a profile says which of its buttons presses each Wii button. "
-                   "Pick a profile per gamepad, here or on the Players list. To change a button, click it below "
+                   "Pick a profile per gamepad, here or on the Players list. To change a button, select it below "
                    "and press the new one on the controller. Changes are saved when you go back.");
         if (edit_profile_ >= int(draft_.pad_profiles.size())) edit_profile_ = -1;
         ProfileCard();
-        // The built-in Default is shown read-only; New makes an editable copy.
+        // The built-in Default never changes: its first change makes an own copy.
         const bool builtin = edit_profile_ < 0;
         Settings::PadProfile scratch = ShownProfile(edit_profile_);
         auto& profile = builtin ? scratch : draft_.pad_profiles[std::size_t(edit_profile_)];
+        const auto editable = [&]() -> Settings::PadProfile* { return builtin ? OwnCopyForChange() : &profile; };
         const auto type = PageType();
         const auto bindings = platform::ParseGamepadBindings(profile.inputs);
         bool clicked = false;
@@ -3407,14 +3439,14 @@ private:
                     for (int slot = 0; slot < 2; ++slot)
                     {
                         const auto input = bindings[n][slot];
-                        if (slot == 1 && (bindings[n][0] == platform::kGamepadNone || builtin)) break;
+                        if (slot == 1 && bindings[n][0] == platform::kGamepadNone) break;
                         const bool waiting = pad_capture_action_ == int(n) && pad_capture_slot_ == slot;
                         const std::string label = waiting ? "Press a button..."
                             : input != platform::kGamepadNone ? PadInputLabel(input, type)
                             : slot == 0 ? "Not set" : "+";
                         if (slot) ImGui::SameLine(0, Dp(6));
                         ImGui::PushID(slot);
-                        if (KeyCapButton("##input", label.c_str(), waiting))
+                        if (KeyCapButton("##input", label.c_str(), waiting) && (waiting || editable()))
                         {
                             clicked = true;
                             pad_capture_action_ = waiting ? -1 : int(n);
@@ -3422,22 +3454,23 @@ private:
                         }
                         if (ImGui::IsItemHovered() && !waiting)
                             ImGui::SetTooltip(input != platform::kGamepadNone
-                                                  ? "Click, then press the new button on the controller"
-                                                  : slot == 0 ? "No button presses this. Click, then press one."
+                                                  ? "Select, then press the new button on the controller"
+                                                  : slot == 0 ? "No button presses this. Select, then press one."
                                                               : "Add a second button");
                         ImGui::PopID();
                     }
-                    if (bindings[n][0] != platform::kGamepadNone && !builtin)
+                    if (bindings[n][0] != platform::kGamepadNone)
                     {
                         // Removes the second button, or the only one (no button then).
                         const bool two = bindings[n][1] != platform::kGamepadNone;
                         ImGui::SameLine(0, Dp(6));
                         if (SecondaryButton("##remove", "", Dp(30, 30), true, Icon::Error))
-                        {
-                            profile.inputs[n] = platform::FormatGamepadBinding(
-                                {two ? bindings[n][0] : platform::kGamepadNone, platform::kGamepadNone});
-                            dirty_ = true;
-                        }
+                            if (auto* target = editable())
+                            {
+                                target->inputs[n] = platform::FormatGamepadBinding(
+                                    {two ? bindings[n][0] : platform::kGamepadNone, platform::kGamepadNone});
+                                dirty_ = true;
+                            }
                         if (ImGui::IsItemHovered())
                             ImGui::SetTooltip(two ? "Remove the second button" : "Remove the button (none presses this)");
                     }
@@ -3447,7 +3480,6 @@ private:
             }
             ImGui::PopStyleVar();
         };
-        ImGui::BeginDisabled(builtin);
         const std::string remote_title = "Wii Remote buttons: " + profile.name;
         BeginCard("##pad_remote", remote_title.c_str(),
                   "Each Wii Remote button, and the controller button that presses it.", Icon::Gamepad);
@@ -3472,10 +3504,11 @@ private:
             Row("Swap sticks", "Nunchuk stick on the right stick, pointer on the left.");
             bool swapped = swap;
             if (Toggle("##swap_sticks", &swapped))
-            {
-                profile.swap_sticks = swapped;
-                dirty_ = true;
-            }
+                if (auto* target = editable())
+                {
+                    target->swap_sticks = swapped;
+                    dirty_ = true;
+                }
             EndRows();
         }
         rows(GamepadActionC, GamepadActionCount);
@@ -3491,7 +3524,6 @@ private:
             dirty_ = true;
         }
         EndCard();
-        ImGui::EndDisabled();
         // A click anywhere else stops waiting for a press.
         if (pad_capture_action_ >= 0 && !clicked && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
             pad_capture_action_ = pad_capture_slot_ = -1;
