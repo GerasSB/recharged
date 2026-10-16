@@ -34,7 +34,8 @@ picture = sharp
 # Antialiasing of the game's 3D edges: off or 4x (more GPU time).
 antialiasing = 4x
 # 3D render size: window (one pixel per window pixel, default), native (the
-# Wii's 640x448) or 2x, 3x, 4x of it. The game's view stays the same.
+# Wii's 640x448) or 2x, 3x, 4x of it. The game's view stays the same. Only
+# set here; the launcher has no option for it.
 resolution = window
 # Performance overlay: FPS | GPU % | CPU % | LAT N/A, also in fullscreen.
 # GPU/CPU are total system usage; unavailable driver counters show N/A.
