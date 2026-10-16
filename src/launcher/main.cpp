@@ -129,6 +129,24 @@ std::string Megabytes(std::uint64_t bytes)
     return text;
 }
 
+// A tinted note with an icon and wrapped text, as wide as the content region.
+void Callout(const std::string& text, const ImVec4& tint, Icon icon)
+{
+    const auto& fonts = CurrentFonts();
+    auto* draw = ImGui::GetWindowDrawList();
+    const ImVec2 pos = ImGui::GetCursorScreenPos();
+    const float width = ImGui::GetContentRegionAvail().x, wrap = width - Dp(62);
+    const float size = FontSize(fonts.body);
+    const float height = fonts.body->CalcTextSizeA(size, FLT_MAX, wrap, text.c_str()).y + Dp(26);
+    const ImVec2 max{pos.x + width, pos.y + height};
+    draw->AddRectFilled(pos, max, Col(Mix(color::card, tint, 0.09f)), Dp(12));
+    draw->AddRect(pos, max, Col(tint, 0.30f), Dp(12), 0, Dp(1));
+    DrawIcon(draw, icon, {pos.x + Dp(25), pos.y + Dp(13) + size * 0.5f}, Dp(17), Col(tint));
+    draw->AddText(fonts.body, size, {pos.x + Dp(46), pos.y + Dp(13)}, Col(Mix(color::muted, color::text, 0.8f)),
+                  text.c_str(), nullptr, wrap);
+    ImGui::Dummy({width, height});
+}
+
 enum Page { PagePlay, PageGame, PageDisplay, PageAudio, PageControls, PageGameplay, PageAdvanced, PageAbout, PageCount };
 constexpr const char* page_names[] = {"Play", "Game", "Display", "Audio", "Controls", "Gameplay", "Advanced", "About"};
 constexpr const char* page_ids[] = {"play", "game", "display", "audio", "controls", "gameplay", "advanced", "about"};
@@ -395,7 +413,7 @@ public:
             SDL_RenderClear(renderer_);
             RenderHero();
             ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData(), renderer_);
-            const bool update_settled = !UpdateBusy() && !(update_capture_install_ && update_.offer);
+            const bool update_settled = update_preview_ || (!UpdateBusy() && !(update_capture_install_ && update_.offer));
             if (!options_.screenshot.empty() && frame >= 12 && ((!pending_ && update_settled) || frame > 600))
             {
                 SDL_SetRenderScale(renderer_, 1.0f, 1.0f);
@@ -517,13 +535,27 @@ private:
         // Development captures stay offline unless MSCHARGED_CAPTURE_UPDATES
         // asks for the real check: "dialog" also opens an offered update,
         // "install" installs it and restarts (the screenshot comes from the
-        // restarted launcher).
+        // restarted launcher), "preview-..." shows a made-up state.
         const char* capture_updates = std::getenv("MSCHARGED_CAPTURE_UPDATES");
         if (capture_ && !(capture_updates && *capture_updates)) return;
         if (capture_)
         {
-            update_capture_dialog_ = std::string_view(capture_updates) == "dialog";
-            update_capture_install_ = std::string_view(capture_updates) == "install";
+            // "preview-<state>[-dialog]" shows a made-up state offline (UpdateService::Preview).
+            std::string mode = capture_updates;
+            if (mode.rfind("preview-", 0) == 0)
+            {
+                mode.erase(0, 8);
+                const bool dialog = mode.size() > 7 && mode.compare(mode.size() - 7, 7, "-dialog") == 0;
+                if (dialog) mode.resize(mode.size() - 7);
+                update_preview_ = updates_->Preview(mode);
+                update_dialog_ = update_preview_ && dialog;
+                // The switch shows the previewed channel (not saved).
+                if (update_preview_)
+                    draft_.update_channel = updates_->Snapshot().channel == UpdateChannel::Test ? "test" : "release";
+                return;
+            }
+            update_capture_dialog_ = mode == "dialog";
+            update_capture_install_ = mode == "install";
         }
         if (!capture_)
         {
@@ -531,14 +563,24 @@ private:
             {
                 // What the last update left behind; say once that it worked.
                 const auto replaced = FinishUpdates(base_);
-                if (!replaced.empty())
-                    Notice("Updated from " + VersionNumber(ParsePortVersion(replaced)) + " to "
-                               + VersionNumber(ParsePortVersion(build::version)) + ".",
-                           NoticeKind::Success);
+                if (const auto text = replaced.empty() ? std::string() : DescribeReplacement(replaced, CurrentBuild());
+                    !text.empty())
+                    Notice(text, NoticeKind::Success);
             }
             catch (const std::exception& error) { Notice(error.what(), NoticeKind::Warning); }
         }
-        if (config_ok_ && (draft_.check_updates || capture_)) updates_->Check(UpdateChannelSetting());
+        if (config_ok_ && (draft_.check_updates || capture_)) CheckForUpdates(UpdatePrompt::Newer, UpdateChannelSetting());
+    }
+
+    // The update dialog opens by itself when a check finds a build: after the
+    // start only for a newer one; after the Release / Test switch or a click on
+    // the status also for the way back to the release.
+    enum class UpdatePrompt { None, Newer, Any };
+
+    void CheckForUpdates(UpdatePrompt prompt, UpdateChannel channel)
+    {
+        update_prompt_ = capture_ ? UpdatePrompt::None : prompt;
+        updates_->Check(channel);
     }
 
     bool UpdateBusy() const
@@ -569,52 +611,125 @@ private:
             }
             catch (const std::exception& error) { Notice(error.what(), NoticeKind::Error); }
         }
-        updates_->Check(channel);
+        CheckForUpdates(UpdatePrompt::Any, channel);
     }
 
+    // The update status: a glass pill over the artwork, tinted with the
+    // offer's colour when a check found a build. A click checks again or
+    // opens what was found.
+    enum class PillAction { None, Check, Open };
     struct PillLook
     {
         Icon icon = Icon::None;
         bool spinner = false;
         std::string text, tooltip;
         ImVec4 tint = color::muted;
-        bool highlight = false;
+        bool filled = false; // tinted and glowing: a check found a build
+        PillAction action = PillAction::None;
+        float progress = -1.0f; // a download's progress, 0..1
     };
+
+    // Green for updates, amber for test builds, blue for the way back to the release.
+    static ImVec4 OfferTint(OfferKind kind, const PublishedBuild& offer)
+    {
+        if (kind == OfferKind::BackToRelease) return color::info;
+        return offer.test ? color::warning : color::accent;
+    }
+
+    static Icon OfferIcon(OfferKind kind, const PublishedBuild& offer)
+    {
+        if (kind == OfferKind::BackToRelease) return Icon::Back;
+        return offer.test ? Icon::Flask : Icon::Download;
+    }
+
+    std::string LastChecked() const
+    {
+        return update_.checked ? "Checked at " + LocalTime(update_.checked).substr(11) + "." : std::string();
+    }
 
     PillLook UpdatePillLook() const
     {
         using State = UpdateService::State;
         const bool test = update_.channel == UpdateChannel::Test;
+        const std::string again = "\nClick to check again.";
+        const std::string checked = update_.checked ? "\n" + LastChecked() : std::string();
+        PillLook look;
         switch (update_.state)
         {
         case State::Idle:
-            return {Icon::Refresh, false, "Check for updates",
-                    draft_.check_updates ? "" : "Automatic checks are off (Advanced page).", color::muted, false};
-        case State::Checking: return {Icon::None, true, "Checking for updates", "", color::info, false};
+            look = {Icon::Refresh, false, "Check for updates",
+                    draft_.check_updates ? "Looks for a newer build on GitHub."
+                                         : "Automatic checks are off (Advanced page).\nClick to check now.",
+                    color::muted};
+            break;
+        case State::Checking: look = {Icon::None, true, "Checking for updates...", "", color::info}; break;
         case State::UpToDate:
-            return {Icon::Check, false, "Up to date",
-                    std::string("No newer ") + (test ? "release or test build" : "release")
-                        + " than this build. Click to check again.",
-                    color::accent, false};
+            // Switched to Test on a build that is no test build: say why nothing changes.
+            if (test && updates_->Build().origin != BuildOrigin::Test)
+                look = {Icon::Check, false, "No new test builds",
+                        "No test build is newer than this build right now. Test builds are published while "
+                        "pull requests are open."
+                            + checked + again,
+                        color::warning};
+            else
+                look = {Icon::Check, false, "Up to date",
+                        std::string("No newer ") + (test ? "release or test build" : "release") + " than this build."
+                            + checked + again,
+                        color::accent};
+            look.action = PillAction::Check;
+            break;
         case State::CheckFailed:
             // Often just offline: shown quietly, the reason in the tooltip.
-            return {Icon::Refresh, false, "Couldn't check for updates", update_.error + "\nClick to try again.",
-                    color::muted, false};
+            look = {Icon::Warning, false, "Couldn't check for updates", update_.error + again, color::muted};
+            look.action = PillAction::Check;
+            break;
         case State::Available:
-            return {Icon::Download, false,
-                    update_.offer->test ? "New test build"
-                                        : "Version " + VersionNumber(update_.offer->version) + " available",
-                    "See what's new and update.", color::accent, true};
+        {
+            const OfferKind kind = ClassifyOffer(updates_->Build(), *update_.offer);
+            look.icon = OfferIcon(kind, *update_.offer);
+            look.tint = OfferTint(kind, *update_.offer);
+            look.filled = true;
+            look.action = PillAction::Open;
+            switch (kind)
+            {
+            case OfferKind::Update:
+                look.text = update_.offer->test ? "New test build"
+                                                : "Version " + VersionNumber(update_.offer->version) + " available";
+                look.tooltip = "See what's new and update.";
+                break;
+            case OfferKind::TestBuild:
+                look.text = "Test build available";
+                look.tooltip = "See what it changes and switch to it.";
+                break;
+            case OfferKind::BackToRelease:
+                look.text = "Back to release " + VersionNumber(update_.offer->version);
+                look.tooltip = "Replace this test build by the official release.";
+                break;
+            }
+            break;
+        }
         case State::Downloading:
         {
             const auto percent = update_.total ? update_.received * 100 / update_.total : 0;
-            return {Icon::Download, false, "Downloading " + std::to_string(percent) + "%", "", color::info, false};
+            look = {Icon::Download, false, "Downloading " + std::to_string(percent) + "%", "Click to see the progress.",
+                    color::accent};
+            look.progress = update_.total ? float(double(update_.received) / double(update_.total)) : 0.0f;
+            break;
         }
-        case State::Installing: return {Icon::None, true, "Installing update", "", color::info, false};
-        case State::Installed: return {Icon::None, true, "Restarting", "", color::accent, false};
-        case State::InstallFailed: return {Icon::Error, false, "Update failed", update_.error, color::danger, false};
+        case State::Installing: look = {Icon::None, true, "Installing...", "", color::info}; break;
+        case State::Installed: look = {Icon::None, true, "Restarting...", "", color::accent}; break;
+        case State::InstallFailed:
+            look = {Icon::Error, false, "Update failed", update_.error, color::danger};
+            look.action = PillAction::Open;
+            break;
         }
-        return {};
+        return look;
+    }
+
+    static float PillWidth(const PillLook& look)
+    {
+        return Dp(38) + TextSize(CurrentFonts().body, look.text.c_str()).x
+            + (look.action == PillAction::None ? Dp(18) : Dp(42));
     }
 
     bool DrawUpdatePill(const PillLook& look, ImVec2 size)
@@ -622,21 +737,57 @@ private:
         const auto& fonts = CurrentFonts();
         const ImVec2 pos = ImGui::GetCursorScreenPos();
         const bool pressed = ImGui::InvisibleButton("##update_status", size);
+        const bool held = ImGui::IsItemActive();
         const float hover = Animate(ImGui::GetItemID(), ImGui::IsItemHovered(), 12.0f);
         auto* draw = ImGui::GetWindowDrawList();
         const ImVec2 max{pos.x + size.x, pos.y + size.y};
-        const ImVec4 fill = look.highlight ? Mix(color::window, look.tint, 0.18f + 0.10f * hover)
-                                           : Mix(color::window, color::card_hover, 0.55f + 0.45f * hover);
-        draw->AddRectFilled(pos, max, Col(fill, 0.9f), Dp(11));
-        draw->AddRect(pos, max, Col(look.highlight ? look.tint : color::border, look.highlight ? 0.75f : 0.9f), Dp(11),
-                      0, Dp(1));
-        const ImVec2 icon{pos.x + Dp(20), pos.y + size.y * 0.5f};
-        if (look.spinner) Spinner(icon, Dp(7), Col(look.tint));
-        else DrawIcon(draw, look.icon, icon, Dp(16), Col(look.tint));
+        const float rounding = size.y * 0.5f, middle = pos.y + size.y * 0.5f;
+        const ImVec4 white{1, 1, 1, 1};
+        ImU32 ink, label;
+        if (look.filled)
+        {
+            // Something was found: filled with its colour, glowing softly.
+            const float pulse = 0.5f + 0.5f * std::sin(float(ImGui::GetTime()) * 2.2f);
+            for (int i = 0; i < 4; ++i)
+            {
+                const float grow = Dp(1.5f + 2.5f * float(i));
+                draw->AddRectFilled({pos.x - grow, pos.y - grow}, {max.x + grow, max.y + grow},
+                                    Col(look.tint, (0.075f - 0.015f * float(i)) * (0.6f + 0.4f * pulse + 0.4f * hover)),
+                                    rounding + grow);
+            }
+            // Tinted glass: the colour in the outline, icon and a soft wash.
+            const float strength = (held ? 0.20f : 0.26f) + 0.10f * hover;
+            FillGradient(draw, pos, max, Col(Mix(color::window, look.tint, strength + 0.08f)),
+                         Col(Mix(color::window, look.tint, strength * 0.55f)), rounding, true);
+            draw->AddRect(pos, max, Col(look.tint, 0.80f + 0.20f * hover), rounding, 0, Dp(1));
+            ink = Col(Mix(look.tint, white, 0.15f));
+            label = Col(color::text);
+        }
+        else
+        {
+            // Glass over the artwork; a download fills it from the left.
+            draw->AddRectFilled(pos, max, Col(Mix(color::window, color::card_hover, 0.45f + 0.55f * hover), 0.9f),
+                                rounding);
+            if (look.progress >= 0.0f)
+                FillGradient(draw, pos, {pos.x + std::max(size.y, size.x * std::min(look.progress, 1.0f)), max.y},
+                             Col(Mix(color::window, look.tint, 0.20f)), Col(Mix(color::window, look.tint, 0.36f)),
+                             rounding, true);
+            draw->AddRect(pos, max, Col(Mix(color::border, look.tint, 0.25f + 0.35f * hover), 0.95f), rounding, 0,
+                          Dp(1));
+            ink = Col(look.tint);
+            label = Col(Mix(color::muted, color::text, 0.65f + 0.35f * hover));
+        }
+        const ImVec2 icon{pos.x + Dp(20), middle};
+        if (look.spinner) Spinner(icon, Dp(7), ink);
+        else DrawIcon(draw, look.icon, icon, Dp(16), ink);
         const ImVec2 text = TextSize(fonts.body, look.text.c_str());
-        DrawLabel(draw, fonts.body, {pos.x + Dp(36), pos.y + (size.y - text.y) * 0.5f},
-                  Col(look.highlight ? color::text : Mix(color::muted, color::text, 0.6f + 0.4f * hover)),
-                  look.text.c_str());
+        DrawLabel(draw, fonts.body, {pos.x + Dp(38), middle - text.y * 0.5f}, label, look.text.c_str());
+        // What a click does: check again, or open what was found.
+        const ImVec2 end{max.x - Dp(21), middle};
+        if (look.action == PillAction::Check)
+            DrawIcon(draw, Icon::Refresh, end, Dp(15), Col(Mix(color::muted, color::text, 0.15f + 0.85f * hover)));
+        else if (look.action == PillAction::Open)
+            DrawChevron(draw, {end.x + Dp(2) * hover, end.y}, Dp(13), look.filled ? ink : Col(look.tint));
         return pressed;
     }
 
@@ -646,10 +797,8 @@ private:
     {
         if (!updates_) return;
         using State = UpdateService::State;
-        const auto& fonts = CurrentFonts();
-        const float height = Dp(38), switch_width = Dp(170);
+        const float height = Dp(38), switch_width = Dp(206);
         const PillLook look = UpdatePillLook();
-        const float pill_width = TextSize(fonts.body, look.text.c_str()).x + Dp(52);
         const float y = origin.y + Dp(18);
         float x = origin.x + width - pad - switch_width;
         ImGui::SetCursorScreenPos({x, y});
@@ -657,25 +806,60 @@ private:
         const bool busy = update_.state == State::Downloading || update_.state == State::Installing
             || update_.state == State::Installed;
         ImGui::BeginDisabled(busy || !config_ok_);
-        if (Segmented("##update_channel", &channel, {"Release", "Test"}, switch_width))
+        if (SegmentedIcons("##update_channel", &channel,
+                           {{"Release", Icon::Tag, color::accent}, {"Test", Icon::Flask, color::warning}},
+                           {switch_width, height}, true))
             SelectUpdateChannel(channel ? UpdateChannel::Test : UpdateChannel::Release);
         ImGui::EndDisabled();
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
             ImGui::SetTooltip("Release: official releases.\n"
-                              "Test: also the test builds of pull requests, to try changes before they are released.");
+                              "Test: also the test builds of pull requests, to try changes before they are released.\n"
+                              "Nothing is installed without asking.");
+        const float pill_width = PillWidth(look);
         x -= Dp(10) + pill_width;
         ImGui::SetCursorScreenPos({x, y});
         if (DrawUpdatePill(look, {pill_width, height}))
         {
             if (update_.state == State::Idle || update_.state == State::UpToDate || update_.state == State::CheckFailed)
-                updates_->Check(UpdateChannelSetting());
+                CheckForUpdates(UpdatePrompt::Any, UpdateChannelSetting());
             else if (update_.offer)
                 update_dialog_ = true;
         }
         if (!look.tooltip.empty() && ImGui::IsItemHovered()) ImGui::SetTooltip("%s", look.tooltip.c_str());
     }
 
-    // What's new in the offered build, and its download and installation.
+    // One line on the Advanced page: what the last check found.
+    std::string UpdateSummary() const
+    {
+        using State = UpdateService::State;
+        const std::string checked = update_.checked ? " " + LastChecked() : std::string();
+        switch (update_.state)
+        {
+        case State::Idle: return "Not checked yet.";
+        case State::Checking: return "Checking...";
+        case State::UpToDate: return "This build is up to date." + checked;
+        case State::CheckFailed: return "Couldn't check: " + update_.error;
+        case State::Available:
+            switch (ClassifyOffer(updates_->Build(), *update_.offer))
+            {
+            case OfferKind::Update:
+                return (update_.offer->test ? std::string("A new test build")
+                                            : "Version " + VersionNumber(update_.offer->version))
+                    + " is available." + checked;
+            case OfferKind::TestBuild: return "A test build is available." + checked;
+            case OfferKind::BackToRelease:
+                return "Release " + VersionNumber(update_.offer->version) + " is available to go back to." + checked;
+            }
+            break;
+        case State::Downloading:
+        case State::Installing:
+        case State::Installed: return "Installing an update...";
+        case State::InstallFailed: return "The update failed: " + update_.error;
+        }
+        return {};
+    }
+
+    // What the offered build changes, and its download and installation.
     void DrawUpdateDialog()
     {
         if (update_dialog_)
@@ -683,134 +867,248 @@ private:
             ImGui::OpenPopup("Update");
             update_dialog_ = false;
         }
-        const auto& fonts = CurrentFonts();
         const ImVec2 view = ImGui::GetMainViewport()->Size;
-        const float width = std::min(Dp(700), view.x - Dp(60));
+        const float width = std::min(Dp(720), view.x - Dp(60));
         ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(), ImGuiCond_Always, {0.5f, 0.5f});
         ImGui::SetNextWindowSize({width, 0});
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, Dp(28, 24));
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, Dp(16));
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, std::max(1.0f, Dp(1)));
+        ImGui::PushStyleColor(ImGuiCol_Border, color::border);
         if (ImGui::BeginPopupModal("Update", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove
             | ImGuiWindowFlags_AlwaysAutoResize))
         {
-            using State = UpdateService::State;
-            const auto& status = update_;
-            if (!status.offer)
-            {
-                ImGui::CloseCurrentPopup();
-                ImGui::EndPopup();
-                ImGui::PopStyleVar();
-                return;
-            }
-            const PublishedBuild& offer = *status.offer;
-            const BuildIdentity self = updates_->Build();
-            const PackageAsset* asset = offer.PackageFor(self.package);
-            const std::string headline = offer.test
-                ? "Test build of pull request #" + std::to_string(offer.pull_request)
-                : "Version " + VersionNumber(offer.version) + " is available";
-            TextColored(fonts.heading, color::text, headline.c_str());
-            const std::string title = offer.test && status.pull && !status.pull->title.empty() ? status.pull->title
-                                                                                               : offer.title;
-            if (!title.empty()) TextWrappedColored(fonts.body, Mix(color::muted, color::text, 0.55f), title.c_str());
-            std::string details;
-            if (offer.published) details = "Published " + LocalTime(offer.published);
-            if (asset && asset->size) details += (details.empty() ? "" : "  -  ") + Megabytes(asset->size);
-            details += (details.empty() ? "" : "  -  ") + std::string("You have ")
-                + VersionNumber(ParsePortVersion(self.version)) + " (" + DescribeOrigin(self) + ")";
-            TextWrappedColored(fonts.caption, color::muted, details.c_str());
-            ImGui::Dummy({0, Dp(6)});
-
-            // The release notes, or the test build's pull request description.
-            const std::string& source = offer.test && status.pull ? status.pull->body : offer.notes;
-            if (source != notes_source_)
-            {
-                notes_source_ = source;
-                notes_ = ParseReleaseNotes(source);
-            }
-            ImGui::PushStyleColor(ImGuiCol_ChildBg, Mix(color::window, color::card, 0.6f));
-            ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, Dp(12));
-            ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, Dp(18, 14));
-            ImGui::BeginChild("##notes", {ImGui::GetContentRegionAvail().x, std::clamp(view.y * 0.42f, Dp(140), Dp(420))},
-                              ImGuiChildFlags_Borders | ImGuiChildFlags_AlwaysUseWindowPadding);
-            if (notes_.empty()) TextWrappedColored(fonts.body, color::muted, "No notes were published for this build.");
-            else DrawReleaseNotes(notes_, ImGui::GetContentRegionAvail().x);
-            ImGui::EndChild();
-            ImGui::PopStyleVar(2);
-            ImGui::PopStyleColor();
-            ImGui::Dummy({0, Dp(6)});
-
-            const bool busy = status.state == State::Downloading || status.state == State::Installing
-                || status.state == State::Installed;
-            if (status.state == State::Downloading)
-            {
-                auto* draw = ImGui::GetWindowDrawList();
-                const ImVec2 pos = ImGui::GetCursorScreenPos();
-                const float bar = ImGui::GetContentRegionAvail().x;
-                const float fraction = status.total ? std::min(1.0f, float(double(status.received) / double(status.total))) : 0.0f;
-                draw->AddRectFilled(pos, {pos.x + bar, pos.y + Dp(10)}, Col(color::field), Dp(5));
-                if (fraction > 0.0f)
-                    FillGradient(draw, pos, {pos.x + std::max(Dp(10), bar * fraction), pos.y + Dp(10)},
-                                 Col(Mix(color::accent_dark, color::accent, 0.55f)), Col(color::accent), Dp(5), true);
-                ImGui::Dummy({bar, Dp(10)});
-                const std::string progress = "Downloading  -  " + Megabytes(status.received)
-                    + (status.total ? " of " + Megabytes(status.total) : std::string());
-                TextColored(fonts.caption, color::muted, progress.c_str());
-            }
-            else if (status.state == State::Installing || status.state == State::Installed)
-            {
-                const ImVec2 pos = ImGui::GetCursorScreenPos();
-                Spinner({pos.x + Dp(8), pos.y + Dp(10)}, Dp(7), Col(color::info));
-                ImGui::SetCursorScreenPos({pos.x + Dp(24), pos.y});
-                TextColored(fonts.body, color::text, status.state == State::Installing ? "Installing the update..."
-                                                                                      : "The update is installed.");
-            }
-            else if (status.state == State::InstallFailed)
-                TextWrappedColored(fonts.body, color::danger, status.error.c_str());
-            else if (!status.install_blocker.empty())
-                TextWrappedColored(fonts.caption, color::muted,
-                    (status.install_blocker + " Download the package and unpack it over this folder instead.").c_str());
-            ImGui::Dummy({0, Dp(8)});
-
-            if (status.state == State::Installed && dirty_)
-            {
-                // The launcher restarts into the new version; settings first.
-                TextWrappedColored(fonts.body, color::text, "Save your settings changes before the launcher restarts?");
-                if (PrimaryButton("update_save_restart", "Save and restart", Dp(190, 42), true)) Save();
-                ImGui::SameLine(0, Dp(10));
-                if (SecondaryButton("update_discard_restart", "Discard and restart", Dp(190, 42))) Reload();
-            }
-            else if (status.state == State::Downloading)
-            {
-                if (SecondaryButton("update_cancel", "Cancel download", Dp(190, 42))) updates_->Cancel();
-            }
-            else if (!busy)
-            {
-                if (status.install_blocker.empty())
-                {
-                    if (PrimaryButton("update_now", status.state == State::InstallFailed ? "Try again" : "Update now",
-                                      Dp(180, 42), true, Icon::Download))
-                        updates_->Install();
-                    if (ImGui::IsItemHovered())
-                        ImGui::SetTooltip("Downloads %s, replaces the program files and restarts the launcher.\n"
-                                          "Your settings, saves and logs stay.", asset ? asset->name.c_str() : "the package");
-                }
-                else if (asset)
-                {
-                    if (PrimaryButton("update_download", "Download", Dp(180, 42), true, Icon::Download))
-                        SDL_OpenURL(asset->url.c_str());
-                }
-                ImGui::SameLine(0, Dp(10));
-                const std::string page = offer.test && status.pull && !status.pull->page.empty() ? status.pull->page
-                                                                                                 : offer.page;
-                if (SecondaryButton("update_github", offer.test ? "Pull request" : "Release page", Dp(170, 42),
-                                    !page.empty(), Icon::GitHub))
-                    SDL_OpenURL(page.c_str());
-                ImGui::SameLine(0, Dp(10));
-                if (SecondaryButton("update_later", "Later", Dp(110, 42)) || ImGui::IsKeyPressed(ImGuiKey_Escape))
-                    ImGui::CloseCurrentPopup();
-            }
+            if (update_.offer) DrawUpdateDialogContents(*update_.offer);
+            else ImGui::CloseCurrentPopup();
             ImGui::EndPopup();
         }
-        ImGui::PopStyleVar();
+        ImGui::PopStyleColor();
+        ImGui::PopStyleVar(3);
+    }
+
+    void DrawUpdateDialogContents(const PublishedBuild& offer)
+    {
+        using State = UpdateService::State;
+        const auto& fonts = CurrentFonts();
+        const auto& status = update_;
+        const BuildIdentity self = updates_->Build();
+        const OfferKind kind = ClassifyOffer(self, offer);
+        const ImVec4 tint = OfferTint(kind, offer);
+        const PackageAsset* asset = offer.PackageFor(self.package);
+        auto* draw = ImGui::GetWindowDrawList();
+
+        // A wash of the offer's colour behind the header, fading downwards.
+        {
+            const ImVec2 corner = ImGui::GetWindowPos();
+            const float band = Dp(150);
+            const int first = draw->VtxBuffer.Size;
+            draw->AddRectFilled(corner, {corner.x + ImGui::GetWindowWidth(), corner.y + band}, Col(tint, 0.10f), Dp(16),
+                                ImDrawFlags_RoundCornersTop);
+            for (int i = first; i < draw->VtxBuffer.Size; ++i)
+            {
+                ImDrawVert& vertex = draw->VtxBuffer[i];
+                const float fade = std::clamp(1.0f - (vertex.pos.y - corner.y) / band, 0.0f, 1.0f);
+                const auto alpha = ImU32(float((vertex.col >> IM_COL32_A_SHIFT) & 0xFF) * fade);
+                vertex.col = (vertex.col & ~IM_COL32_A_MASK) | (alpha << IM_COL32_A_SHIFT);
+            }
+        }
+
+        // Header: the offer's icon, what it is and its title.
+        std::string headline;
+        switch (kind)
+        {
+        case OfferKind::Update:
+            headline = offer.test ? "New test build of pull request #" + std::to_string(offer.pull_request)
+                                  : "Version " + VersionNumber(offer.version) + " is available";
+            break;
+        case OfferKind::TestBuild: headline = "Test build of pull request #" + std::to_string(offer.pull_request); break;
+        case OfferKind::BackToRelease: headline = "Back to release " + VersionNumber(offer.version); break;
+        }
+        const std::string title = offer.test && status.pull && !status.pull->title.empty() ? status.pull->title
+                                                                                           : offer.title;
+        const ImVec2 top = ImGui::GetCursorScreenPos();
+        const float badge = Dp(48);
+        const ImVec2 badge_center{top.x + badge * 0.5f, top.y + badge * 0.5f};
+        draw->AddCircleFilled(badge_center, badge * 0.5f, Col(Mix(color::card, tint, 0.18f)));
+        draw->AddCircle(badge_center, badge * 0.5f, Col(tint, 0.45f), 0, Dp(1));
+        DrawIcon(draw, OfferIcon(kind, offer), badge_center, Dp(22), Col(tint));
+        ImGui::SetCursorScreenPos({top.x + badge + Dp(16), top.y + (title.empty() ? Dp(12) : Dp(1))});
+        ImGui::BeginGroup();
+        TextColored(fonts.heading, color::text, headline.c_str());
+        if (!title.empty()) TextWrappedColored(fonts.body, Mix(color::muted, color::text, 0.55f), title.c_str());
+        ImGui::EndGroup();
+        const float header = std::max(badge, ImGui::GetItemRectMax().y - top.y);
+        ImGui::SetCursorScreenPos(top);
+        ImGui::Dummy({1.0f, header + Dp(14)});
+
+        // From the running build to the offered one; equal numbers differ in their commits.
+        const PortVersion mine = ParsePortVersion(self.version);
+        const bool same_number = CompareVersions(mine, offer.version) == 0;
+        auto describe = [same_number](const PortVersion& version, const std::string& what) {
+            std::string text = VersionNumber(version);
+            if (same_number && !version.commit.empty()) text += " (" + version.commit.substr(0, 8) + ")";
+            return text + "  \xC2\xB7  " + what;
+        };
+        const std::string mine_what = self.origin == BuildOrigin::Release ? "Release"
+            : self.origin == BuildOrigin::Test ? "Test build #" + std::to_string(self.pull_request)
+                                               : "Local build";
+        const Icon mine_icon = self.origin == BuildOrigin::Release ? Icon::Tag
+            : self.origin == BuildOrigin::Test                    ? Icon::Flask
+                                                                  : Icon::Info;
+        Chip(describe(mine, mine_what).c_str(), color::muted, mine_icon);
+        ImGui::SameLine(0, Dp(8));
+        {
+            const ImVec2 at = ImGui::GetCursorScreenPos();
+            ImGui::Dummy(Dp(18, 26));
+            DrawChevron(draw, {at.x + Dp(9), at.y + Dp(13)}, Dp(14), Col(color::muted));
+        }
+        ImGui::SameLine(0, Dp(8));
+        Chip(describe(offer.version, offer.test ? "Test build #" + std::to_string(offer.pull_request) : "Release")
+                 .c_str(),
+             tint, offer.test ? Icon::Flask : Icon::Tag);
+        std::string meta;
+        if (offer.published) meta = "Published " + LocalTime(offer.published);
+        if (asset && asset->size) meta += (meta.empty() ? "" : "  \xC2\xB7  ") + Megabytes(asset->size);
+        if (!meta.empty())
+        {
+            ImGui::SameLine(0, Dp(16));
+            if (ImGui::GetContentRegionAvail().x < TextSize(fonts.caption, meta.c_str()).x) ImGui::NewLine();
+            ImGui::SetCursorPosY(ImGui::GetCursorPosY() + (Dp(26) - FontSize(fonts.caption)) * 0.5f);
+            TextColored(fonts.caption, color::muted, meta.c_str());
+        }
+
+        // A switch between test builds and releases says what it means.
+        bool callout = false;
+        if (kind != OfferKind::Update)
+        {
+            std::string meaning = kind == OfferKind::TestBuild
+                ? "Test builds have changes that are not released yet, to try them early; they can have new "
+                  "problems. Release on the Play page takes you back."
+                : "This replaces your test build by the official release: changes that are not released yet "
+                  "go away. Your settings and saves stay.";
+            if (kind == OfferKind::BackToRelease && !UpdatesItself(offer.version))
+                meaning += " Version " + VersionNumber(offer.version)
+                    + " cannot update itself; newer versions are downloaded from the releases page.";
+            ImGui::Dummy({0, Dp(8)});
+            Callout(meaning, tint, kind == OfferKind::TestBuild ? Icon::Warning : Icon::Info);
+            callout = true;
+        }
+
+        // The release notes, or the test build's pull request description.
+        ImGui::Dummy({0, Dp(10)});
+        DrawTracked(draw, fonts.caption, ImGui::GetCursorScreenPos(), Col(color::dim),
+                    offer.test ? "PULL REQUEST" : "RELEASE NOTES", Dp(1.2f));
+        ImGui::Dummy({0, FontSize(fonts.caption) + Dp(4)});
+        const std::string& source = offer.test && status.pull ? status.pull->body : offer.notes;
+        if (source != notes_source_)
+        {
+            notes_source_ = source;
+            notes_ = ParseReleaseNotes(source);
+        }
+        // The notes take what the window leaves after the other parts.
+        float notes_height = ImGui::GetMainViewport()->Size.y * 0.40f;
+        if (callout) notes_height -= Dp(64);
+        if (status.state == State::InstallFailed || !status.install_blocker.empty()) notes_height -= Dp(56);
+        ImGui::PushStyleColor(ImGuiCol_ChildBg, Mix(color::window, color::card, 0.6f));
+        ImGui::PushStyleColor(ImGuiCol_Border, Mix(color::border, color::window, 0.3f));
+        ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, Dp(12));
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, Dp(18, 14));
+        ImGui::BeginChild("##notes", {ImGui::GetContentRegionAvail().x, std::clamp(notes_height, Dp(110), Dp(400))},
+                          ImGuiChildFlags_Borders | ImGuiChildFlags_AlwaysUseWindowPadding);
+        if (notes_.empty()) TextWrappedColored(fonts.body, color::muted, "No notes were published for this build.");
+        else DrawReleaseNotes(notes_, ImGui::GetContentRegionAvail().x);
+        ImGui::EndChild();
+        ImGui::PopStyleVar(2);
+        ImGui::PopStyleColor(2);
+        ImGui::Dummy({0, Dp(12)});
+
+        // Progress, problems, then the buttons.
+        const bool busy = status.state == State::Downloading || status.state == State::Installing
+            || status.state == State::Installed;
+        if (status.state == State::Downloading)
+        {
+            const ImVec2 pos = ImGui::GetCursorScreenPos();
+            const float bar = ImGui::GetContentRegionAvail().x;
+            const float fraction = status.total ? std::min(1.0f, float(double(status.received) / double(status.total)))
+                                                : 0.0f;
+            draw->AddRectFilled(pos, {pos.x + bar, pos.y + Dp(8)}, Col(color::field), Dp(4));
+            if (fraction > 0.0f)
+                FillGradient(draw, pos, {pos.x + std::max(Dp(8), bar * fraction), pos.y + Dp(8)},
+                             Col(Mix(color::accent_dark, color::accent, 0.55f)), Col(color::accent), Dp(4), true);
+            ImGui::Dummy({bar, Dp(8)});
+            ImGui::Dummy({0, Dp(2)});
+            const std::string progress = "Downloading  \xC2\xB7  " + Megabytes(status.received)
+                + (status.total ? " of " + Megabytes(status.total) : std::string());
+            const float line = ImGui::GetCursorScreenPos().y;
+            TextColored(fonts.caption, color::muted, progress.c_str());
+            if (status.total)
+            {
+                const std::string percent = std::to_string(status.received * 100 / status.total) + "%";
+                DrawLabel(draw, fonts.caption, {pos.x + bar - TextSize(fonts.caption, percent.c_str()).x, line},
+                          Col(color::text), percent.c_str());
+            }
+            ImGui::Dummy({0, Dp(6)});
+        }
+        else if (status.state == State::Installing || status.state == State::Installed)
+        {
+            const ImVec2 pos = ImGui::GetCursorScreenPos();
+            Spinner({pos.x + Dp(8), pos.y + FontSize(fonts.body) * 0.5f}, Dp(7), Col(color::info));
+            ImGui::SetCursorScreenPos({pos.x + Dp(24), pos.y});
+            TextColored(fonts.body, color::text, status.state == State::Installing ? "Installing..." : "Installed.");
+            ImGui::Dummy({0, Dp(6)});
+        }
+        else if (status.state == State::InstallFailed)
+        {
+            Callout(status.error, color::danger, Icon::Error);
+            ImGui::Dummy({0, Dp(10)});
+        }
+        else if (!status.install_blocker.empty())
+        {
+            Callout(status.install_blocker + " Download the package and unpack it over this folder instead.",
+                    color::muted, Icon::Info);
+            ImGui::Dummy({0, Dp(10)});
+        }
+
+        if (status.state == State::Installed && dirty_)
+        {
+            // The launcher restarts into the new version; settings first.
+            TextWrappedColored(fonts.body, color::text, "Save your settings changes before the launcher restarts?");
+            ImGui::Dummy({0, Dp(4)});
+            if (PrimaryButton("update_save_restart", "Save and restart", Dp(190, 42), true)) Save();
+            ImGui::SameLine(0, Dp(10));
+            if (SecondaryButton("update_discard_restart", "Discard and restart", Dp(190, 42))) Reload();
+        }
+        else if (status.state == State::Downloading)
+        {
+            if (SecondaryButton("update_cancel", "Cancel download", Dp(190, 42))) updates_->Cancel();
+        }
+        else if (!busy)
+        {
+            if (status.install_blocker.empty())
+            {
+                const char* action = kind == OfferKind::Update ? "Update now" : "Switch now";
+                if (status.state == State::InstallFailed) action = "Try again";
+                if (PrimaryButton("update_now", action, Dp(180, 42), true, Icon::Download)) updates_->Install();
+                if (ImGui::IsItemHovered())
+                    ImGui::SetTooltip("Downloads %s, replaces the program files and restarts the launcher.\n"
+                                      "Your settings, saves and logs stay.",
+                                      asset ? asset->name.c_str() : "the package");
+            }
+            else if (asset)
+            {
+                if (PrimaryButton("update_download", "Download", Dp(180, 42), true, Icon::Download))
+                    SDL_OpenURL(asset->url.c_str());
+            }
+            ImGui::SameLine(0, Dp(10));
+            const std::string page = offer.test && status.pull && !status.pull->page.empty() ? status.pull->page
+                                                                                             : offer.page;
+            if (SecondaryButton("update_github", offer.test ? "Pull request" : "Release page", Dp(170, 42),
+                                !page.empty(), Icon::GitHub))
+                SDL_OpenURL(page.c_str());
+            ImGui::SameLine(0, Dp(10));
+            if (SecondaryButton("update_later", "Later", Dp(110, 42)) || ImGui::IsKeyPressed(ImGuiKey_Escape))
+                ImGui::CloseCurrentPopup();
+        }
     }
 
     void SelectDisc(const std::string& path)
@@ -875,6 +1173,14 @@ private:
         if (updates_)
         {
             update_ = updates_->Snapshot();
+            if (update_prompt_ != UpdatePrompt::None && update_.state != UpdateService::State::Checking)
+            {
+                if (update_.state == UpdateService::State::Available && update_.offer
+                    && (update_prompt_ == UpdatePrompt::Any
+                        || ClassifyOffer(updates_->Build(), *update_.offer) != OfferKind::BackToRelease))
+                    update_dialog_ = true;
+                update_prompt_ = UpdatePrompt::None;
+            }
             if (update_.state == UpdateService::State::Available && update_capture_dialog_)
             {
                 update_capture_dialog_ = false;
@@ -1098,14 +1404,19 @@ private:
             ImGui::SetCursorPosY(ImGui::GetCursorPosY() - ImGui::GetStyle().ItemSpacing.y + Dp(4));
         }
 
-        // Version at the bottom of the sidebar; test builds say so above it.
-        const float badge = height - Dp(40);
-        if (ImGui::GetCursorPosY() < badge - Dp(20) && std::string_view(build::channel) == "test")
+        // Version at the bottom of the sidebar; test builds show a badge above
+        // it that opens their pull request.
+        const float badge = height - Dp(40), nav_end = ImGui::GetCursorPosY();
+        if (nav_end < badge - Dp(36) && std::string_view(build::channel) == "test")
         {
-            const std::string label = "TEST BUILD  -  PR #" + std::to_string(build::pull_request);
-            DrawTracked(draw, fonts.caption, {pad, badge - Dp(20)}, Col(color::warning), label.c_str(), Dp(0.8f));
+            ImGui::SetCursorPos({pad - Dp(2), badge - Dp(36)});
+            if (TestBuildBadge("TEST BUILD  -  PR #" + std::to_string(build::pull_request)))
+                SDL_OpenURL(BuildNotesUrl(CurrentBuild()).c_str());
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("This is a test build of pull request #%d.\nClick to open the pull request.",
+                                  build::pull_request);
         }
-        if (ImGui::GetCursorPosY() < badge)
+        if (nav_end < badge)
         {
             ImGui::SetCursorPos({pad, badge});
             ImGui::PushFont(fonts.caption);
@@ -1114,6 +1425,24 @@ private:
             ImGui::PopStyleColor();
             ImGui::PopFont();
         }
+    }
+
+    bool TestBuildBadge(const std::string& label)
+    {
+        const auto& fonts = CurrentFonts();
+        auto* draw = ImGui::GetWindowDrawList();
+        const ImVec2 pos = ImGui::GetCursorScreenPos();
+        const float tracking = Dp(0.8f);
+        const ImVec2 size{Dp(38) + TrackedWidth(fonts.caption, label.c_str(), tracking), Dp(26)};
+        const bool pressed = ImGui::InvisibleButton("##test_build", size);
+        const float hover = Animate(ImGui::GetItemID(), ImGui::IsItemHovered(), 12.0f);
+        const ImVec2 max{pos.x + size.x, pos.y + size.y};
+        draw->AddRectFilled(pos, max, Col(color::warning, 0.10f + 0.08f * hover), size.y * 0.5f);
+        draw->AddRect(pos, max, Col(color::warning, 0.35f + 0.30f * hover), size.y * 0.5f, 0, Dp(1));
+        DrawIcon(draw, Icon::Flask, {pos.x + Dp(16), pos.y + size.y * 0.5f}, Dp(13), Col(color::warning));
+        DrawTracked(draw, fonts.caption, {pos.x + Dp(29), pos.y + (size.y - FontSize(fonts.caption)) * 0.5f},
+                    Col(color::warning), label.c_str(), tracking);
+        return pressed;
     }
 
     void DrawMain(ImVec2 origin, ImVec2 size, bool& quit)
@@ -3287,6 +3616,11 @@ private:
             Row("Check for updates", "Looks for a newer release, or test build, each time the launcher starts. "
                 "The Play page shows what it finds and switches between releases and test builds.");
             if (Toggle("##check_updates", &draft_.check_updates)) dirty_ = true;
+            Row("Status", UpdateSummary().c_str());
+            ImGui::BeginDisabled(!updates_ || !config_ok_ || UpdateBusy());
+            if (SecondaryButton("##check_now", "Check now", Dp(150, 38), true, Icon::Refresh))
+                CheckForUpdates(UpdatePrompt::Any, UpdateChannelSetting());
+            ImGui::EndDisabled();
             EndRows();
         }
         EndCard();
@@ -3559,6 +3893,8 @@ private:
     std::unique_ptr<UpdateService> updates_;
     UpdateService::Status update_;
     bool update_dialog_ = false, update_capture_dialog_ = false, update_capture_install_ = false, restart_ = false;
+    bool update_preview_ = false;
+    UpdatePrompt update_prompt_ = UpdatePrompt::None;
     std::string notes_source_;
     std::vector<NoteBlock> notes_;
 };
