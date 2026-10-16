@@ -118,7 +118,7 @@ struct Settings
     bool graphics_validation = false; // advanced.graphics_validation: backend graphics debug layers (off: fastest)
     std::string log_level = "info";   // advanced.log_level: error | warning | info | debug
     bool verbose_console = false;     // advanced.verbose_console: development traces and game debug output
-    bool frame_logging = false;       // advanced.frame_logging: CSV timings and summary beside the executable
+    bool frame_logging = false;       // advanced.frame_logging: CSV timings and summary in logs/ beside the executable
     std::string ui_scale = "auto";    // launcher.ui_scale: auto or a percentage (75 to 200)
     // launcher.check_updates: look for a newer build each time the launcher starts.
     bool check_updates = true;

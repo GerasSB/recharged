@@ -187,9 +187,10 @@ problem; it can contain your user name in paths. **Advanced → Log detail** and
 
 **Advanced → Diagnostics & analytics → Performance stats**
 (`[advanced] frame_logging`) records frame times: each session writes a
-`frame-times_<timestamp>_<process>.csv` beside the program, with one row per
-game frame (frame time, game-thread and process CPU, presents, draws, pipeline
-creations), and a `.csv.summary.txt` with the distribution and longest frames
-on exit. Each row also names the arena being played, and the summary starts
-with the version and settings, then repeats the figures for every arena, so
-testers can compare arenas. **Frame recordings → Open folder** opens that location.
+`frame-times_<timestamp>_<process>.csv` in the `logs` folder beside the program
+(next to `mscharged.log`), with one row per game frame (frame time, game-thread
+and process CPU, presents, draws, pipeline creations), and a `.csv.summary.txt`
+with the distribution and longest frames on exit. Each row also names the arena
+being played, and the summary starts with the version and settings, then
+repeats the figures for every arena, so testers can compare arenas. **Frame
+recordings → Open folder** opens that location.

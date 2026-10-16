@@ -3949,14 +3949,19 @@ private:
         BeginCard("##diagnostics", "Diagnostics & analytics", "Local tools for investigating performance and graphics issues.", Icon::Info);
         if (BeginRows("##diagnostic_rows"))
         {
-            Row("Performance stats", "Records frame times for each game session, with the arena and settings, and a summary per arena. Saves a CSV and summary beside the executable; testers can share them.");
+            Row("Performance stats", "Records frame times for each game session, with the arena and settings, and a summary per arena. Saves a CSV and summary in the logs folder; testers can share them.");
             if (Toggle("##frame_logging", &draft_.frame_logging)) dirty_ = true;
 
-            const auto recordingsFolder = PathUtf8(base_);
+            const auto recordings = base_ / "logs";
+            const auto recordingsFolder = PathUtf8(recordings);
             Row("Frame recordings", recordingsFolder.c_str());
             if (SecondaryButton("open_frame_recordings", "Open folder", {ImGui::GetContentRegionAvail().x, Dp(40)},
                                 true, Icon::Folder))
-                OpenPath(base_);
+            {
+                std::error_code error;
+                fs::create_directories(recordings, error);
+                OpenPath(recordings);
+            }
 
             Row("Shader cache", "Clears compiled shaders for all graphics APIs. The next launch prepares them again.");
             if (SecondaryButton("clear_shader_cache", "Clear shader cache", {ImGui::GetContentRegionAvail().x, Dp(40)},
