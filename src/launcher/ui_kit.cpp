@@ -463,6 +463,32 @@ bool SecondaryButton(const char* id, const char* label, ImVec2 size, bool enable
     return pressed && enabled;
 }
 
+bool GhostButton(const char* id, const char* label, ImVec2 size, bool enabled, Icon icon)
+{
+    ImGui::PushID(id);
+    const ImVec2 pos = ImGui::GetCursorScreenPos();
+    ImGui::BeginDisabled(!enabled);
+    const bool pressed = ImGui::InvisibleButton("##ghost", size);
+    const bool hovered = ImGui::IsItemHovered();
+    const bool held = ImGui::IsItemActive();
+    ImGui::EndDisabled();
+    const float hover = Animate(ImGui::GetID("##hover"), hovered && enabled, 12.0f);
+    auto* draw = ImGui::GetWindowDrawList();
+    const float rounding = std::min(size.y * 0.5f, Dp(10));
+    if (hover > 0.0f || held)
+        draw->AddRectFilled(pos, Add(pos, size), Col(color::text, held ? 0.10f : 0.06f * hover), rounding);
+    const auto& fonts = CurrentFonts();
+    const ImVec2 text = TextSize(fonts.body, label);
+    const float icon_size = icon == Icon::None ? 0.0f : Dp(16);
+    const float gap = icon == Icon::None || !*label ? 0.0f : Dp(8);
+    const float left = pos.x + (size.x - (text.x + icon_size + gap)) * 0.5f;
+    const ImU32 ink = Col(enabled ? Mix(color::muted, color::text, 0.35f + 0.65f * hover) : color::dim);
+    if (icon != Icon::None) DrawIcon(draw, icon, {left + icon_size * 0.5f, pos.y + size.y * 0.5f}, icon_size, ink);
+    DrawLabel(draw, fonts.body, {left + icon_size + gap, pos.y + (size.y - text.y) * 0.5f}, ink, label);
+    ImGui::PopID();
+    return pressed && enabled;
+}
+
 bool Toggle(const char* id, bool* value)
 {
     ImGui::PushID(id);
