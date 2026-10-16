@@ -3834,6 +3834,7 @@ private:
         if (BeginRows("##competitive_rows"))
         {
             TweakRow(GameTweak::FastTerrain);
+            TweakRow(GameTweak::ThunderIslandWalls);
             TweakRow(GameTweak::NoMegaStrikes);
             EndRows();
         }

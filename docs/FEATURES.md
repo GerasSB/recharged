@@ -100,6 +100,10 @@ The launcher's **Gameplay** page (or `[gameplay]` in `mscharged.ini`) turns them
   Stadium: the same running speed, ball roll and bounce, no sliding on ice or
   mud and no slow sand in the Sand Tomb. Stadium looks and hazards stay;
   online matches are unchanged.
+- **Thunder Island walls**: Thunder Island's open sides get the electric
+  fence of every other stadium, invisible but with its sparks: the ball and
+  items bounce off it, and players knocked into it are electrocuted instead
+  of falling off the island. Online matches are unchanged.
 - **Mirror match**: both teams can pick the same captain in Domination. On
   the field the away team wears an away kit: the game's own, or for Mario,
   Luigi, Wario and Waluigi, who have none, one made from their own kit

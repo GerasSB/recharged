@@ -24,6 +24,7 @@ enum class GameTweak : unsigned
     CpuVsCpu = 4,
     FastTerrain = 5,
     MirrorMatch = 6,
+    ThunderIslandWalls = 7,
 };
 
 struct GameTweakInfo
@@ -34,7 +35,7 @@ struct GameTweakInfo
     const char* description; // launcher description
 };
 
-inline constexpr std::array<GameTweakInfo, 7> kGameTweaks{{
+inline constexpr std::array<GameTweakInfo, 8> kGameTweaks{{
     {GameTweak::SkipIntro, "skip_intro", "Skip intro",
      "Starts at the main menu: no notice screens, studio logo, intro movie or title screen. Loading still takes as long."},
     {GameTweak::FastMenus, "fast_menus", "Fast menus",
@@ -55,6 +56,10 @@ inline constexpr std::array<GameTweakInfo, 7> kGameTweaks{{
     {GameTweak::MirrorMatch, "mirror_match", "Mirror match",
      "Both teams can pick the same captain in Domination. On the field the away team wears an away kit: the game's "
      "own, or for Mario, Luigi, Wario and Waluigi one made from their kit (white, sky blue, blue, orange). Online "
+     "matches are unchanged."},
+    {GameTweak::ThunderIslandWalls, "thunder_island_walls", "Thunder Island walls",
+     "Thunder Island's open sides get the electric fence of every other stadium: the ball and items bounce off, and "
+     "players knocked into it are electrocuted instead of falling off the island. The fence stays invisible; online "
      "matches are unchanged."},
 }};
 
