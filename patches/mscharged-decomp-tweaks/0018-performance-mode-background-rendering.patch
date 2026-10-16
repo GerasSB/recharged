@@ -10,11 +10,12 @@ diff --git a/include/mscharged_tweaks.h b/include/mscharged_tweaks.h
 index 1a1099f..fb3d557 100644
 --- a/include/mscharged_tweaks.h
 +++ b/include/mscharged_tweaks.h
-@@ -88,5 +88,9 @@ bool mscharged_tweak_original_frame(void);
+@@ -88,5 +88,10 @@ bool mscharged_tweak_original_frame(void);
  unsigned long mscharged_tweak_frame_number(unsigned long renderedFrame);
  
 +#if defined(MSCHARGED_TWEAKS)
 +bool mscharged_tweak_performance_mode(void);
++void mscharged_tweak_report_stadium(int stadium);
 +#endif
 +
  #ifdef __cplusplus
@@ -24,17 +25,29 @@ diff --git a/src/Game/Task/GameRenderTask.cpp b/src/Game/Task/GameRenderTask.cpp
 index 0000000..0000000 100644
 --- a/src/Game/Task/GameRenderTask.cpp
 +++ b/src/Game/Task/GameRenderTask.cpp
-@@ -1,6 +1,9 @@
+@@ -1,6 +1,10 @@
  #include "Game/Task/GameTaskState.h"
  #include "NL/nlDLListContainer.inl"
  #include "Game/HBMManager.h"
  #include "Game/Task/GameRenderTask.h"
 +#if defined(MSCHARGED_TWEAKS)
 +#include "mscharged_tweaks.h"
++#include "Game/GameInfo.h"
 +#endif
  
  #include "types.h"
-@@ -383,5 +386,8 @@ void GameRenderTask::RenderFrame(float fDeltaT, bool bPictureInPicture)
+@@ -327,6 +331,10 @@ void GameRenderTask::RenderFrame(float fDeltaT, bool bPictureInPicture)
+     {
+         bCaptainShot = true;
+     }
++#if defined(MSCHARGED_TWEAKS)
++    if (nlTaskManager::m_pInstance->mCurrentState == TASK_GAMEPLAY)
++        mscharged_tweak_report_stadium(GameInfoManager::Instance()->GetStadium());
++#endif
+ 
+     if (!bPictureInPicture)
+     {
+@@ -383,5 +391,8 @@ void GameRenderTask::RenderFrame(float fDeltaT, bool bPictureInPicture)
      if (!bCaptainShot)
      {
          WorldNPCManager* worldNPCs = gpWorldNPCManager;
@@ -43,7 +56,7 @@ index 0000000..0000000 100644
 +#endif
          worldNPCs->Render(GetLayerView(eCLV_MoreCharacters));
      }
-@@ -526,9 +533,12 @@ void GameRenderTask::RenderFrame(float fDeltaT, bool bPictureInPicture)
+@@ -526,9 +538,12 @@ void GameRenderTask::RenderFrame(float fDeltaT, bool bPictureInPicture)
              if (ImpostorManager::GetInstance()->mUpdateClusters)
              {
                  (GetCrowdImpostorManager())->UpdateCrowdVisibility(GetLayerView(bPictureInPicture ? eCLV_PictureInPicture : eCLV_ImpostorOut));

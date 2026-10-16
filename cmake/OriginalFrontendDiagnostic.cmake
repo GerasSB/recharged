@@ -151,6 +151,7 @@ function(mscharged_add_original_frontend_diagnostic)
     else()
         add_dependencies(charged_original_main_credits_host mscharged_original_frontend_module)
     endif()
+    target_link_libraries(charged_original_main_credits_host PRIVATE mscharged_build_info)
     target_compile_definitions(charged_original_main_credits_host PRIVATE
         MSCHARGED_ORIGINAL_FRONTEND_MODULE_FILENAME="$<TARGET_FILE_NAME:mscharged_original_frontend_module>")
     if(TARGET mscharged)

@@ -3940,7 +3940,7 @@ private:
         BeginCard("##diagnostics", "Diagnostics & analytics", "Local tools for investigating performance and graphics issues.", Icon::Info);
         if (BeginRows("##diagnostic_rows"))
         {
-            Row("Frame logging", "Records frame times for each game session. Saves a new CSV and summary beside the executable.");
+            Row("Performance stats", "Records frame times for each game session, with the arena and settings, and a summary per arena. Saves a CSV and summary beside the executable; testers can share them.");
             if (Toggle("##frame_logging", &draft_.frame_logging)) dirty_ = true;
 
             const auto recordingsFolder = PathUtf8(base_);

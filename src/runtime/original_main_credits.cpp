@@ -52,6 +52,7 @@
 #include "credits_movie_hardware.h"
 #include "runtime/fps_overlay.h"
 #include "runtime/pipeline_warmup.h"
+#include "mscharged/build_version.h"
 #include "runtime/frame_rate.h"
 #include "runtime/host_frame_pacing.h"
 #include "runtime/frame_timing_log.h"
@@ -772,6 +773,15 @@ int mscharged::RunOriginalMainCredits(int argc, char** argv,
         // live beside this executable, independently of the working directory.
         const auto frameTiming=mscharged::runtime::FrameTimingLog::FromSettings(
             launch.settings.frame_logging, executableDirectory);
+        auto* takeStadium=reinterpret_cast<int(*)()>(
+            mscharged::platform::FindNativeModuleSymbol(module,"charged_take_stadium"));
+        if(frameTiming)
+            frameTiming->SetContext(std::string("Session: version ")+mscharged::build::version+" ("
+                +mscharged::build::channel+")\nSettings: "+(shown.fullscreen?"fullscreen":"windowed")+" "
+                +std::to_string(windowWidth)+"x"+std::to_string(windowHeight)+", graphics "+graphics.label
+                +", 3D resolution "+shown.resolution+", antialiasing "+shown.antialiasing
+                +", frame rate "+shown.frame_rate+", vsync "+(shown.vsync?"on":"off")
+                +", performance mode "+(shown.performance_mode?"on":"off")+"\n");
         wgpu::Texture retainedEFB;
         Check(!resizeCheck || nativeSend, "Resize qualification requires source-native send");
         while(!exit && (interactive || !snapshot)) {
@@ -821,7 +831,7 @@ int mscharged::RunOriginalMainCredits(int argc, char** argv,
                 aurora::gx::fifo::rebase_if_caught_up();
                 if(frameTiming)frameTiming->BeginFrame();
                 frame(delta); observeOptions(); observeBoot(); AuroraGXEndDrawReceipt(); ++frames;
-                if(frameTiming)frameTiming->EndFrame(ReadFrameTimingCounters());
+                if(frameTiming){ if(takeStadium)frameTiming->SetArena(takeStadium()); frameTiming->EndFrame(ReadFrameTimingCounters()); }
                 // Nothing else drains once no host observation is due: without
                 // this the buffer grows every frame until Aurora aborts on its
                 // 4 GiB size limit. Draining waits only for the queued backlog.
