@@ -62,7 +62,7 @@ Press **P** for a screenshot.
 - Picture styles: **sharp** (default) or clean fill the window with the game's
   picture; soft keeps the console's TV look, with the TV signal's empty border.
 - **4x antialiasing**, on by default (Display → Antialiasing).
-- **Performance mode** (beside Play): native 640 x 448 rendering, no 4x
+- **Performance mode** (the gear on Play): native 640 x 448 rendering, no 4x
   antialiasing, and fewer decorative background draws. Weather and match
   simulation remain unchanged.
 - **High frame rates**: the console's 60 FPS by default, or 120, 144, your
