@@ -601,7 +601,7 @@ int mscharged::RunOriginalMainCredits(int argc, char** argv,
                 configurePerformanceMode(launch.settings.performance_mode);
             const std::string line="Performance mode: "+std::string(launch.settings.performance_mode?"on":"off")
                 +(launch.settings.performance_mode && !configurePerformanceMode
-                    ? " (background draw reduction unavailable in this build)" : "");
+                    ? " (only antialiasing: this build's game module has no Performance mode)" : "");
             mscharged::platform::SessionLogLine(line.c_str());
             std::fprintf(stderr,"%s\n",line.c_str());
         }

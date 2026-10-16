@@ -1766,7 +1766,7 @@ private:
         if (ImGui::BeginPopup("play_options_menu"))
         {
             if (MenuToggle("performance_mode", "Performance mode",
-                           "Native 640 x 448, no antialiasing, no crowd. Gameplay is unchanged.",
+                           "No crowd, ambient effects, bloom or antialiasing. Gameplay is unchanged.",
                            &draft_.performance_mode, width))
                 dirty_ = true;
             MenuSeparator(width);
@@ -2388,8 +2388,7 @@ private:
         PageHeader("Display", "How the game window opens and how sharply the game is drawn.");
         if (draft_.performance_mode)
         {
-            Chip("Performance mode is on: 640 x 448, no antialiasing. Your settings return when it is off.",
-                 color::info, Icon::Display);
+            Chip("Performance mode is on, so antialiasing stays off.", color::info, Icon::Display);
             ImGui::Dummy({0, Dp(4)});
         }
         const auto run = EffectiveLaunch().settings;

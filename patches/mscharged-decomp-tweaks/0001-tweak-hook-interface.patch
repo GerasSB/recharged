@@ -16,7 +16,7 @@ new file mode 100644
 index 0000000..1a1099f
 --- /dev/null
 +++ b/include/mscharged_tweaks.h
-@@ -0,0 +1,94 @@
+@@ -0,0 +1,104 @@
 +#ifndef MSCHARGED_TWEAKS_H
 +#define MSCHARGED_TWEAKS_H
 +
@@ -104,6 +104,16 @@ index 0000000..1a1099f
 +float mscharged_tweak_original_frames(void);
 +bool mscharged_tweak_original_frame(void);
 +unsigned long mscharged_tweak_frame_number(unsigned long renderedFrame);
++
++// Performance mode ([display] performance_mode, a host display setting outside
++// the tweak mask): lighter matches. The first is the setting itself (for match
++// loading); the second is true while a match runs with it on, so menus keep
++// every effect. The hooks only skip decorative work: no gameplay state and no
++// random number the game or the network shares depends on what they skip.
++bool mscharged_tweak_performance_mode(void);
++bool mscharged_tweak_performance_match(void);
++// The stadium of the match being rendered (frame recordings).
++void mscharged_tweak_report_stadium(int stadium);
 +
 +#ifdef __cplusplus
 +}
