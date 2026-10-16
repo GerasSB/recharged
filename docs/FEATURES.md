@@ -124,9 +124,10 @@ asking before it installs anything ([updates](SETTINGS.md#updates)).
 
 ## Not supported (yet)
 
-- **Other versions of the game.** Only the USA release (R4QE01, revision 1)
-  runs. The European and Japanese versions need their own complete
-  decompilation first; until then they would show glitches.
+- **Other versions of the game.** For now only the USA release (R4QE01,
+  revision 1) runs. The European version (revisions 1 and 2) follows with
+  version 1.0.10; for the Japanese and Korean versions the decompilation is
+  still being completed.
 - **Online play.** Nintendo Wi-Fi Connection has shut down, so for now the
   port behaves like a Wii without internet. The netcode is being reworked to
   make online play functional again, and options for matchmaking and lobbies

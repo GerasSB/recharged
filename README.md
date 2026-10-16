@@ -17,8 +17,8 @@ graphics, sound, controllers, disc access and saves.
 > [!IMPORTANT]
 > **The downloads contain no game files.** You need your own copy of
 > **Mario Strikers Charged for the USA (game ID `R4QE01`, revision 1)** as an
-> `.iso` or `.rvz` disc image. European and Japanese discs are not supported
-> yet.
+> `.iso` or `.rvz` disc image. Support for the European version arrives with
+> version 1.0.10; Japanese and Korean discs are not supported yet.
 
 ## Download
 
@@ -110,8 +110,10 @@ again, and are looking into different options for matchmaking and lobbies.
 [optional gameplay tweaks](docs/FEATURES.md#optional-tweaks), and we are
 working on a modding framework. Stay tuned.
 
-**What about the European and Japanese versions?** They need their own
-decompilation work first.
+**What about the European and Japanese versions?** Support for the European
+version (revisions 1 and 2) will be released with version 1.0.10. For the
+Japanese and Korean versions we are still working on the decompilation and on
+fixing all remaining differences.
 
 **Something does not work.** See [troubleshooting](docs/TROUBLESHOOTING.md).
 To report a problem, open an [issue](https://github.com/yannicksuter/mscharged-port/issues)

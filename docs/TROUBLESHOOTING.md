@@ -12,9 +12,11 @@ The port runs **Mario Strikers Charged for the USA, game ID `R4QE01`,
 revision 1**. The launcher's **Game** page shows the ID and revision of the
 image you chose.
 
-- **Another ID** (`R4QP01` Europe, `R4QJ01` Japan): these versions need their
-  own decompilation work and are not supported yet. Renaming the file does not
-  change the version inside it.
+- **`R4QP01` (Europe):** supported from version 1.0.10 on (revisions 1 and
+  2).
+- **Another ID**, such as `R4QJ01` (Japan): not supported yet; the
+  decompilation of these versions is still being completed. Renaming the file
+  does not change the version inside it.
 - **"This build accepts ISO and RVZ disc images":** only complete `.iso` and
   `.rvz` images work; other formats (`.wbfs`, `.ciso`, `.wia`, `.gcz`) and
   extracted disc folders are not supported.
