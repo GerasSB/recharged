@@ -23,7 +23,8 @@ The steps in detail:
   *Settings → System*.
 - Your own **Mario Strikers Charged disc image for the USA, game ID `R4QE01`,
   revision 1**, as `.iso` or `.rvz`.
-  A European copy does not work, and renaming a file changes nothing.
+  A European copy works from version 1.0.10 on; renaming a file changes
+  nothing.
 - Optional: a USB or Bluetooth mouse and keyboard make the setup easier.
 
 ## 2. Switch to Desktop Mode
@@ -150,7 +151,7 @@ From now on, start the game from your library and press **Play**.
 | Buttons do nothing | Steam layout is *Gamepad* and the launcher's player 1 is `gamepad1` |
 | No gamepad in the launcher | Quit, start the game through Steam in Gaming Mode, reopen *Controls* |
 | Cannot click in the launcher | Hold STEAM and use the right trackpad as a mouse; STEAM + R2 clicks |
-| Disc is rejected | It must be the USA version, R4QE01, revision 1 |
+| Disc is rejected | It must be the USA version, R4QE01, revision 1 (Europe from version 1.0.10) |
 | Steam returns straight to Play | *Is executable*, *Target* and *Start In* (step 5) |
 | Stalls or crashes | Attach `logs/mscharged.log` from the game folder to an [issue](https://github.com/yannicksuter/mscharged-port/issues) |
 

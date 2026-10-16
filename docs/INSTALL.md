@@ -7,7 +7,8 @@ instead.
 > **The packages contain no game files.** You need your own copy of
 > **Mario Strikers Charged for the USA, game ID `R4QE01`, revision 1**, as an
 > `.iso` or `.rvz` disc image.
-> Other regions do not work yet, and renaming a file does not change that.
+> The European version follows with version 1.0.10; other regions do not work
+> yet, and renaming a file does not change that.
 
 ## 1. Download
 
