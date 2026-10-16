@@ -11,6 +11,8 @@
 #include "platform/path.h"
 #include "platform/disc.h"
 #include "platform/disc_message_images.h"
+#include "platform/game_release.h"
+#include "platform/pc_languages.h"
 #include <aurora/event.h>
 #include <aurora/gfx.h>
 #include <aurora/gfx.hpp>
@@ -321,13 +323,25 @@ int mscharged::RunOriginalMainCredits(int argc, char** argv,
         std::printf("%s\n",mscharged::DescribeLaunch(launch).c_str());
         Check(!disc.empty() && std::filesystem::is_regular_file(launch.disc_path),"Supply your own game ISO/RVZ with --disc FILE or [game] disc in the INI");
         // Validate native preferences before acquiring any hardware/module owner.
-        // This host profile is USA/NTSC; the original game still owns its region
-        // and localization branches after reading the supplied SC language.
-        const auto systemLanguage = mscharged::ResolveNativeUSASystemLanguage(launch.settings.language);
+        // The disc decides the release and so the languages a Wii could select;
+        // the original game still owns its region and localization branches
+        // after reading the supplied SC language.
         const auto discProfile = mscharged::InspectDisc(launch.disc_path);
-        Check(mscharged::SupportedRelease(discProfile),
-              "Only the USA version of Mario Strikers Charged (R4QE01) is "
-              "supported for now; European, Japanese and Korean versions are planned");
+        const auto* release = mscharged::FindRelease(discProfile);
+        const auto unplayable = mscharged::UnplayableReason(discProfile, release);
+        Check(unplayable.empty(), unplayable.c_str());
+        const auto languageChoice = mscharged::ChooseLanguage(*release, launch.settings.language,
+                                                              mscharged::platform::PcLanguages());
+        const auto systemLanguage = languageChoice.language->sc_language;
+        const auto releaseNote = mscharged::ReleaseNote(*release);
+        mscharged::platform::SessionLogLine("Game: " + std::string(release->title) + ", "
+            + mscharged::ReleaseLabel(*release) + " (" + release->game_id + ")"
+            + (releaseNote.empty() ? "" : ". " + releaseNote));
+        const std::string languageLabel = languageChoice.automatic
+            ? "Automatic (" + std::string(languageChoice.language->label) + ")" : languageChoice.language->label;
+        mscharged::platform::SessionLogLine(languageChoice.unavailable
+            ? "Language: " + launch.settings.language + " is not in this release; " + languageLabel
+            : "Language: " + languageLabel);
         Check(!resizeCheck || !launch.settings.fullscreen,"--resize-check requires a windowed launch; add --window");
         Check(!priorBoot || !resizeCheck,
               "The prior Boot stage retains original effects/NPC owners; resize teardown is not qualified");
@@ -516,8 +530,13 @@ int mscharged::RunOriginalMainCredits(int argc, char** argv,
             IPCInit();
             // One isolated native title profile. UID is an explicit native IOS
             // process identity, independent of the host account/retail console.
+            // Each title keeps its own storage in the save folder (the USA one
+            // the folder itself), as titles have separate homes on a Wii.
+            const auto saveFolder=mscharged::TitleSaveFolder(
+                mscharged::ResolveSaveFolder(launch.settings, launch.config.path, executableDirectory),
+                mscharged::ReadDiscTitleId(launch.disc_path));
             discBootIdentity=mscharged::platform::InitializeNativeFilesystemForDisc(
-                {launch.disc_path, mscharged::ResolveSaveFolder(launch.settings, launch.config.path, executableDirectory), 0x1001});
+                {launch.disc_path, saveFolder, 0x1001});
         }
         mscharged::platform::InitializeNativeSTMDevice();
         // Report this live host IOS provider, not the disc-requested Wii IOS.
