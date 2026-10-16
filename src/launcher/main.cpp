@@ -382,10 +382,11 @@ public:
                     CaptureKey(event.key.scancode);
                 GamepadCaptureEvent(event);
             }
-            // While an input waits for a gamepad press, the gamepad does not
-            // drive the launcher.
+            // While an input waits for a gamepad press, and until the press
+            // that set it is released, the gamepad does not drive the launcher.
             auto& io = ImGui::GetIO();
-            if (pad_capture_action_ >= 0) io.ConfigFlags &= ~ImGuiConfigFlags_NavEnableGamepad;
+            if (pad_capture_release_ && pad_inputs_held_.empty()) pad_capture_release_ = false;
+            if (pad_capture_action_ >= 0 || pad_capture_release_) io.ConfigFlags &= ~ImGuiConfigFlags_NavEnableGamepad;
             else io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
             PollResults();
             // Moving between displays or changing the interface size rebuilds
@@ -3188,11 +3189,25 @@ private:
             if (pressed && !held && pad_capture_action_ >= 0)
                 CaptureGamepadInput(platform::kGamepadTriggerBase + event.gaxis.axis);
             held = pressed;
+            TrackPadInput(event.gaxis.which, platform::kGamepadTriggerBase + event.gaxis.axis, pressed);
         }
+        if (event.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN || event.type == SDL_EVENT_GAMEPAD_BUTTON_UP)
+            TrackPadInput(event.gbutton.which, event.gbutton.button, event.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN);
+        if (event.type == SDL_EVENT_GAMEPAD_REMOVED)
+            for (auto it = pad_inputs_held_.begin(); it != pad_inputs_held_.end();)
+                it = it->first == event.gdevice.which ? pad_inputs_held_.erase(it) : std::next(it);
         if (pad_capture_action_ < 0) return;
         if (event.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN) CaptureGamepadInput(event.gbutton.button);
         else if (event.type == SDL_EVENT_KEY_DOWN && event.key.scancode == SDL_SCANCODE_ESCAPE)
             pad_capture_action_ = pad_capture_slot_ = -1;
+    }
+
+    // Gamepad buttons and triggers held down, to keep a captured press away
+    // from the launcher's navigation until it is released.
+    void TrackPadInput(SDL_JoystickID pad, platform::GamepadInput input, bool down)
+    {
+        if (down) pad_inputs_held_.insert({pad, input});
+        else pad_inputs_held_.erase({pad, input});
     }
 
     // A press while an input waits: it takes that slot, moving it from another
@@ -3201,6 +3216,7 @@ private:
     {
         const int action = pad_capture_action_, slot = pad_capture_slot_;
         pad_capture_action_ = pad_capture_slot_ = -1;
+        pad_capture_release_ = true;
         if (action < 0 || edit_profile_ < 0 || platform::GamepadInputName(input).empty()) return;
         auto& profile = draft_.pad_profiles[std::size_t(edit_profile_)];
         const std::string name = PadInputLabel(input, PageType());
@@ -3876,6 +3892,8 @@ private:
     std::vector<std::string> gamepad_names_;
     // Triggers past half travel per pad, so a held trigger is not a new press.
     std::map<SDL_JoystickID, std::array<bool, 2>> trigger_held_;
+    std::set<std::pair<SDL_JoystickID, platform::GamepadInput>> pad_inputs_held_;
+    bool pad_capture_release_ = false;
     // Wii Remote / DolphinBar detection for the Controls and Play pages (non-blocking).
     platform::WiimoteHidProbe wii_probe_;
     // Windows: connects Wii Remotes over Bluetooth while Controls is open.
