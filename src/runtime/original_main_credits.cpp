@@ -629,6 +629,15 @@ int mscharged::RunOriginalMainCredits(int argc, char** argv,
             mscharged::platform::SessionLogLine(line.c_str());
             std::fprintf(stderr,"%s\n",line.c_str());
         }
+        // European revision 1 disc: its data runs on the revision 2 code
+        // through the tweak series' adapters, whatever the tweak set.
+        if(release->rev1_data) {
+            auto* configureRev1=reinterpret_cast<void(*)(bool)>(
+                mscharged::platform::FindNativeModuleSymbol(module,"charged_configure_rev1_data"));
+            Check(configureRev1!=nullptr,"This build's game module cannot run European revision 1 data");
+            configureRev1(true);
+            mscharged::platform::SessionLogLine("Release data: revision 1 on the revision 2 game code");
+        }
         {
             auto* configurePerformanceMode=reinterpret_cast<void(*)(bool)>(
                 mscharged::platform::FindNativeModuleSymbol(module,"charged_configure_performance_mode"));

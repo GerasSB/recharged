@@ -34,7 +34,7 @@ constexpr GameRelease kReleases[] = {
      0x0001000052345150ull, 0x3031, GameCode::Europe, false, true, 0x804E6A08u,
      kEuropeLanguages, std::size(kEuropeLanguages)},
     {"R4QP01", 1, "0a066b755b469648a371d1cfc2d1bcad315b2b4a", "Europe", "Mario Strikers Charged Football",
-     0x0001000052345150ull, 0x3031, GameCode::Europe, true, false, 0x804E6488u,
+     0x0001000052345150ull, 0x3031, GameCode::Europe, true, true, 0x804E6488u,
      kEuropeLanguages, std::size(kEuropeLanguages)},
 };
 

@@ -11,6 +11,7 @@
 extern "C" void charged_configure_tweaks(unsigned mask);
 extern "C" void charged_configure_performance_mode(bool enabled);
 extern "C" void charged_configure_frame_pacing(void (*swap)());
+extern "C" void charged_configure_rev1_data(bool enabled);
 
 // The native VI's TV format (VI_NTSC 0, VI_PAL 1, VI_EURGB60 5) for the
 // original frame.
@@ -220,6 +221,24 @@ int main()
             "A stalled frame exceeded the task manager's bound");
         mscharged_tweak_begin_frame(-1.0f);
         Check(mscharged_tweak_original_frames() == 0.0f, "Negative frame length");
+
+        // European revision 1 data (tweak patch 0019): the revision 2 code's
+        // numbers unchanged until the host reports such a disc, whatever the
+        // tweak set; then revision 1's bank table, script natives and budget.
+        for (int bank = 0; bank < 0x40; ++bank)
+            Check(mscharged_tweak_rev1_sound_bank(bank) == bank, "Sound banks changed without revision 1 data");
+        Check(mscharged_tweak_rev1_presentation_function(70) == 70
+            && mscharged_tweak_rev1_ingame_texture_budget(0x900000) == 0x900000,
+            "Revision 1 adapters active without its data");
+        charged_configure_rev1_data(true);
+        Check(mscharged_tweak_rev1_sound_bank(0x19) == 0x19 && mscharged_tweak_rev1_sound_bank(0x1A) == 0x30
+            && mscharged_tweak_rev1_sound_bank(0x1C) == 0x1B && mscharged_tweak_rev1_sound_bank(0x35) == 0x34,
+            "Revision 1 sound bank table");
+        Check(mscharged_tweak_rev1_presentation_function(62) == 62
+            && mscharged_tweak_rev1_presentation_function(63) == 64, "Revision 1 presentation natives");
+        Check(mscharged_tweak_rev1_ingame_texture_budget(0x900000) == 0x966666, "Revision 1 texture budget");
+        charged_configure_rev1_data(false);
+        Check(mscharged_tweak_rev1_sound_bank(0x1A) == 0x1A, "Revision 1 data stayed on");
 
         // Back to the original rate and to no tweaks: the original game again.
         charged_configure_frame_pacing(nullptr);
