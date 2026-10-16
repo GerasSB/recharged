@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <string>
+#include <vector>
 
 namespace mscharged
 {
@@ -24,6 +25,9 @@ const char* DiscRegionName(const std::string& game_id);
 // Opens the image read-only and checks the Charged header and data partition.
 // This is a metadata/readability check, not a full-disc integrity check.
 DiscInfo InspectDisc(const std::filesystem::path& path);
+
+// The game's main.dol from the data partition, as its boot header locates it.
+std::vector<std::uint8_t> ReadDiscMainDol(const std::filesystem::path& path);
 
 // Actual data-partition TMD title identity for native ES/storage services.
 // Does not derive a title from the disc ID or authenticate the TMD signature.

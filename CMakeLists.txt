@@ -241,8 +241,10 @@ add_library(charged_host STATIC
     src/bootstrap/config.cpp
     src/bootstrap/launch_options.cpp
     src/platform/disc.cpp
+    src/platform/disc_message_images.cpp
     src/platform/game_release.cpp
     src/platform/save_import.cpp
+    src/platform/sha1.cpp
     src/platform/shader_cache.cpp
 )
 target_include_directories(charged_host PUBLIC src)
@@ -351,6 +353,13 @@ if(BUILD_TESTING)
         COMMAND "${Python3_EXECUTABLE}" -B "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_disc_title_id.py"
                 "$<TARGET_FILE:disc_title_id_tests>")
     set_tests_properties(disc_title_id PROPERTIES TIMEOUT 120)
+    add_executable(disc_message_images_tests tests/disc_message_images.cpp)
+    target_link_libraries(disc_message_images_tests PRIVATE charged_host)
+    add_test(NAME disc_message_images COMMAND disc_message_images_tests)
+    add_test(NAME disc_message_images_disc
+        COMMAND "${Python3_EXECUTABLE}" -B "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_disc_message_images.py"
+                "$<TARGET_FILE:disc_message_images_tests>")
+    set_tests_properties(disc_message_images_disc PROPERTIES TIMEOUT 120)
     add_executable(config_tests tests/config.cpp)
     target_link_libraries(config_tests PRIVATE charged_host)
     add_test(NAME configuration COMMAND config_tests)

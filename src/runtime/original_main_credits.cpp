@@ -10,6 +10,7 @@
 #include "bootstrap/launch_options.h"
 #include "platform/path.h"
 #include "platform/disc.h"
+#include "platform/disc_message_images.h"
 #include <aurora/event.h>
 #include <aurora/gfx.h>
 #include <aurora/gfx.hpp>
@@ -631,6 +632,18 @@ int mscharged::RunOriginalMainCredits(int argc, char** argv,
         if(sourceAudio)
             gameAudioHardware=std::make_unique<mscharged::diagnostic::OriginalGameAudioHardware>(*axModuleMemory);
 #endif
+        // Disc-message images (the loading message and the DVD error screens):
+        // the game module only reserves their arrays and the player's own
+        // main.dol fills them, as the port ships no game data. Modules without
+        // this export still embed their images.
+        if(auto* discMessages=reinterpret_cast<mscharged::DiscMessageImageStorage>(
+               mscharged::platform::FindNativeModuleSymbol(module,"charged_disc_message_image"))) {
+            const auto* release=mscharged::FindRelease(discProfile);
+            Check(release!=nullptr,"This disc release has no known disc-message images");
+            mscharged::InstallDiscMessageImages(mscharged::ReadDiscMessageImages(launch.disc_path,*release),discMessages);
+            mscharged::platform::SessionLogLine("Disc messages: "+std::to_string(mscharged::kDiscMessageImageCount)
+                +" images from the disc's main.dol");
+        }
         auto entry=reinterpret_cast<int(*)()>(mscharged::platform::FindNativeModuleSymbol(module,"charged_original_entry"));
         if(!entry)throw std::runtime_error("Original source main export unavailable");
         mscharged::platform::Trace("Entering actual source main with real Aurora %s/FIFO owner and native PI_VI under temporary MAIN_BOOTSTRAP; flow remains incomplete.\n",
