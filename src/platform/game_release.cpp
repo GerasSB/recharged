@@ -56,6 +56,11 @@ bool SeveralRevisions(std::string_view game_id)
 }
 }
 
+const char* GameModuleVersion(GameCode code)
+{
+    return code == GameCode::Europe ? "R4QP01_REV2" : "R4QE01";
+}
+
 std::size_t ReleaseCount() { return std::size(kReleases); }
 
 const GameRelease& ReleaseAt(std::size_t index) { return kReleases[index]; }

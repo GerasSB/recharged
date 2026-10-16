@@ -109,7 +109,8 @@ cmake --preset release -B build/windows \
     -DCMAKE_TOOLCHAIN_FILE=cmake/toolchains/llvm-mingw-x86_64.cmake \
     -DLLVM_MINGW_ROOT=/path/to/llvm-mingw-20261006-ucrt-ubuntu-22.04-x86_64 \
     -DBUILD_TESTING=OFF
-cmake --build build/windows --target mscharged mscharged_original_frontend_module mscharged_original_main_credits_module
+cmake --build build/windows --target mscharged mscharged_original_frontend_module_us \
+    mscharged_original_frontend_module_eu mscharged_original_main_credits_module
 ```
 
 `setup_windows_graphics.py` downloads the checksum-pinned Microsoft DirectX

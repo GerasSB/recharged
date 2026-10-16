@@ -347,11 +347,15 @@ int mscharged::RunOriginalMainCredits(int argc, char** argv,
               "The prior Boot stage retains original effects/NPC owners; resize teardown is not qualified");
         const char* moduleFilename=MSCHARGED_ORIGINAL_MAIN_CREDITS_MODULE_FILENAME;
         if(frontend) {
-#ifdef MSCHARGED_ORIGINAL_FRONTEND_MODULE_FILENAME
-            moduleFilename=MSCHARGED_ORIGINAL_FRONTEND_MODULE_FILENAME;
+#if defined(MSCHARGED_ORIGINAL_FRONTEND_MODULE_US_FILENAME) && defined(MSCHARGED_ORIGINAL_FRONTEND_MODULE_EU_FILENAME)
+            // One game module per game version; both European revisions run the EU one.
+            moduleFilename=release->code==mscharged::GameCode::Europe
+                ? MSCHARGED_ORIGINAL_FRONTEND_MODULE_EU_FILENAME : MSCHARGED_ORIGINAL_FRONTEND_MODULE_US_FILENAME;
 #else
             throw std::runtime_error("Original frontend sequence is not in this build");
 #endif
+        } else {
+            Check(release->code==mscharged::GameCode::Usa,"The Credits diagnostic runs the USA version only");
         }
         const auto modulePath=executableDirectory/moduleFilename;
         Check(std::filesystem::is_regular_file(modulePath),"Original-main source module is missing beside the executable");
@@ -595,6 +599,14 @@ int mscharged::RunOriginalMainCredits(int argc, char** argv,
         if(frontend)
             axModuleMemory=std::make_unique<mscharged::platform::NativeAXModuleMemory>(modulePath);
         auto* module=mscharged::platform::LoadNativeModule(modulePath);
+        if(frontend) {
+            // The module's sources must have been built for the disc's game version.
+            auto* moduleVersion=reinterpret_cast<const char*(*)()>(
+                mscharged::platform::FindNativeModuleSymbol(module,"charged_game_version"));
+            const char* expectedVersion=mscharged::GameModuleVersion(release->code);
+            Check(moduleVersion && std::strcmp(moduleVersion(),expectedVersion)==0,
+                  "The game module does not match the disc's game version");
+        }
         // MSCHARGED_DEBUG_LAYERS_OFF (frontend module only): diagnostic layer switches.
         if(auto* layers=reinterpret_cast<void(*)()>(mscharged::platform::FindNativeModuleSymbol(
                module,"charged_apply_debug_layer_toggles"))) {
@@ -657,8 +669,6 @@ int mscharged::RunOriginalMainCredits(int argc, char** argv,
         // this export still embed their images.
         if(auto* discMessages=reinterpret_cast<mscharged::DiscMessageImageStorage>(
                mscharged::platform::FindNativeModuleSymbol(module,"charged_disc_message_image"))) {
-            const auto* release=mscharged::FindRelease(discProfile);
-            Check(release!=nullptr,"This disc release has no known disc-message images");
             mscharged::InstallDiscMessageImages(mscharged::ReadDiscMessageImages(launch.disc_path,*release),discMessages);
             mscharged::platform::SessionLogLine("Disc messages: "+std::to_string(mscharged::kDiscMessageImageCount)
                 +" images from the disc's main.dol");
