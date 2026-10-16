@@ -3,8 +3,8 @@
 You only need this to build the port yourself; to play, the
 [ready-made packages](INSTALL.md) are simpler. The build compiles the game from
 the pinned decompilation, so it takes a while the first time. You still need
-your own USA `R4QE01` revision 1 disc image to play: no game files are
-included. How the build turns the decomp into a program is explained in the
+your own disc image to play (USA `R4QE01` revision 1, or Europe `R4QP01`
+revision 1 or 2): no game files are included. How the build turns the decomp into a program is explained in the
 [architecture](ARCHITECTURE.md) document.
 
 ## Requirements
