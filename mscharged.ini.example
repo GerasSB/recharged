@@ -31,6 +31,10 @@ aspect = 16:9
 # game's picture drawn straight into the window, without the TV flicker filter
 # and the border) or sharp (clean with square pixels).
 picture = sharp
+# Performance mode (options menu beside Play): Wii-native 640x448 3D rendering,
+# no 4x antialiasing, and no decorative crowd/background models. Weather,
+# hazards and match simulation are unchanged.
+performance_mode = false
 # Antialiasing of the game's 3D edges: off or 4x (more GPU time).
 antialiasing = 4x
 # 3D render size: window (one pixel per window pixel, default), native (the

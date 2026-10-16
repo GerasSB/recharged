@@ -1728,7 +1728,30 @@ private:
         if (PrimaryButton("play", "PLAY", Dp(230, 62), blocker.empty(), Icon::Play, true)) Play(quit);
         if (!blocker.empty() && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
             ImGui::SetTooltip("%s", blocker.c_str());
-        const float status_x = origin.x + pad + Dp(230) + Dp(24);
+        ImGui::SameLine(0, Dp(6));
+        if (SecondaryButton("play_options", "", Dp(52, 62), true, Icon::Sliders))
+            ImGui::OpenPopup("play_options_menu");
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Play options");
+        if (ImGui::BeginPopup("play_options_menu"))
+        {
+            ImGui::TextDisabled("PLAY OPTIONS");
+            ImGui::Separator();
+            if (ImGui::MenuItem("Performance mode", nullptr, draft_.performance_mode))
+            {
+                draft_.performance_mode = !draft_.performance_mode;
+                dirty_ = true;
+            }
+            ImGui::TextWrapped("Uses native 640 x 448 rendering, disables 4x antialiasing, and omits decorative crowd "
+                               "and background model draws. Weather, hazards, and match simulation are unchanged.");
+            ImGui::Separator();
+            if (ImGui::MenuItem("Display settings"))
+            {
+                page_ = PageDisplay;
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::EndPopup();
+        }
+        const float status_x = origin.x + pad + Dp(230 + 6 + 52 + 24);
         ImGui::SetCursorScreenPos({status_x, button_y + Dp(8)});
         DrawPlayStatus(blocker);
 
@@ -1834,6 +1857,7 @@ private:
         std::string aspect = s.aspect == "auto" ? "Automatic aspect" : s.aspect;
         std::string detail = aspect + (s.vsync ? "  -  VSync on" : "  -  VSync off");
         if (s.frame_rate != "original") detail += "  -  " + FrameRateLabel(s.frame_rate);
+        if (s.performance_mode) detail += "  -  Performance mode";
         return {s.fullscreen ? "Fullscreen" : std::to_string(s.width) + " x " + std::to_string(s.height) + " window",
                 detail, color::info};
     }
@@ -2352,6 +2376,12 @@ private:
     void DisplayPage()
     {
         PageHeader("Display", "How the game window opens and how sharply the game is drawn.");
+        if (draft_.performance_mode)
+        {
+            Chip("Performance mode uses 640 x 448 rendering and disables 4x antialiasing. Your saved display "
+                 "preferences return when it is off.", color::info, Icon::Display);
+            ImGui::Dummy({0, Dp(4)});
+        }
         const auto run = EffectiveLaunch().settings;
         if (options_.launch.size || options_.launch.fullscreen || options_.launch.aspect || options_.launch.frame_rate)
         {

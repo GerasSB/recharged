@@ -9,6 +9,7 @@
 #include <stdexcept>
 
 extern "C" void charged_configure_tweaks(unsigned mask);
+extern "C" void charged_configure_performance_mode(bool enabled);
 extern "C" void charged_configure_frame_pacing(void (*swap)());
 
 // The native VI's TV format (VI_NTSC 0, VI_PAL 1) for the original frame.
@@ -93,7 +94,12 @@ int main()
 
         // Before configuration and with an empty set: the original game.
         CheckOriginal("Unconfigured tweaks changed the original game");
+        Check(!mscharged_tweak_performance_mode(), "Performance mode did not default to off");
+        charged_configure_performance_mode(true);
         charged_configure_tweaks(0);
+        Check(mscharged_tweak_performance_mode(), "Gameplay tweak configuration changed performance mode");
+        charged_configure_performance_mode(false);
+        Check(!mscharged_tweak_performance_mode(), "Performance mode could not be disabled");
         CheckOriginal("Tweaks off changed the original game");
         for (int tweak = -1; tweak < 33; ++tweak)
             Check(!mscharged_tweak_enabled(tweak), "A tweak is enabled while all are off");

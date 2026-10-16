@@ -593,6 +593,17 @@ int mscharged::RunOriginalMainCredits(int argc, char** argv,
             mscharged::platform::SessionLogLine(line.c_str());
             std::fprintf(stderr,"%s\n",line.c_str());
         }
+        {
+            auto* configurePerformanceMode=reinterpret_cast<void(*)(bool)>(
+                mscharged::platform::FindNativeModuleSymbol(module,"charged_configure_performance_mode"));
+            if(configurePerformanceMode)
+                configurePerformanceMode(launch.settings.performance_mode);
+            const std::string line="Performance mode: "+std::string(launch.settings.performance_mode?"on":"off")
+                +(launch.settings.performance_mode && !configurePerformanceMode
+                    ? " (background draw reduction unavailable in this build)" : "");
+            mscharged::platform::SessionLogLine(line.c_str());
+            std::fprintf(stderr,"%s\n",line.c_str());
+        }
         // display.frame_rate (frontend module only): above the original, Aurora
         // presents each frame as the game swaps and paces the next; VI retraces
         // keep their real rate for everything that counts them.

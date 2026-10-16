@@ -16,6 +16,7 @@ unsigned sEnabled;
 
 // Skip intro: the title screen is passed once per launch.
 bool sTitlePassed;
+bool sPerformanceMode;
 
 // Fast menus.
 // Transition time runs this much faster while the front end's presentation
@@ -68,9 +69,19 @@ __attribute__((visibility("default"))) void charged_configure_tweaks(unsigned ma
     sMenus = sTransition = sOnTransitionTime = false;
 }
 
+__attribute__((visibility("default"))) void charged_configure_performance_mode(bool enabled)
+{
+    sPerformanceMode = enabled;
+}
+
 bool mscharged_tweak_enabled(int tweak)
 {
     return tweak >= 0 && tweak < 32 && (sEnabled & (1u << tweak)) != 0;
+}
+
+bool mscharged_tweak_performance_mode(void)
+{
+    return sPerformanceMode;
 }
 
 bool mscharged_tweak_take_title_press(void)
