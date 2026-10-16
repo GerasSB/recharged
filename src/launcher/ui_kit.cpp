@@ -293,6 +293,22 @@ void DrawIcon(ImDrawList* draw, Icon icon, ImVec2 c, float s, ImU32 color)
         draw->AddCircleFilled(p(-0.15f, 0.0f), 0.075f * s, color);
         break;
     }
+    case Icon::Trophy:
+    {
+        // A cup (competitive play): the bowl with its two handles, the stem and the base.
+        draw->PathLineTo(p(-0.30f, -0.42f));
+        draw->PathLineTo(p(0.30f, -0.42f));
+        draw->PathBezierCubicCurveTo(p(0.30f, -0.06f), p(0.14f, 0.10f), p(0.0f, 0.10f));
+        draw->PathBezierCubicCurveTo(p(-0.14f, 0.10f), p(-0.30f, -0.06f), p(-0.30f, -0.42f));
+        draw->PathFillConvex(color);
+        draw->PathArcTo(p(-0.30f, -0.22f), 0.15f * s, 1.57f, 4.71f);
+        draw->PathStroke(color, 0, t);
+        draw->PathArcTo(p(0.30f, -0.22f), 0.15f * s, -1.57f, 1.57f);
+        draw->PathStroke(color, 0, t);
+        draw->AddLine(p(0.0f, 0.06f), p(0.0f, 0.30f), color, t * 1.3f);
+        draw->AddRectFilled(p(-0.24f, 0.28f), p(0.24f, 0.42f), color, 0.04f * s);
+        break;
+    }
     case Icon::Link:
         draw->AddRect(p(-0.42f, -0.30f), p(0.30f, 0.42f), color, 0.08f * s, 0, t);
         draw->AddLine(p(-0.04f, 0.04f), p(0.44f, -0.44f), color, t);

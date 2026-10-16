@@ -3823,11 +3823,18 @@ private:
         BeginCard("##matches", "Matches & unlocks", nullptr, Icon::Target);
         if (BeginRows("##matches_rows"))
         {
-            TweakRow(GameTweak::NoMegaStrikes);
             TweakRow(GameTweak::CpuVsCpu);
             TweakRow(GameTweak::MirrorMatch);
-            TweakRow(GameTweak::FastTerrain);
             TweakRow(GameTweak::UnlockAll);
+            EndRows();
+        }
+        EndCard();
+
+        BeginCard("##competitive", "Competitive gameplay", nullptr, Icon::Trophy);
+        if (BeginRows("##competitive_rows"))
+        {
+            TweakRow(GameTweak::FastTerrain);
+            TweakRow(GameTweak::NoMegaStrikes);
             EndRows();
         }
         EndCard();
