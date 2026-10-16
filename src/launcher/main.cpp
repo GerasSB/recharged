@@ -640,7 +640,8 @@ private:
 
     static Icon OfferIcon(OfferKind kind, const PublishedBuild& offer)
     {
-        if (kind == OfferKind::BackToRelease) return Icon::Back;
+        // What gets installed: a release (its tag, also for the way back), a test build or an update.
+        if (kind == OfferKind::BackToRelease) return Icon::Tag;
         return offer.test ? Icon::Flask : Icon::Download;
     }
 
@@ -989,11 +990,11 @@ private:
                                   : "Version " + VersionNumber(offer.version);
             break;
         case OfferKind::TestBuild:
-            overline = "TEST BUILD";
+            overline = "INSTALL TEST BUILD";
             headline = "Pull request #" + std::to_string(offer.pull_request);
             break;
         case OfferKind::BackToRelease:
-            overline = "BACK TO RELEASE";
+            overline = "INSTALL RELEASE";
             headline = "Version " + VersionNumber(offer.version);
             break;
         }
