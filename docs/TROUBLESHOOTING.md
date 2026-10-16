@@ -15,10 +15,9 @@ image you chose.
 - **Another ID** (`R4QP01` Europe, `R4QJ01` Japan): these versions need their
   own decompilation work and are not supported yet. Renaming the file does not
   change the version inside it.
-- **"This build accepts ISO and RVZ disc images":** other image formats
-  (`.wbfs`, `.ciso`, `.wia`, `.gcz`) do not work; Dolphin converts them to RVZ
-  (*right-click the game → Convert File*). Archives (`.zip`, `.7z`) must be
-  unpacked first, and extracted disc folders do not work.
+- **"This build accepts ISO and RVZ disc images":** only complete `.iso` and
+  `.rvz` images work; other formats (`.wbfs`, `.ciso`, `.wia`, `.gcz`) and
+  extracted disc folders are not supported.
 - **"Expected a Mario Strikers Charged Wii image":** the file is another game
   or not a Wii disc image.
 - The image must stay where you chose it: the port reads it every time you

@@ -127,4 +127,4 @@ cmake --workflow --preset launcher
 ```
 
 `ctest --preset debug` runs the tests of a debug build. Packages are made with
-`tools/package_build.py`; see [releases and test builds](RELEASES.md).
+`tools/package_build.py`.

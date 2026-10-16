@@ -47,7 +47,7 @@ WINDOWS_SYSTEM_DLLS = frozenset((
 ))
 PUBLIC_FILES = ("README.md", "LICENSE", "mscharged.ini.example", "docs/INSTALL.md", "docs/STEAM_DECK.md",
                 "docs/FEATURES.md", "docs/SETTINGS.md", "docs/TROUBLESHOOTING.md", "docs/ARCHITECTURE.md",
-                "docs/BUILDING.md", "docs/RELEASES.md", "LICENSES/README.md", "LICENSES/Apache-2.0.txt",
+                "docs/BUILDING.md", "LICENSES/README.md", "LICENSES/Apache-2.0.txt",
                 "extern/README.md")
 # SteamOS 3.7 (Steam Deck): glibc 2.40 and the GCC 14 runtime (gcc-libs 14.2),
 # from Valve's package mirror. A Steam Deck package needs no newer symbol

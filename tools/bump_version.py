@@ -8,7 +8,7 @@
 
 The project() line in CMakeLists.txt is the only source of the version.
 Merging the pull request into stable drafts the release v<version>; publish
-the draft (see docs/RELEASES.md).
+the draft under Releases.
 """
 
 import re

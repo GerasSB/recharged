@@ -91,7 +91,7 @@ compiled. Patches are written against `patched/`.
 | **Saves** (NAND) | The Wii's flash file system is a folder on disk, so the game reads and writes its own save files. |
 | **OS** | Wii threads, alarms, message queues and interrupts run on host threads and timers, at the Wii's own clock rates. The game's MEM1 and MEM2 memory arenas keep their Wii sizes. |
 | **Movies** (THP) | The game's own THP player plays the intro, credits and other videos, with the platform providing the timing and audio output. |
-| **Network** | The socket library talks to the host's network stack, but online services report no connection: the port behaves like a Wii without internet, as Nintendo Wi-Fi Connection has shut down. |
+| **Network** | The socket library talks to the host's network stack, but for now online services report no connection: the port behaves like a Wii without internet, as Nintendo Wi-Fi Connection has shut down. Reworked online play is in progress. |
 
 ## Timing and frame rate
 
@@ -129,7 +129,8 @@ it can be added to the catalogue.
 | macOS Intel | Cross-compiled on Apple Silicon | Metal |
 
 GitHub Actions builds all five for every pull request into `stable` and every
-merge; see [releases and test builds](RELEASES.md).
+merge. Pull requests are also published as test builds, which the launcher's
+*Test* channel can install ([updates](SETTINGS.md#updates)).
 
 The launcher can update the port in place: it checks GitHub for a newer
 release, verifies the download against its checksums and the package's file
