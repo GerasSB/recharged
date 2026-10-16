@@ -53,9 +53,9 @@ inline constexpr std::array<GameTweakInfo, 7> kGameTweaks{{
      "Every stadium plays like the fast, dry field of Bowser Stadium: same running speed, ball roll and bounce, "
      "no sliding on ice or mud, no slow sand in the Sand Tomb. Looks and hazards stay; online matches are unchanged."},
     {GameTweak::MirrorMatch, "mirror_match", "Mirror match",
-     "Both teams can pick the same captain in Domination. The away team then wears the captain's away kit if the "
-     "game has one (Bowser, Bowser Jr., Daisy, Diddy Kong, DK, Petey, Yoshi); with the others both teams look the "
-     "same. Online matches are unchanged."},
+     "Both teams can pick the same captain in Domination. On the field the away team wears an away kit: the game's "
+     "own, or for Mario, Luigi, Wario and Waluigi one made from their kit (white, sky blue, blue, orange). Online "
+     "matches are unchanged."},
 }};
 
 inline constexpr unsigned GameTweakBit(GameTweak tweak) { return 1u << unsigned(tweak); }

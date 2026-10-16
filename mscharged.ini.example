@@ -150,9 +150,9 @@ shake_nunchuk = Q
 # fast_terrain: every stadium plays like Bowser Stadium's fast, dry field
 # (speed, ball roll and bounce; no sliding, no slow sand in the Sand Tomb);
 # looks and hazards stay, online matches unchanged.
-# mirror_match: both teams can pick the same captain in Domination; the away
-# team wears his away kit if the game has one (Bowser, Bowser Jr., Daisy,
-# Diddy Kong, DK, Petey, Yoshi). Online matches unchanged.
+# mirror_match: both teams can pick the same captain in Domination; on the
+# field the away team wears an away kit (made from the home kit for Mario,
+# Luigi, Wario and Waluigi). Online matches unchanged.
 skip_intro = false
 fast_menus = false
 no_mega_strikes = false

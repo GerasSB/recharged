@@ -121,7 +121,7 @@ function(mscharged_add_original_frontend_diagnostic)
     # compiled into this game module only; every other target that builds the
     # same original sources keeps their original code unchanged.
     target_compile_definitions(mscharged_original_frontend_module PRIVATE MSCHARGED_TWEAKS=1)
-    target_sources(mscharged_original_frontend_module PRIVATE src/platform/game_tweaks.cpp)
+    target_sources(mscharged_original_frontend_module PRIVATE src/platform/game_tweaks.cpp src/platform/away_kits.cpp)
     # Graphics preparation happens only before the game starts (all known
     # pipelines, runtime/pipeline_warmup.cpp). The resource-driven variant
     # (MSCHARGED_AUTOMATIC_PREWARM, src/platform/automatic_pipeline_*.cpp,
