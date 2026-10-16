@@ -72,7 +72,7 @@ static_assert(std::size(page_names) == PageCount && std::size(page_ids) == PageC
     && std::size(page_icons) == PageCount);
 
 #if defined(__linux__)
-// The udev rule from docs/RUNTIME.md (Wii Remote): lets the logged-in user
+// The udev rule from docs/SETTINGS.md (Wii Remotes): lets the logged-in user
 // open Wii Remotes, paired over Bluetooth or behind a DolphinBar.
 constexpr const char* kWiimoteUdevCommands =
     "sudo tee /etc/udev/rules.d/60-mscharged-wiimote.rules >/dev/null <<'EOF'\n"

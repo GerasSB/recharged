@@ -1,6 +1,6 @@
 # Features
 
-What the native port of Mario Strikers Charged offers today. The game itself
+What the native port of Mario Strikers Charged offers. The game itself
 is the original: its modes, rules, physics, timing and presentation come from
 the reconstructed source, unchanged.
 
@@ -54,22 +54,22 @@ Press **P** for a screenshot.
 
 ## Picture and sound
 
-- Vulkan on Linux; a Vulkan / DirectX 12 choice on Windows (Advanced → Graphics API);
-  Metal on macOS. DirectX 12 still needs real Windows hardware validation.
+- Vulkan on Linux, Vulkan or DirectX 12 on Windows (Advanced → Graphics API),
+  Metal on macOS.
 - Window or fullscreen on any monitor, freely sized, 4:3 or 16:9.
 - **3D at your window's resolution** (default) instead of the Wii's 640 x 448,
   or fixed 2x-4x; menus and the HUD keep their original artwork.
 - Picture styles: **sharp** (default) or clean fill the window with the game's
   picture; soft keeps the console's TV look, with the TV signal's empty border.
-- Optional **4x antialiasing**.
+- **4x antialiasing**, on by default (Display → Antialiasing).
 - **High frame rates**: the console's 60 FPS by default, or 120, 144, your
   display's refresh rate or unlimited (Display → Frame rate). The game keeps its
   own speed: matches still simulate at their fixed 50 Hz and every frame is
   drawn from the game's own blend of its last two steps, so the extra frames
   are real motion, not interpolation added by the port.
-- V-sync, an FPS counter (window title, or on screen also in fullscreen),
-  master volume and mute; music, effects and voice levels stay in the game's
-  own options.
+- V-sync, a performance overlay (FPS, CPU and GPU load) in any corner, master
+  volume and mute; music, effects and voice levels stay in the game's own
+  options.
 - **Screenshots** with the P key.
 
 ## Optional tweaks
@@ -100,6 +100,11 @@ The launcher's **Gameplay** page (or `[gameplay]` in `mscharged.ini`) turns them
   Stadium: the same running speed, ball roll and bounce, no sliding on ice or
   mud and no slow sand in the Sand Tomb. Stadium looks and hazards stay;
   online matches are unchanged.
+- **Mirror match**: both teams can pick the same captain in Domination. The
+  away team then wears the captain's away kit if the game has one (Bowser,
+  Bowser Jr., Daisy, Diddy Kong, Donkey Kong, Petey and Yoshi); with Mario,
+  Luigi, Peach, Wario and Waluigi both teams look the same. Online matches
+  are unchanged.
 
 `--no-tweaks` turns them off for one run.
 
@@ -107,8 +112,15 @@ The launcher's **Gameplay** page (or `[gameplay]` in `mscharged.ini`) turns them
 
 A start window that checks your disc, explains what is missing, and keeps every
 setting in one place: players and controllers, keyboard keys, gamepad
-profiles, display, audio, gameplay tweaks and advanced options. It asks before playing with
-unsaved changes.
+profiles, display, audio, gameplay tweaks and advanced options. It asks before
+playing with unsaved changes. Everything is also stored in `mscharged.ini`
+beside the program ([settings](SETTINGS.md)).
+
+It also **updates the port**: when a newer release is out it shows the release
+notes and asks, then installs it in place and restarts; only the program's own
+files are replaced. **Release / Test** on the Play page switches between
+official releases and test builds of changes not yet released, and back,
+asking before it installs anything ([updates](SETTINGS.md#updates)).
 
 ## Not supported (yet)
 
