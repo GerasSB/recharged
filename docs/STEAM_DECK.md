@@ -22,7 +22,7 @@ The steps in detail:
 - SteamOS 3.7 or newer. Check for updates in Gaming Mode under
   *Settings → System*.
 - Your own **Mario Strikers Charged disc image for the USA, game ID `R4QE01`,
-  revision 1**, as `.iso` or `.rvz` ([how to get one](../README.md#your-game-disc)).
+  revision 1**, as `.iso` or `.rvz`.
   A European copy does not work, and renaming a file changes nothing.
 - Optional: a USB or Bluetooth mouse and keyboard make the setup easier.
 
@@ -53,9 +53,8 @@ Copy your `.iso` or `.rvz` to the Deck, for example from a USB drive, into a
 Spaces in the name are fine. Do not extract or mount it: the port reads the
 image directly, every time you play, so it has to stay where it is.
 
-If you already keep your games on the microSD card, for example in EmuDeck's
-`Emulation/roms/wii` folder, you can use the image there instead; there is no
-need for a second copy.
+If your disc image is already on the microSD card, you can choose it there
+instead; there is no need for a second copy.
 
 ## 5. Add the game to Steam
 

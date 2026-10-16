@@ -127,5 +127,9 @@ asking before it installs anything ([updates](SETTINGS.md#updates)).
 - **Other versions of the game.** Only the USA release (R4QE01, revision 1)
   runs. The European and Japanese versions need their own complete
   decompilation first; until then they would show glitches.
-- **Online play.** Nintendo Wi-Fi Connection has shut down. The port behaves
-  like a Wii without internet; online modes are not available.
+- **Online play.** Nintendo Wi-Fi Connection has shut down, so for now the
+  port behaves like a Wii without internet. The netcode is being reworked to
+  make online play functional again, and options for matchmaking and lobbies
+  are being explored.
+- **Mods.** A modding framework is in the works; until then, the optional
+  tweaks above change the game.

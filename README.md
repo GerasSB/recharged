@@ -83,12 +83,11 @@ See the **[feature list](docs/FEATURES.md)** and the
 
 ## Your game disc
 
-The port reads your disc image directly: an `.iso`, or the smaller `.rvz` that
-[Dolphin](https://dolphin-emu.org) can create. Use a copy of a disc you own,
-dumped with your Wii and a tool such as [CleanRip](https://github.com/emukidid/cleanrip)
-([Dolphin's guide](https://dolphin-emu.org/docs/guides/ripping-games/)).
-The launcher checks the image and tells you if it is not the supported version.
-Renaming a file does not change its version.
+The port needs your own, legally obtained copy of the game as an `.iso` or
+`.rvz` disc image, which it reads directly from where you keep it. No game
+files are included, and this project cannot help you obtain them. The launcher
+checks the image and tells you if it is not the supported version; renaming a
+file does not change its version.
 
 ## Questions
 
@@ -102,8 +101,14 @@ implements the Wii's system services natively. See
 come from the original code. Changes only happen with the optional tweaks you
 turn on, plus the three listed bug fixes.
 
-**Can I play online?** No. Nintendo Wi-Fi Connection has shut down; the port
-behaves like a Wii without internet. Local multiplayer works.
+**Can I play online?** Not yet. Nintendo Wi-Fi Connection has shut down, so
+for now the port behaves like a Wii without internet; local multiplayer works.
+We are working hard on reworking the netcode to make online play functional
+again, and are looking into different options for matchmaking and lobbies.
+
+**Can I mod the game?** The launcher already offers
+[optional gameplay tweaks](docs/FEATURES.md#optional-tweaks), and we are
+working on a modding framework. Stay tuned.
 
 **What about the European and Japanese versions?** They need their own
 decompilation work first.

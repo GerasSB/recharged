@@ -91,7 +91,7 @@ compiled. Patches are written against `patched/`.
 | **Saves** (NAND) | The Wii's flash file system is a folder on disk, so the game reads and writes its own save files. |
 | **OS** | Wii threads, alarms, message queues and interrupts run on host threads and timers, at the Wii's own clock rates. The game's MEM1 and MEM2 memory arenas keep their Wii sizes. |
 | **Movies** (THP) | The game's own THP player plays the intro, credits and other videos, with the platform providing the timing and audio output. |
-| **Network** | The socket library talks to the host's network stack, but online services report no connection: the port behaves like a Wii without internet, as Nintendo Wi-Fi Connection has shut down. |
+| **Network** | The socket library talks to the host's network stack, but for now online services report no connection: the port behaves like a Wii without internet, as Nintendo Wi-Fi Connection has shut down. Reworked online play is in progress. |
 
 ## Timing and frame rate
 
