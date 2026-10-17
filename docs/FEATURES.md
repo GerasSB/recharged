@@ -54,7 +54,7 @@ come from the reconstructed source, unchanged.
 | + / − / HOME | Tab / - / Home | Start / Back / Guide |
 | Shake Remote / Nunchuk | E / Q | RT / RB |
 
-Press **P** for a screenshot.
+Press **P** for a screenshot and **H** to show or hide the HUD in a match.
 
 ## Picture and sound
 
@@ -123,6 +123,12 @@ The launcher's **Gameplay** page (or `[gameplay]` in `recharged.ini`) turns them
   uses it against a captain of her colours, and nobody else is pink. Her menu
   pictures, Mega Strike hand, stadium banners and crowd have no blue version
   and stay pink.
+- **No HUD**: matches start without the scoreboard (score, clock, items,
+  ability meter), the player markers and the captions (replay label, goal
+  banner, super ability card), for clean recordings and screenshots. Press
+  **H** in a match to show or hide them, with or without this option. The
+  Mega Strike meter and the goalie's Mega Strike defence stay, as you need
+  them to play.
 
 `--no-tweaks` turns them off for one run.
 

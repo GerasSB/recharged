@@ -599,6 +599,9 @@ int mscharged::RunOriginalGame(int argc, char** argv,
                 : "none (this build's game module has no tweaks)");
             mscharged::platform::SessionLogLine(line.c_str());
             std::fprintf(stderr,"%s\n",line.c_str());
+            // No HUD (issue #58): H shows or hides the match HUD, whatever the tweak set.
+            mscharged::platform::SetHudKey(reinterpret_cast<void(*)()>(
+                mscharged::platform::FindNativeModuleSymbol(module,"charged_toggle_hud")));
         }
         // European revision 1 disc: its data runs on the revision 2 code
         // through the tweak series' adapters, whatever the tweak set.

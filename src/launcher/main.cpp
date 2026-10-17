@@ -3234,6 +3234,11 @@ private:
             Notice(name + " takes screenshots and cannot be assigned.", NoticeKind::Warning);
             return;
         }
+        if (code == platform::kHudKey)
+        {
+            Notice(name + " shows or hides the HUD in a match and cannot be assigned.", NoticeKind::Warning);
+            return;
+        }
         auto bindings = DraftBindings();
         auto& mine = bindings[action];
         if (mine[0] == code || mine[1] == code) return;
@@ -3341,6 +3346,7 @@ private:
             ImGui::TableSetupColumn("keys", ImGuiTableColumnFlags_WidthStretch);
             KeyRow("Pointer", {"Mouse"}, "left click is A, right click is B", "Point at menu items");
             KeyRow("Screenshot", {"P"}, nullptr, "Saved in the screenshots folder");
+            KeyRow("Show or hide the HUD", {"H"}, nullptr, "In a match");
             ImGui::EndTable();
         }
         ImGui::PopStyleVar();
@@ -3911,6 +3917,7 @@ private:
             TweakRow(GameTweak::CpuVsCpu);
             TweakRow(GameTweak::MirrorMatch);
             TweakRow(GameTweak::BluePeach);
+            TweakRow(GameTweak::NoHud);
             TweakRow(GameTweak::UnlockAll);
             EndRows();
         }

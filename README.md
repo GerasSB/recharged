@@ -75,7 +75,8 @@ updates Recharged in place when you agree.
   while the game keeps its original speed.
 - **Optional tweaks**, all off by default: skip the intro, fast menus, no Mega
   Strikes, unlock everything, CPU vs CPU, fast terrain, Thunder Island walls,
-  mirror matches and blue Peach. Three bugs of the original game are fixed.
+  mirror matches, blue Peach and no HUD. Three bugs of the original game are
+  fixed.
 - **A launcher** that checks your disc, keeps every setting in one place and
   updates itself in place.
 
