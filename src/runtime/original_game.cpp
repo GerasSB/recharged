@@ -39,6 +39,7 @@
 #include "platform/desktop_presented_dpd.h"
 #include "platform/ai.h"
 #include "platform/console.h"
+#include "platform/log_window.h"
 #include "platform/session_log.h"
 #include "platform/shader_cache.h"
 #include "platform/process_exit.h"
@@ -303,6 +304,8 @@ int mscharged::RunOriginalGame(int argc, char** argv,
         const unsigned aspectWidth=widescreen?16u:4u, aspectHeight=widescreen?9u:3u;
         // advanced.verbose_console: development traces and the game's debug output.
         mscharged::platform::SetVerboseConsole(launch.settings.verbose_console);
+        // advanced.log_window: the separate log window, when the launcher has not opened it.
+        mscharged::platform::SetLogWindow(launch.settings.log_window);
         std::printf("%s\n",mscharged::DescribeLaunch(launch).c_str());
         Check(!disc.empty() && std::filesystem::is_regular_file(launch.disc_path),"Supply your own game ISO/RVZ with --disc FILE or [game] disc in the INI");
         // Validate native preferences before acquiring any hardware/module owner.

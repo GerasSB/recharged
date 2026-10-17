@@ -57,6 +57,7 @@ Values Encode(const Settings& s)
             {"advanced.log_level", s.log_level},
             {"advanced.verbose_console", s.verbose_console ? "true" : "false"},
             {"advanced.frame_logging", s.frame_logging ? "true" : "false"},
+            {"advanced.log_window", s.log_window ? "true" : "false"},
             {"launcher.ui_scale", s.ui_scale},
             {"launcher.check_updates", s.check_updates ? "true" : "false"},
             {"launcher.update_channel", s.update_channel}};
@@ -234,6 +235,7 @@ Settings Decode(const Values& values)
     choice("advanced.log_level", s.log_level, {"error", "warning", "info", "debug"});
     boolean("advanced.verbose_console", s.verbose_console);
     boolean("advanced.frame_logging", s.frame_logging);
+    boolean("advanced.log_window", s.log_window);
     choice("launcher.ui_scale", s.ui_scale, {"auto", "75", "100", "125", "150", "175", "200"});
     boolean("launcher.check_updates", s.check_updates);
     choice("launcher.update_channel", s.update_channel, {"auto", "release", "test"});

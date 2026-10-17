@@ -199,6 +199,9 @@ log_level = info
 verbose_console = false
 # Record frame times to a new CSV and summary in the logs folder each session.
 frame_logging = false
+# Windows and macOS: show the log in a separate window (Terminal on macOS)
+# while the program runs. Closing it does not stop the game.
+log_window = false
 
 [launcher]
 # Launcher interface size: auto, or a percentage from 75 to 200.

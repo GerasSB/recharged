@@ -24,6 +24,7 @@
 #include "platform/game_release.h"
 #include "platform/pc_languages.h"
 #include "platform/console_verbosity.h"
+#include "platform/log_window.h"
 #include "platform/app_icon.h"
 #include "platform/path.h"
 #include "platform/save_import.h"
@@ -521,6 +522,7 @@ private:
             file_ = LoadConfig(file_.path, true);
             draft_ = file_.settings;
             mscharged::platform::SetVerboseConsole(file_.settings.verbose_console);
+            mscharged::platform::SetLogWindow(file_.settings.log_window);
             dirty_ = false;
             config_ok_ = true;
             check_ = {};
@@ -535,6 +537,7 @@ private:
         {
             SaveConfig(file_, draft_);
             mscharged::platform::SetVerboseConsole(draft_.verbose_console);
+            mscharged::platform::SetLogWindow(draft_.log_window);
             dirty_ = false;
             Notice("Settings saved.", NoticeKind::Success);
             return true;
@@ -4047,6 +4050,10 @@ private:
 
             Row("Verbose console", "Also prints development traces and the game's own debug output. Useful for bug reports.");
             if (Toggle("##verbose_console", &draft_.verbose_console)) dirty_ = true;
+#if defined(_WIN32) || defined(__APPLE__)
+            Row("Log window", "Shows the log in a separate window while Recharged runs, for testing. Closing it doesn't stop the game.");
+            if (Toggle("##log_window", &draft_.log_window)) dirty_ = true;
+#endif
 
             EndRows();
         }
@@ -4270,6 +4277,9 @@ private:
 
 int main(int argc, char** argv)
 {
+    // The log window's own process (Advanced > Log window).
+    if (mscharged::platform::IsLogWindowProcess(argc, argv)) return mscharged::platform::RunLogWindow(argc, argv);
+    mscharged::platform::ConnectStandardStreams();
     Options options;
     SetAppName();
     try

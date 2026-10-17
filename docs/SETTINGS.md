@@ -214,6 +214,15 @@ graphics adapter, warnings and errors. Attach it to an
 problem; it can contain your user name in paths. **Advanced → Log detail** and
 **Verbose console** add more detail.
 
+On Windows and macOS no console or Terminal window opens with the game.
+**Advanced → Diagnostics & analytics → Log window** (`[advanced] log_window`,
+off by default) shows the log as it is written, in a separate window (Terminal
+on macOS). Closing that window or selecting text in it does not stop or slow
+the game; it closes when the game ends (on Windows it stays open after an
+error until you press a key). Started from cmd or PowerShell, `recharged.exe`
+also prints to that console, whose prompt returns at once
+(`start /wait recharged.exe` waits for the game).
+
 **Advanced → Diagnostics & analytics → Performance stats**
 (`[advanced] frame_logging`) records frame times: each session writes a
 `frame-times_<timestamp>_<process>.csv` in the `logs` folder beside the program

@@ -254,7 +254,7 @@ int main()
         const Settings defaults;
         Require(!defaults.fps_overlay && defaults.fps_overlay_corner == "top-right"
             && defaults.monitor == 0 && !defaults.graphics_validation
-            && defaults.log_level == "info" && !defaults.verbose_console && !defaults.frame_logging
+            && defaults.log_level == "info" && !defaults.verbose_console && !defaults.frame_logging && !defaults.log_window
             && defaults.ui_scale == "auto" && defaults.check_updates && defaults.update_channel == "auto"
             && !defaults.performance_mode,
             "Host setting defaults");
@@ -269,6 +269,7 @@ int main()
         hostSettings.log_level = "warning";
         hostSettings.verbose_console = true;
         hostSettings.frame_logging = true;
+        hostSettings.log_window = true;
         hostSettings.ui_scale = "150";
         hostSettings.check_updates = false;
         hostSettings.update_channel = "test";
@@ -278,6 +279,7 @@ int main()
             && hostReloaded.performance_mode
             && hostReloaded.monitor == 2 && hostReloaded.graphics_validation
             && hostReloaded.log_level == "warning" && hostReloaded.verbose_console && hostReloaded.frame_logging
+            && hostReloaded.log_window
             && hostReloaded.ui_scale == "150" && !hostReloaded.check_updates && hostReloaded.update_channel == "test",
             "Host settings round trip");
         const auto hostText = LoadConfig(host).contents;
@@ -286,7 +288,8 @@ int main()
             && hostText.find("fps_overlay = true") != std::string::npos
             && hostText.find("performance_mode = true") != std::string::npos
             && hostText.find("fps_overlay_corner = bottom-left") != std::string::npos
-            && hostText.find("frame_logging = true") != std::string::npos, "Host settings sections");
+            && hostText.find("frame_logging = true") != std::string::npos
+            && hostText.find("log_window = true") != std::string::npos, "Host settings sections");
         hostSettings.frame_logging = false;
         SaveConfig(hostFile, hostSettings);
         Require(!LoadConfig(host).settings.frame_logging, "Frame logging can be disabled after enabling");
@@ -302,7 +305,7 @@ int main()
                                     "[display]\nperformance_mode = maybe\n",
                                     "[advanced]\nlog_level = verbose\n", "[launcher]\nui_scale = 110\n",
                                     "[advanced]\ngraphics_validation = 2\n", "[advanced]\nverbose_console = yes\n",
-                                    "[advanced]\nframe_logging = maybe\n", "[launcher]\ncheck_updates = sometimes\n",
+                                    "[advanced]\nframe_logging = maybe\n", "[advanced]\nlog_window = on\n", "[launcher]\ncheck_updates = sometimes\n",
                                     "[launcher]\nupdate_channel = nightly\n"})
         {
             std::ofstream(path) << invalid;

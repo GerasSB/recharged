@@ -121,6 +121,8 @@ struct Settings
     std::string log_level = "info";   // advanced.log_level: error | warning | info | debug
     bool verbose_console = false;     // advanced.verbose_console: development traces and game debug output
     bool frame_logging = false;       // advanced.frame_logging: CSV timings and summary in logs/ beside the executable
+    // advanced.log_window (Windows and macOS): a separate window that follows the log while the program runs.
+    bool log_window = false;
     std::string ui_scale = "auto";    // launcher.ui_scale: auto or a percentage (75 to 200)
     // launcher.check_updates: look for a newer build each time the launcher starts.
     bool check_updates = true;
