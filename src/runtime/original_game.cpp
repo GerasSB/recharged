@@ -514,9 +514,22 @@ int mscharged::RunOriginalGame(int argc, char** argv,
         // process identity, independent of the host account/retail console.
         // Each title keeps its own storage in the save folder (the USA one
         // the folder itself), as titles have separate homes on a Wii.
+        // Saves live in the user's folder; earlier builds kept them beside the
+        // program, so a new program folder started without them.
+        if(launch.settings.save_folder.empty()){
+            std::string moveError;
+            if(mscharged::MoveProgramSaves(executableDirectory,&moveError))
+                mscharged::platform::SessionLogLine("Saves: moved "
+                    +mscharged::PathUtf8(mscharged::ProgramSaveFolder(executableDirectory))+" to "
+                    +mscharged::PathUtf8(mscharged::DefaultSaveFolder(executableDirectory)));
+            else if(!moveError.empty())
+                mscharged::platform::SessionLogLine("Saves: not moved to your user folder ("+moveError
+                    +"); they stay beside the program");
+        }
         const auto saveFolder=mscharged::TitleSaveFolder(
             mscharged::ResolveSaveFolder(launch.settings, launch.config.path, executableDirectory),
             mscharged::ReadDiscTitleId(launch.disc_path));
+        mscharged::platform::SessionLogLine("Saves: "+mscharged::PathUtf8(saveFolder));
         const auto discBootIdentity=mscharged::platform::InitializeNativeFilesystemForDisc(
             {launch.disc_path, saveFolder, 0x1001});
         mscharged::platform::InitializeNativeSTMDevice();

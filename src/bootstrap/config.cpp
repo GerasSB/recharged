@@ -7,6 +7,7 @@
 #include <cctype>
 #include <chrono>
 #include <cmath>
+#include <cstdlib>
 #include <fstream>
 #include <locale>
 #include <map>
@@ -491,15 +492,98 @@ bool MoveOldDataFolder(const std::filesystem::path& executable_directory)
     return !error;
 }
 
-std::filesystem::path DefaultSaveFolder(const std::filesystem::path& executable_directory)
+std::filesystem::path UserDataFolder()
+{
+#ifdef _WIN32
+    const wchar_t* appdata = _wgetenv(L"APPDATA");
+    if (!appdata || !*appdata) return {};
+    const std::filesystem::path base(appdata);
+    return base.is_absolute() ? base / "Recharged" : std::filesystem::path();
+#else
+    const char* home = std::getenv("HOME");
+    const std::filesystem::path base_home = home && *home ? std::filesystem::path(home) : std::filesystem::path();
+#ifdef __APPLE__
+    if (!base_home.is_absolute()) return {};
+    return base_home / "Library" / "Application Support" / "Recharged";
+#else
+    if (const char* xdg = std::getenv("XDG_DATA_HOME"); xdg && *xdg && std::filesystem::path(xdg).is_absolute())
+        return std::filesystem::path(xdg) / "recharged";
+    if (!base_home.is_absolute()) return {};
+    return base_home / ".local" / "share" / "recharged";
+#endif
+#endif
+}
+
+std::filesystem::path ProgramSaveFolder(const std::filesystem::path& executable_directory)
 {
     return DataFolder(executable_directory) / "nand";
+}
+
+std::filesystem::path DefaultSaveFolder(const std::filesystem::path& executable_directory)
+{
+    const auto user = UserDataFolder();
+    return user.empty() ? ProgramSaveFolder(executable_directory) : user / "saves";
+}
+
+bool HasSaves(const std::filesystem::path& folder)
+{
+    std::error_code error;
+    std::filesystem::recursive_directory_iterator it(
+        folder, std::filesystem::directory_options::skip_permission_denied, error), end;
+    // A bounded look: a Wii storage folder holds a handful of files.
+    for (int seen = 0; !error && it != end && seen < 10000; it.increment(error), ++seen)
+        if (it->is_regular_file(error) && it->path().filename() != "metadata.txt") return true;
+    return false;
+}
+
+bool MoveProgramSaves(const std::filesystem::path& executable_directory, std::string* error)
+{
+    namespace fs = std::filesystem;
+    const fs::path from = ProgramSaveFolder(executable_directory);
+    const fs::path to = DefaultSaveFolder(executable_directory);
+    std::error_code ec;
+    if (to == from || fs::equivalent(from, to, ec) || !HasSaves(from) || HasSaves(to)) return false;
+    auto fail = [&](const std::string& what) {
+        if (error) *error = what + (ec ? ": " + ec.message() : std::string());
+        return false;
+    };
+    // The default folder holds no saves, only the empty storage of a start
+    // without them: the program's saves take its place.
+    fs::create_directories(to.parent_path(), ec);
+    if (ec) return fail("cannot create " + PathUtf8(to.parent_path()));
+    fs::remove_all(to, ec);
+    if (ec) return fail("cannot replace " + PathUtf8(to));
+    fs::rename(from, to, ec);
+    if (!ec) return true;
+    // Another drive: copy beside the target, then swap it in.
+    fs::path staging = to;
+    staging += ".moving";
+    ec.clear();
+    fs::remove_all(staging, ec);
+    ec.clear();
+    fs::copy(from, staging, fs::copy_options::recursive, ec);
+    if (!ec) fs::rename(staging, to, ec);
+    if (ec)
+    {
+        std::error_code cleanup;
+        fs::remove_all(staging, cleanup);
+        return fail("cannot copy " + PathUtf8(from) + " to " + PathUtf8(to));
+    }
+    // The copy is in use from now on; a leftover original only costs space.
+    fs::remove_all(from, ec);
+    return true;
 }
 
 std::filesystem::path ResolveSaveFolder(const Settings& settings, const std::filesystem::path& config,
                                         const std::filesystem::path& executable_directory)
 {
-    if (settings.save_folder.empty()) return DefaultSaveFolder(executable_directory);
+    if (settings.save_folder.empty())
+    {
+        const auto folder = DefaultSaveFolder(executable_directory);
+        const auto program = ProgramSaveFolder(executable_directory);
+        if (folder != program && !HasSaves(folder) && HasSaves(program)) return program;
+        return folder;
+    }
     const auto path = PathFromUtf8(settings.save_folder);
     return path.is_absolute() ? path : config.parent_path() / path;
 }

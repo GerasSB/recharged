@@ -3,6 +3,7 @@
 
 #include <array>
 #include <chrono>
+#include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <stdexcept>
@@ -13,6 +14,25 @@ using namespace mscharged;
 void Require(bool condition, const char* message)
 {
     if (!condition) throw std::runtime_error(message);
+}
+
+// Points the user's Recharged folder into the test's own directory (empty:
+// the system names none), so no test touches the real one.
+fs::path SetUserDataRoot(const fs::path& root)
+{
+#ifdef _WIN32
+    _wputenv_s(L"APPDATA", root.wstring().c_str());
+    return root.empty() ? fs::path() : root / "Recharged";
+#elif defined(__APPLE__)
+    if (root.empty()) unsetenv("HOME");
+    else setenv("HOME", root.c_str(), 1);
+    return root.empty() ? fs::path() : root / "Library" / "Application Support" / "Recharged";
+#else
+    unsetenv("HOME");
+    if (root.empty()) unsetenv("XDG_DATA_HOME");
+    else setenv("XDG_DATA_HOME", root.c_str(), 1);
+    return root.empty() ? fs::path() : root / "recharged";
+#endif
 }
 
 template <typename F> void Reject(F function)
@@ -27,6 +47,7 @@ int main()
     const auto directory = fs::temp_directory_path() / ("mscharged-config-"
         + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
     fs::create_directory(directory);
+    const fs::path user = SetUserDataRoot(directory / "user data");
     try
     {
         const auto path = directory / "local.ini";
@@ -216,17 +237,18 @@ int main()
                     && saved.find("remote-9ce635c69076_calibration = 1 0 0 0 1 0") != std::string::npos,
                     "An old calibration is kept in the file");
         }
-        // Save folder: empty is the default next to the executable; a relative
+        // Save folder: empty is the default in the user's folder; a relative
         // folder counts from the settings file and is written in quotes.
         {
             const fs::path executable = directory / "bin";
-            Require(Settings{}.save_folder.empty()
-                    && ResolveSaveFolder(Settings{}, path, executable)
-                        == executable / "data" / "nand", "Default save folder");
+            const fs::path user_saves = user / "saves";
+            Require(UserDataFolder() == user && DefaultSaveFolder(executable) == user_saves
+                    && Settings{}.save_folder.empty() && ResolveSaveFolder(Settings{}, path, executable) == user_saves,
+                    "Default save folder");
             // Earlier builds' data folder stays in use until it has been moved.
             fs::create_directories(executable / "original-main-credits-data" / "nand");
             std::ofstream(executable / "original-main-credits-data" / "nand" / "save.bin") << "save";
-            Require(DefaultSaveFolder(executable) == executable / "original-main-credits-data" / "nand",
+            Require(ProgramSaveFolder(executable) == executable / "original-main-credits-data" / "nand",
                     "The old data folder is used before the move");
             Require(MoveOldDataFolder(executable) && DataFolder(executable) == executable / "data"
                         && fs::exists(executable / "data" / "nand" / "save.bin")
@@ -235,7 +257,43 @@ int main()
             fs::create_directories(executable / "original-main-credits-data");
             Require(!MoveOldDataFolder(executable) && DataFolder(executable) == executable / "data",
                     "An existing data folder is kept");
+            fs::remove(executable / "original-main-credits-data");
+
+            // Saves beside the program stay in use until they move to the user's
+            // folder; a start without saves left only empty storage there.
+            const fs::path program = executable / "data" / "nand";
+            fs::create_directories(user_saves / "data" / "title");
+            std::ofstream(user_saves / "metadata.txt") << "storage";
+            fs::create_directories(program / "R4QP" / "data");
+            std::ofstream(program / "metadata.txt") << "storage";
+            std::ofstream(program / "R4QP" / "data" / "Strikers2") << "european";
+            Require(HasSaves(program) && !HasSaves(user_saves) && !HasSaves(directory / "nowhere"),
+                    "Saves are any file but the storage metadata");
+            Require(ResolveSaveFolder(Settings{}, path, executable) == program, "Unmoved saves stay in use");
+            std::string error;
+            Require(MoveProgramSaves(executable, &error) && error.empty() && !fs::exists(program)
+                        && fs::exists(user_saves / "R4QP" / "data" / "Strikers2") && fs::exists(user_saves / "metadata.txt")
+                        && !fs::exists(user_saves / "data" / "title")
+                        && ResolveSaveFolder(Settings{}, path, executable) == user_saves,
+                    "The program's saves move to the user's folder");
+            Require(!MoveProgramSaves(executable, &error) && error.empty(), "Moved saves move once");
+            // Saves in both places: the user's stay in use, the program's stay put.
+            fs::create_directories(program);
+            std::ofstream(program / "save.bin") << "older copy";
+            Require(!MoveProgramSaves(executable, &error) && fs::exists(program / "save.bin")
+                        && ResolveSaveFolder(Settings{}, path, executable) == user_saves,
+                    "Existing user saves win");
+            // A custom save folder is never touched.
+            Settings custom;
+            custom.save_folder = "custom";
+            Require(ResolveSaveFolder(custom, path, executable) == directory / "custom", "A custom folder wins");
+            // Without a user folder, saves stay beside the program.
+            Require(SetUserDataRoot({}).empty() && UserDataFolder().empty()
+                        && DefaultSaveFolder(executable) == program && !MoveProgramSaves(executable, &error),
+                    "No user folder");
+            SetUserDataRoot(directory / "user data");
             fs::remove_all(executable);
+            fs::remove_all(user);
             std::ofstream(path) << "[game]\nsave_folder = \"My Saves/charged\"\n";
             auto saves = LoadConfig(path);
             Require(saves.settings.save_folder == "My Saves/charged"

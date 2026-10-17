@@ -35,8 +35,9 @@ system libraries.
 
 Unpack it into a folder of its own that you can write to, for example
 `Games/recharged` in your home folder. Keep all files together: the program
-(`Recharged.app` on macOS), its two modules and the `assets` folder. Settings, saves and logs are stored
-in this folder too, so it can be anywhere but should stay in one place.
+(`Recharged.app` on macOS), its two modules and the `assets` folder. Settings and logs are stored
+in this folder too, so it can be anywhere but should stay in one place. Saves go to your user folder,
+so a new folder keeps them ([saves](SETTINGS.md#saves)).
 
 **Coming from an older version?** It called the program `mscharged`. Unpack
 the new package over the old folder and start `recharged`: it takes over your
@@ -82,8 +83,9 @@ Cmd+Q on a Mac): the game shuts down like a Wii does.
 - The launcher tells you when a new release is out, shows what changed and
   updates the folder in place when you agree. Your settings and saves stay
   ([updates](SETTINGS.md#updates)).
-- Saves are kept in the program folder. The launcher can move them elsewhere or
-  import your save from Dolphin ([saves](SETTINGS.md#saves)).
+- Saves are kept in your user folder, the same for every Recharged folder. The
+  launcher can keep them elsewhere or import your save from Dolphin
+  ([saves](SETTINGS.md#saves)).
 
 ## Something wrong?
 
