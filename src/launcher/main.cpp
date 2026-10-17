@@ -1715,9 +1715,8 @@ private:
         const float pad = Dp(44);
         float y = origin.y + std::max(Dp(34), hero * 0.20f);
         DrawTracked(draw, fonts.caption, {origin.x + pad, y}, Col(color::accent, 0.95f), "NATIVE PC PORT", Dp(2.6f));
-        y += FontSize(fonts.caption) + Dp(10);
-        DrawTracked(draw, fonts.overline, {origin.x + pad, y}, IM_COL32_WHITE, "MARIO STRIKERS CHARGED", Dp(3.0f));
-        y += FontSize(fonts.overline) - Dp(4);
+        y += FontSize(fonts.caption) + Dp(6);
+        // The title: "RECHARGED" with a soft glow and a vertical lime-to-green gradient.
         for (int i = 4; i >= 1; --i)
             DrawLabel(draw, fonts.hero, {origin.x + pad, y + Dp(float(i))}, Col(color::accent, 0.07f * float(i)), "RECHARGED");
         const int start = draw->VtxBuffer.Size;
@@ -1725,9 +1724,24 @@ private:
         ImGui::ShadeVertsLinearColorGradientKeepAlpha(draw, start, draw->VtxBuffer.Size, {origin.x, y},
                                                      {origin.x, y + FontSize(fonts.hero)}, Col(color::accent_hi),
                                                      Col(color::accent));
-        y += FontSize(fonts.hero) + Dp(2);
-        DrawLabel(draw, fonts.label, {origin.x + pad, y}, Col(color::text, 0.82f),
-                  "The original game, rebuilt to run natively on your PC.");
+        y += FontSize(fonts.hero) + Dp(4);
+        FillGradient(draw, {origin.x + pad + Dp(2), y}, {origin.x + pad + Dp(66), y + Dp(3)}, Col(color::accent_hi),
+                     Col(color::accent, 0.0f), Dp(1.5f), true);
+        y += Dp(13);
+        // The subtitle: the game in white, the rest softer; two lines in a narrow window.
+        const char* game = "Mario Strikers Charged";
+        const char* rest = ", rebuilt to run natively on your PC.";
+        const float game_width = TextSize(fonts.heading, game).x;
+        const bool one_line = game_width + TextSize(fonts.heading, rest).x <= size.x * 0.75f - pad;
+        DrawLabelShadowed(draw, fonts.heading, {origin.x + pad, y}, IM_COL32_WHITE, game, 1.2f);
+        if (one_line)
+            DrawLabelShadowed(draw, fonts.heading, {origin.x + pad + game_width, y}, Col(color::text, 0.86f), rest, 1.2f);
+        else
+        {
+            DrawLabelShadowed(draw, fonts.heading, {origin.x + pad + game_width, y}, Col(color::text, 0.86f), ",", 1.2f);
+            DrawLabelShadowed(draw, fonts.heading, {origin.x + pad, y + FontSize(fonts.heading) + Dp(2)},
+                              Col(color::text, 0.86f), rest + 2, 1.2f);
+        }
         DrawUpdateBar(origin, size.x, pad);
 
         // Play button and status, overlapping the bottom of the artwork.

@@ -62,7 +62,7 @@ Fonts LoadFonts(const std::string& ttf, float font_raster, float density)
     fonts.title = add(30.0f);
     fonts.button = add(22.0f);
     fonts.overline = add(21.0f);
-    fonts.hero = add(54.0f);
+    fonts.hero = add(62.0f);
     io.FontDefault = fonts.body;
     io.FontGlobalScale = 1.0f / density;
     g_fonts = fonts;

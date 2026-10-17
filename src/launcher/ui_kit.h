@@ -47,7 +47,7 @@ struct Fonts
     ImFont* title = nullptr;    // 30 dp
     ImFont* button = nullptr;   // 22 dp
     ImFont* overline = nullptr; // 21 dp
-    ImFont* hero = nullptr;     // 54 dp
+    ImFont* hero = nullptr;     // 62 dp
 };
 // Rasterizes Roboto at the exact framebuffer pixel size for `font_raster`
 // pixels per dp; io.FontGlobalScale maps the glyphs back to window units.
