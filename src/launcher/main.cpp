@@ -2887,35 +2887,9 @@ private:
     void GameImagesCard()
     {
         const auto& fonts = CurrentFonts();
-        BeginCard("##images", "Game images",
-                  "Click the image to play. Listed: the Mario Strikers Charged images (ISO or RVZ) in your game folder.",
-                  Icon::Disc);
-        bool browsing;
-        { std::lock_guard<std::mutex> lock(folder_dialog_->mutex); browsing = folder_dialog_->active; }
-        const float height = Dp(38);
-        if (SecondaryButton("select_folder", "Select folder...", {Dp(160), height}, !browsing && config_ok_,
-                            Icon::Folder))
-            BrowseFolder(FolderPurpose::GameFolder);
-        if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("Choose the folder with your images. You can also drop a folder onto this window.");
-        ImGui::SameLine(0, Dp(10));
-        if (SecondaryButton("browse", "Choose file...", {Dp(150), height},
-                            config_ok_ && !options_.launch.disc && !DialogActive() && !candidate_pending_, Icon::Disc))
-            Browse();
-        if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("Play an image that is not in your game folder.\n"
-                              "You can also drop an image onto this window.");
-        if (candidate_pending_)
-        {
-            ImGui::SameLine(0, Dp(14));
-            const ImVec2 at = ImGui::GetCursorScreenPos();
-            Spinner({at.x + Dp(7), at.y + height * 0.5f}, Dp(6), Col(color::info));
-            ImGui::SetCursorScreenPos({at.x + Dp(20), at.y + (height - FontSize(fonts.caption)) * 0.5f});
-            TextColored(fonts.caption, color::muted, "Checking the chosen file...");
-        }
-        ImGui::Dummy({0, Dp(4)});
-        GameFolderBar();
-        ImGui::Dummy({0, Dp(4)});
+        BeginCard("##images", "Game images", "Click the image you want to play.", Icon::Disc);
+        GameFolderPicker();
+        ImGui::Dummy({0, Dp(6)});
 
         // The scan belongs to exactly this folder setting.
         const bool scanned = !library_scanning_ && scanned_folder_ == draft_.folder
@@ -2927,10 +2901,12 @@ private:
                         ? "Your game folder is not there. Create it and put your Mario Strikers Charged images (ISO "
                           "or RVZ) into it, connect its drive, or select another folder."
                         : "No Mario Strikers Charged images in your game folder yet. Put them into it, select another "
-                          "folder, or choose a file.",
+                          "folder, or choose a file below.",
                     color::info, Icon::Info);
         else ImageTable();
 
+        // Footer: what the table leaves out, and a file from anywhere else.
+        ImGui::Dummy({0, Dp(4)});
         std::string footer;
         if (library_other_games_ > 0)
             footer = std::to_string(library_other_games_)
@@ -2938,30 +2914,70 @@ private:
         if (library_limited_)
             footer += std::string(footer.empty() ? "" : " ")
                 + "Only the first 2000 image files were looked at; select a folder closer to your images.";
+        const char* choose = candidate_pending_ ? "Checking the file..." : "Choose file...";
+        const ImVec2 button{GhostWidth(choose, Icon::Disc), Dp(34)};
+        const ImVec2 at = ImGui::GetCursorScreenPos();
+        const float width = ImGui::GetContentRegionAvail().x;
         if (!footer.empty())
         {
-            ImGui::Dummy({0, Dp(2)});
-            TextWrappedColored(fonts.caption, color::dim, footer.c_str());
+            const float wrap = width - button.x - Dp(16);
+            const float text = fonts.caption->CalcTextSizeA(FontSize(fonts.caption), FLT_MAX, wrap, footer.c_str()).y;
+            ImGui::GetWindowDrawList()->AddText(fonts.caption, FontSize(fonts.caption),
+                                                {at.x + Dp(2), at.y + std::max(0.0f, (button.y - text) * 0.5f)},
+                                                Col(color::dim), footer.c_str(), nullptr, wrap);
         }
+        ImGui::SetCursorScreenPos({at.x + width - button.x, at.y});
+        if (GhostButton("choose_file", choose, button,
+                        config_ok_ && !options_.launch.disc && !DialogActive() && !candidate_pending_, Icon::Disc))
+            Browse();
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Play an image that is not in your game folder.\n"
+                              "You can also drop an image onto this window.");
         EndCard();
     }
 
-    // The game folder: where it is, what it holds, its subfolders switch and
-    // Refresh.
-    void GameFolderBar()
+    // The game folder as one picker: click it (or Change...) to select another
+    // folder; it shows what the folder holds, its Subfolders switch and refresh.
+    void GameFolderPicker()
     {
         const auto& fonts = CurrentFonts();
         auto* draw = ImGui::GetWindowDrawList();
         const ImVec2 pos = ImGui::GetCursorScreenPos();
-        const float width = ImGui::GetContentRegionAvail().x, height = Dp(52);
-        draw->AddRectFilled(pos, {pos.x + width, pos.y + height}, Col(Mix(color::field, color::card, 0.5f)), Dp(10));
-        DrawIcon(draw, Icon::Folder, {pos.x + Dp(22), pos.y + height * 0.5f}, Dp(18), Col(color::muted));
+        const float width = ImGui::GetContentRegionAvail().x, height = Dp(60);
+        const ImVec2 max{pos.x + width, pos.y + height};
+        const float center = pos.y + height * 0.5f;
+        bool browsing;
+        { std::lock_guard<std::mutex> lock(folder_dialog_->mutex); browsing = folder_dialog_->active; }
+        const bool can_select = !browsing && config_ok_;
+
+        // Controls on the right, from the edge inwards.
+        const char* change = "Change...";
+        const char* subfolders = "Subfolders";
+        const float change_w = TextSize(fonts.body, change).x + Dp(32);
+        const float change_x = max.x - Dp(12) - change_w;
+        const float refresh_x = change_x - Dp(8) - Dp(34);
+        const float divider_x = refresh_x - Dp(12);
+        const float toggle_x = divider_x - Dp(12) - Dp(48);
+        const float label_x = toggle_x - Dp(10) - TextSize(fonts.caption, subfolders).x;
+
+        // The folder itself is a button too: it opens the folder dialog.
+        ImGui::SetCursorScreenPos(pos);
+        ImGui::BeginDisabled(!can_select);
+        const bool picked = ImGui::InvisibleButton("##game_folder", {label_x - Dp(14) - pos.x, height});
+        ImGui::EndDisabled();
+        const float hover = Animate(ImGui::GetID("##folder_hover"), ImGui::IsItemHovered() && can_select, 12.0f);
+        draw->AddRectFilled(pos, max, Col(Mix(Mix(color::field, color::card, 0.45f), color::field, hover)), Dp(12));
+        draw->AddRect(pos, max, Col(Mix(color::border, color::accent, 0.45f * hover)), Dp(12), 0, Dp(1));
+        const ImVec2 box{pos.x + Dp(12), center - Dp(18)};
+        draw->AddRectFilled(box, {box.x + Dp(36), box.y + Dp(36)}, Col(color::accent, 0.12f + 0.06f * hover), Dp(10));
+        DrawIcon(draw, Icon::Folder, {box.x + Dp(18), box.y + Dp(18)}, Dp(18), Col(color::accent));
+
         const fs::path path = GameFolder().path;
         const bool scanned = !library_scanning_ && scanned_folder_ == draft_.folder
             && scanned_subfolders_ == draft_.folder_subfolders;
-        std::string status;
-        ImVec4 tint = color::dim;
         const bool unavailable = scanned && !library_available_.empty() && !library_available_[0];
+        std::string status;
+        ImVec4 tint = color::muted;
         if (!scanned)
         {
             const auto* progress = library_progress_.get();
@@ -2983,21 +2999,23 @@ private:
             status = count == 0 ? "No Mario Strikers Charged images" : count == 1 ? "1 image"
                                                                                    : std::to_string(count) + " images";
         }
-        const char* subfolders = "Subfolders";
-        const float right = pos.x + width - Dp(8), center = pos.y + height * 0.5f;
-        const float refresh_x = right - Dp(34), toggle_x = refresh_x - Dp(12 + 48);
-        const float label_x = toggle_x - Dp(8) - TextSize(fonts.caption, subfolders).x;
-        const float text_x = pos.x + Dp(44), text_w = std::max(Dp(80), label_x - Dp(16) - text_x);
-        DrawPath(draw, fonts.body, {text_x, pos.y + Dp(8)}, text_w, color::text, PathUtf8(path));
-        DrawClipped(draw, fonts.caption, {text_x, pos.y + Dp(29)}, text_w, tint, status);
-        if (ImGui::IsMouseHoveringRect(pos, {label_x - Dp(8), pos.y + height}) && ImGui::IsWindowHovered())
-            ImGui::SetTooltip("%s", PathUtf8(path).c_str());
+        const float text_x = box.x + Dp(36 + 14), text_w = std::max(Dp(80), label_x - Dp(18) - text_x);
+        const float lines = FontSize(fonts.label) + Dp(3) + FontSize(fonts.caption);
+        const float top = center - lines * 0.5f;
+        DrawPath(draw, fonts.label, {text_x, top}, text_w, color::text, PathUtf8(path));
+        DrawClipped(draw, fonts.caption, {text_x, top + FontSize(fonts.label) + Dp(3)}, text_w, tint, status);
+        if (picked) BrowseFolder(FolderPurpose::GameFolder);
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("%s\nClick to select another game folder.\nYou can also drop a folder onto this window.",
+                              PathUtf8(path).c_str());
+
         DrawLabel(draw, fonts.caption, {label_x, center - FontSize(fonts.caption) * 0.5f}, Col(color::muted),
                   subfolders);
         ImGui::SetCursorScreenPos({toggle_x, center - Dp(14)});
         if (Toggle("subfolders", &draft_.folder_subfolders)) dirty_ = true;
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip("Also list the images in its subfolders (%d levels down).", kLibraryDepth);
+        draw->AddRectFilled({divider_x, center - Dp(14)}, {divider_x + Dp(1), center + Dp(14)}, Col(color::border));
         ImGui::SetCursorScreenPos({refresh_x, center - Dp(17)});
         if (GhostButton("refresh_library", "", Dp(34, 34), config_ok_ && !library_scanning_, Icon::Refresh))
         {
@@ -3005,6 +3023,10 @@ private:
             if (!DiscSelection().empty() && !pending_) CheckDisc();
         }
         if (ImGui::IsItemHovered()) ImGui::SetTooltip("Look through the folder again.");
+        ImGui::SetCursorScreenPos({change_x, center - Dp(17)});
+        if (SecondaryButton("change_folder", change, {change_w, Dp(34)}, can_select))
+            BrowseFolder(FolderPurpose::GameFolder);
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Select another game folder.");
         ImGui::SetCursorScreenPos(pos);
         ImGui::Dummy({width, height});
     }
@@ -3023,12 +3045,14 @@ private:
         ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4{0, 0, 0, 0});
         ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImVec4{0, 0, 0, 0});
         if (ImGui::BeginTable("##images_table", narrow ? 4 : 5,
-                              ImGuiTableFlags_Sortable | ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_NoClip))
+                              ImGuiTableFlags_Sortable | ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_PadOuterX
+                                  | ImGuiTableFlags_NoClip))
         {
             const auto fixed = ImGuiTableColumnFlags_WidthFixed;
-            ImGui::TableSetupColumn("##chosen", fixed | ImGuiTableColumnFlags_NoSort, Dp(22), ColumnChosen);
+            ImGui::TableSetupColumn("##chosen", fixed | ImGuiTableColumnFlags_NoSort, Dp(30), ColumnChosen);
             ImGui::TableSetupColumn("GAME", ImGuiTableColumnFlags_WidthStretch, 0.0f, ColumnGame);
-            ImGui::TableSetupColumn("VERSION", fixed | ImGuiTableColumnFlags_DefaultSort, Dp(112), ColumnVersion);
+            ImGui::TableSetupColumn("VERSION", fixed | ImGuiTableColumnFlags_DefaultSort, Dp(narrow ? 100 : 112),
+                                    ColumnVersion);
             if (!narrow)
                 ImGui::TableSetupColumn("FILE", fixed | ImGuiTableColumnFlags_PreferSortDescending, Dp(66), ColumnFile);
             ImGui::TableSetupColumn("##open", fixed | ImGuiTableColumnFlags_NoSort, Dp(32), ColumnOpen);
@@ -3112,7 +3136,7 @@ private:
         if (row.outside && note.empty()) note = "Not in your game folder.";
 
         const float label = FontSize(fonts.label), caption = FontSize(fonts.caption);
-        const ImVec2 banner = narrow ? Dp(96, 32) : Dp(128, 43);
+        const ImVec2 banner = narrow ? Dp(78, 26) : Dp(128, 43);
         const float text_block = label + Dp(4) + caption + (note.empty() ? 0.0f : Dp(4) + caption);
         const float height = std::max(banner.y, text_block) + Dp(18);
         // Rows that cannot be played step back a little.
@@ -3164,7 +3188,7 @@ private:
         const float middle = cell.y + height * 0.5f;
         // A radio button: filled for the chosen image, empty for others it could be.
         {
-            const ImVec2 center{cell.x + Dp(10), middle};
+            const ImVec2 center{cell.x + Dp(15), middle};
             const float radius = Dp(8);
             if (row.chosen)
             {
