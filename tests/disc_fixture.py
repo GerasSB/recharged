@@ -2,13 +2,16 @@
 import struct
 
 
-def write_disc(path, game_id=b"R4QE01", partition=True, files=None, fst_capacity=0x200, partition_size=0x8000, tmd=None):
-    """A tiny, unencrypted Wii container with synthetic files and directories."""
+def write_disc(path, game_id=b"R4QE01", partition=True, files=None, fst_capacity=0x200, partition_size=0x8000, tmd=None,
+               dol=None, revision=1):
+    """A tiny, unencrypted Wii container with synthetic files and directories.
+
+    `dol` replaces the stub main.dol with the given bytes, placed after the files."""
     if partition_size < 0x8000 or partition_size > 0x100000 or partition_size % 0x8000:
         raise ValueError("Invalid synthetic partition size")
     data = bytearray(0x58000 + partition_size)
     data[:6] = game_id
-    data[7] = 1
+    data[7] = revision
     data[0x18:0x1C] = bytes.fromhex("5d1c9ea3")
     title = b"Port test fixture"
     data[0x20:0x20 + len(title)] = title
@@ -68,6 +71,12 @@ def write_disc(path, game_id=b"R4QE01", partition=True, files=None, fst_capacity
         fst += b"\0" * (-len(fst) % 4)
         if len(fst) > fst_capacity:
             raise ValueError("Fixture FST exceeds its reserved space")
-        struct.pack_into(">III", data, base + 0x420, 0x2800 >> 2, 0x3000 >> 2, len(fst) >> 2)
+        dol_offset = 0x2800
+        if dol is not None:
+            dol_offset = position
+            if dol_offset + len(dol) > partition_size:
+                raise ValueError("Fixture main.dol exceeds its tiny partition")
+            data[base + dol_offset:base + dol_offset + len(dol)] = dol
+        struct.pack_into(">III", data, base + 0x420, dol_offset >> 2, 0x3000 >> 2, len(fst) >> 2)
         data[base + 0x3000:base + 0x3000 + len(fst)] = fst
     path.write_bytes(data)

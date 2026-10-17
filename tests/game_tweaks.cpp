@@ -1,18 +1,29 @@
 // The game module's tweak state (src/platform/game_tweaks.cpp): with no tweak
 // enabled, every hook gets the original game's answer; each tweak acts alone.
-// A frame rate above the original keeps the original's per-frame steps.
+// A frame rate above the original keeps the original's per-frame steps, and
+// sound levels change only their own group's sounds.
 #include "bootstrap/game_tweaks.h"
+#include "bootstrap/sound_groups.h"
 #include "mscharged_tweaks.h"
 
+#include <cmath>
 #include <cstdio>
 #include <stdexcept>
 
 extern "C" void charged_configure_tweaks(unsigned mask);
+extern "C" void charged_configure_performance_mode(bool enabled);
 extern "C" void charged_configure_frame_pacing(void (*swap)());
+extern "C" void charged_configure_rev1_data(bool enabled);
+extern "C" void charged_configure_sound_volumes(const int* volumes, int count);
+extern "C" void charged_toggle_hud(void);
 
-// The native VI's TV format (VI_NTSC 0, VI_PAL 1) for the original frame.
+// The native VI's TV format (VI_NTSC 0, VI_PAL 1, VI_EURGB60 5) for the
+// original frame.
 unsigned gTvFormat;
 extern "C" unsigned int VIGetTvFormat(void) { return gTvFormat; }
+// The original match (Game.cpp), present while a match runs.
+class cGame;
+cGame* g_pGame;
 
 namespace
 {
@@ -34,9 +45,20 @@ void CheckOriginal(const char* what)
             mscharged_tweak_frontend_frame(menus, transition);
             mscharged_tweak_note_slide_reset(&slide);
             Check(!mscharged_tweak_fast_menus() && !mscharged_tweak_fast_transition(), what);
-            Check(mscharged_tweak_task_dilation(&task) == 1.0f && mscharged_tweak_task_dilation(&other) == 1.0f, what);
+            Check(mscharged_tweak_task_dilation(&task) == 1.0f && mscharged_tweak_real_time(0.25f) == 0.25f, what);
+            Check(mscharged_tweak_task_dilation(&other) == 1.0f && mscharged_tweak_real_time(0.25f) == 0.25f, what);
         }
     Check(!mscharged_tweak_title_pending() && !mscharged_tweak_take_title_press(), what);
+    mscharged_tweak_hud_frame();
+    Check(!mscharged_tweak_hud_hidden(), what);
+}
+
+// A frame of the game: the HUD state after `presses` of the H key.
+bool HudHiddenAfter(int presses)
+{
+    for (int n = 0; n < presses; ++n) charged_toggle_hud();
+    mscharged_tweak_hud_frame();
+    return mscharged_tweak_hud_hidden();
 }
 
 // The frame-rate hooks' answers at the original pacing.
@@ -52,6 +74,46 @@ void CheckOriginalFrames(const char* what)
         Check(mscharged_tweak_original_frames() == 1.0f && mscharged_tweak_original_frame(), what);
         Check(mscharged_tweak_frame_number(1234) == 1234, what);
     }
+}
+
+// Sounds of every group as the disc has them: sound bank, mix category
+// (global 0, default 1, music 2, dialogue 3, sfx 4) and their group.
+struct SampleSound
+{
+    const char* bank;
+    unsigned category;
+    mscharged::SoundGroup group;
+};
+constexpr SampleSound kSampleSounds[] = {
+    {"FE_GEN_Music", 2, mscharged::SoundGroup::Music},
+    {"STREAM_GEN_Music", 2, mscharged::SoundGroup::Music},
+    {"FE_GEN_LoadScreen", 2, mscharged::SoundGroup::Music},
+    {"STREAM_GEN_Music", 4, mscharged::SoundGroup::Effects},
+    {"CHAR_GEN_Sfx", 4, mscharged::SoundGroup::Effects},
+    {"CHAR_MARIO_Sfx", 4, mscharged::SoundGroup::Effects},
+    {"STAD_THUNDERISLAND_Sfx", 4, mscharged::SoundGroup::Effects},
+    {"WEATHER_LIGHTNING_Sfx", 4, mscharged::SoundGroup::Effects},
+    {nullptr, 4, mscharged::SoundGroup::Effects},
+    {"CHAR_MARIO_Sfx", 3, mscharged::SoundGroup::Voices},
+    {"CHAR_CRITTER_Sfx", 3, mscharged::SoundGroup::Voices},
+    {"FE_GEN_Sfx", 3, mscharged::SoundGroup::Voices},
+    {"STREAM_GEN_Crowd", 4, mscharged::SoundGroup::Crowd},
+    {"CROWD_GEN_Sfx", 4, mscharged::SoundGroup::Crowd},
+    {"FE_GEN_Sfx", 4, mscharged::SoundGroup::Menus},
+    {"FE_GEN_Sfx", 1, mscharged::SoundGroup::Menus},
+    {"FE_GEN_Splash", 1, mscharged::SoundGroup::Menus},
+    {"HUD_GEN_Sfx", 4, mscharged::SoundGroup::Menus},
+    {"HUD_PU_Sfx", 4, mscharged::SoundGroup::Menus},
+    {"STREAM_GEN_NIS", 1, mscharged::SoundGroup::Cutscenes},
+    {"STREAM_GEN_NIS", 2, mscharged::SoundGroup::Cutscenes},
+};
+
+// Every sound at the game's own level, and movies at full volume.
+void CheckOriginalSounds(const char* what)
+{
+    for (const auto& sound : kSampleSounds)
+        Check(mscharged_tweak_sound_volume(sound.bank, sound.category) == 0.0f, what);
+    Check(mscharged_tweak_movie_volume() == 1.0f, what);
 }
 
 int swaps;
@@ -83,12 +145,29 @@ int main()
             && unsigned(mscharged::GameTweak::NoMegaStrikes) == MSCHARGED_TWEAK_NO_MEGA_STRIKES
             && unsigned(mscharged::GameTweak::UnlockAll) == MSCHARGED_TWEAK_UNLOCK_ALL
             && unsigned(mscharged::GameTweak::CpuVsCpu) == MSCHARGED_TWEAK_CPU_VS_CPU
-            && unsigned(mscharged::GameTweak::FastTerrain) == MSCHARGED_TWEAK_FAST_TERRAIN,
+            && unsigned(mscharged::GameTweak::FastTerrain) == MSCHARGED_TWEAK_FAST_TERRAIN
+            && unsigned(mscharged::GameTweak::MirrorMatch) == MSCHARGED_TWEAK_MIRROR_MATCH
+            && unsigned(mscharged::GameTweak::ThunderIslandWalls) == MSCHARGED_TWEAK_THUNDER_ISLAND_WALLS
+            && unsigned(mscharged::GameTweak::BluePeach) == MSCHARGED_TWEAK_BLUE_PEACH
+            && unsigned(mscharged::GameTweak::NoHud) == MSCHARGED_TWEAK_NO_HUD
+            && unsigned(mscharged::GameTweak::FairBallContests) == MSCHARGED_TWEAK_FAIR_BALL_CONTESTS,
             "Host tweak bits and the game hooks' IDs must agree");
 
         // Before configuration and with an empty set: the original game.
         CheckOriginal("Unconfigured tweaks changed the original game");
+        Check(!mscharged_tweak_performance_mode(), "Performance mode did not default to off");
+        charged_configure_performance_mode(true);
         charged_configure_tweaks(0);
+        Check(mscharged_tweak_performance_mode(), "Gameplay tweak configuration changed performance mode");
+        // Its match hooks act only while a match runs; menus keep every effect.
+        Check(!mscharged_tweak_performance_match(), "Performance mode acted outside a match");
+        alignas(8) static unsigned char match[8];
+        g_pGame = reinterpret_cast<cGame*>(match);
+        Check(mscharged_tweak_performance_match(), "Performance mode did not act in a match");
+        charged_configure_performance_mode(false);
+        Check(!mscharged_tweak_performance_mode() && !mscharged_tweak_performance_match(),
+            "Performance mode could not be disabled");
+        g_pGame = nullptr;
         CheckOriginal("Tweaks off changed the original game");
         for (int tweak = -1; tweak < 33; ++tweak)
             Check(!mscharged_tweak_enabled(tweak), "A tweak is enabled while all are off");
@@ -125,12 +204,57 @@ int main()
         Check(mscharged_tweak_fast_transition() && mscharged_tweak_task_dilation(&camera) > 1.0f
             && mscharged_tweak_task_dilation(&particles) == 1.0f && mscharged_tweak_task_dilation(&audio) == 1.0f
             && mscharged_tweak_task_dilation(nullptr) == 1.0f, "Fast menus transition time");
+        // A looping camera takes the camera task's real time back (issue #49);
+        // in every other task a step already is real time.
+        const float frame = 1.0f / 60.0f, transition = frame * mscharged_tweak_task_dilation(&camera);
+        Check(transition > frame && std::fabs(mscharged_tweak_real_time(transition) - frame) < 1e-7f,
+            "Fast menus: camera task's real time");
+        Check(mscharged_tweak_task_dilation(&particles) == 1.0f && mscharged_tweak_real_time(frame) == frame,
+            "Fast menus: real time outside the camera task");
+        mscharged_tweak_task_dilation(&camera);
+        mscharged_tweak_frontend_frame(true, true);
+        Check(mscharged_tweak_real_time(frame) == frame, "Fast menus: front end task's real time");
+        mscharged_tweak_frontend_frame(true, false);
+        Check(mscharged_tweak_task_dilation(&camera) == 1.0f && mscharged_tweak_real_time(frame) == frame,
+            "Fast menus: real time without a transition");
+        mscharged_tweak_frontend_frame(true, true);
         mscharged_tweak_note_slide_reset(&slide);
         Check(mscharged_tweak_slide_reset_this_frame(&slide) && !mscharged_tweak_slide_reset_this_frame(&other),
             "Slide reset not recorded for this frame only");
         mscharged_tweak_frontend_frame(true, true);
         Check(!mscharged_tweak_slide_reset_this_frame(&slide), "Slide reset kept into the next frame");
         Check(!mscharged_tweak_title_pending(), "Fast menus enabled skip intro");
+
+        // No HUD (issue #58): each match starts with the tweak's choice and H
+        // flips it during the match; presses in the menus do nothing.
+        alignas(8) static unsigned char hudMatch[8];
+        charged_configure_tweaks(0);
+        Check(!HudHiddenAfter(1), "No HUD: H hid the HUD outside a match");
+        g_pGame = reinterpret_cast<cGame*>(hudMatch);
+        Check(!HudHiddenAfter(0), "No HUD: HUD hidden with the tweak off");
+        Check(HudHiddenAfter(1) && HudHiddenAfter(0), "No HUD: H did not hide the HUD");
+        Check(HudHiddenAfter(2), "No HUD: two presses in a frame changed the HUD");
+        Check(!HudHiddenAfter(1), "No HUD: H did not show the HUD again");
+        Check(HudHiddenAfter(1), "No HUD: H did not hide the HUD again");
+        g_pGame = nullptr;
+        Check(!HudHiddenAfter(0), "No HUD: the next match kept the HUD hidden");
+        g_pGame = reinterpret_cast<cGame*>(hudMatch);
+        Check(!HudHiddenAfter(0), "No HUD: a match started with the HUD hidden");
+        g_pGame = nullptr;
+        charged_configure_tweaks(mscharged::GameTweakBit(mscharged::GameTweak::NoHud));
+        Check(HudHiddenAfter(0), "No HUD: the tweak did not hide the HUD");
+        g_pGame = reinterpret_cast<cGame*>(hudMatch);
+        Check(HudHiddenAfter(0), "No HUD: a match started with the HUD");
+        Check(!HudHiddenAfter(1) && !HudHiddenAfter(0), "No HUD: H did not show the HUD");
+        Check(HudHiddenAfter(1), "No HUD: H did not hide the HUD again");
+        Check(!HudHiddenAfter(1), "No HUD: H did not show the HUD");
+        g_pGame = nullptr;
+        Check(HudHiddenAfter(2) && HudHiddenAfter(1), "No HUD: presses in the menus changed the HUD");
+        g_pGame = reinterpret_cast<cGame*>(hudMatch);
+        Check(HudHiddenAfter(0), "No HUD: the next match did not start without the HUD");
+        g_pGame = nullptr;
+        charged_configure_tweaks(0);
+        Check(!HudHiddenAfter(0), "No HUD: HUD still hidden with the tweak off");
 
         // Frame rate: the original pacing until the host passes its swap.
         CheckOriginalFrames("Unconfigured frame pacing changed the original game");
@@ -166,6 +290,10 @@ int main()
         gTvFormat = 1;
         const auto pal = OriginalFramesOver(10.0, 1.0f / 144.0f);
         Check(pal >= 499 && pal <= 500, "PAL original frames at 144 FPS");
+        // The European game boots in EuRGB60, which runs NTSC fields.
+        gTvFormat = 5;
+        const auto eurgb60 = OriginalFramesOver(10.0, 1.0f / 144.0f);
+        Check(eurgb60 >= 598 && eurgb60 <= 600, "EuRGB60 original frames at 144 FPS");
         gTvFormat = 0;
         const auto locked = OriginalFramesOver(10.0, 1.0f / 120.0f, 2);
         Check(locked >= 298 && locked <= 300, "Two-field original frames at 120 FPS");
@@ -180,6 +308,63 @@ int main()
             "A stalled frame exceeded the task manager's bound");
         mscharged_tweak_begin_frame(-1.0f);
         Check(mscharged_tweak_original_frames() == 0.0f, "Negative frame length");
+
+        // European revision 1 data (tweak patch 0019): the revision 2 code's
+        // numbers unchanged until the host reports such a disc, whatever the
+        // tweak set; then revision 1's bank table, script natives and budget.
+        for (int bank = 0; bank < 0x40; ++bank)
+            Check(mscharged_tweak_rev1_sound_bank(bank) == bank, "Sound banks changed without revision 1 data");
+        Check(mscharged_tweak_rev1_presentation_function(70) == 70
+            && mscharged_tweak_rev1_ingame_texture_budget(0x900000) == 0x900000,
+            "Revision 1 adapters active without its data");
+        charged_configure_rev1_data(true);
+        Check(mscharged_tweak_rev1_sound_bank(0x19) == 0x19 && mscharged_tweak_rev1_sound_bank(0x1A) == 0x30
+            && mscharged_tweak_rev1_sound_bank(0x1C) == 0x1B && mscharged_tweak_rev1_sound_bank(0x35) == 0x34,
+            "Revision 1 sound bank table");
+        Check(mscharged_tweak_rev1_presentation_function(62) == 62
+            && mscharged_tweak_rev1_presentation_function(63) == 64, "Revision 1 presentation natives");
+        Check(mscharged_tweak_rev1_ingame_texture_budget(0x900000) == 0x966666, "Revision 1 texture budget");
+        charged_configure_rev1_data(false);
+        Check(mscharged_tweak_rev1_sound_bank(0x1A) == 0x1A, "Revision 1 data stayed on");
+
+        // Sound levels (issue #59): the game's own levels until the
+        // host passes others, whatever the tweak set.
+        CheckOriginalSounds("Unconfigured sound volumes changed the game's levels");
+        charged_configure_sound_volumes(mscharged::DefaultSoundVolumes().data(), int(mscharged::kSoundGroups.size()));
+        charged_configure_tweaks(~0u);
+        CheckOriginalSounds("Sound volumes at 100% changed the game's levels");
+        charged_configure_tweaks(0);
+        // Each group alone: only its sounds change, by its level in decibels;
+        // 0 % takes even the loudest level (+6 dB) below the game's -96 dB floor.
+        for (const auto& info : mscharged::kSoundGroups)
+            for (int level : {0, 50})
+            {
+                auto volumes = mscharged::DefaultSoundVolumes();
+                volumes[std::size_t(info.group)] = level;
+                charged_configure_sound_volumes(volumes.data(), int(volumes.size()));
+                for (const auto& sound : kSampleSounds)
+                {
+                    const float offset = mscharged_tweak_sound_volume(sound.bank, sound.category);
+                    if (sound.group != info.group)
+                        Check(offset == 0.0f, "A sound followed another group's level");
+                    else if (level == 0)
+                        Check(offset + 6.0f < -96.0f, "A silenced group stays audible");
+                    else
+                        Check(std::fabs(offset + 6.0206f) < 1e-3f, "A group at 50% is not 6 dB lower");
+                }
+                const bool movies = info.group == mscharged::SoundGroup::Movies;
+                Check(mscharged_tweak_movie_volume() == (movies ? float(level) / 100.0f : 1.0f),
+                    "Movie level follows another group");
+            }
+        // Out of range levels are clamped; missing groups keep 100 %.
+        const int partial[] = {150, -5};
+        charged_configure_sound_volumes(partial, 2);
+        Check(mscharged_tweak_sound_volume("FE_GEN_Music", 2) == 0.0f
+            && mscharged_tweak_sound_volume("CHAR_GEN_Sfx", 4) < -96.0f
+            && mscharged_tweak_sound_volume("CHAR_MARIO_Sfx", 3) == 0.0f && mscharged_tweak_movie_volume() == 1.0f,
+            "Sound volumes outside 0-100% or missing");
+        charged_configure_sound_volumes(nullptr, 0);
+        CheckOriginalSounds("Sound volumes not reset");
 
         // Back to the original rate and to no tweaks: the original game again.
         charged_configure_frame_pacing(nullptr);

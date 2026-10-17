@@ -32,7 +32,7 @@ struct DesktopWpadSettings {
     // WPAD channel (player - 1) of the keyboard & mouse remote; -1 takes the
     // lowest free channel.
     int keyboard_channel = -1;
-    // Keys of each keyboard action ([keyboard] in mscharged.ini).
+    // Keys of each keyboard action ([keyboard] in recharged.ini).
     KeyBindings keys = DefaultKeyBindings();
     // Standard gamepads (Xbox, PlayStation, Switch Pro...) as a Wii Remote
     // with Nunchuk: the n-th connected pad plays on WPAD channel
@@ -50,6 +50,10 @@ struct DesktopWpadSettings {
     // while it is in use (moving or a button held, then 3 s). -1: off.
     // Requires `mouse` without `keyboard`.
     int mouse_player_channel = -1;
+    // The game's KPAD calibrates the pointer for the sensor-bar position (the
+    // USA build); the European build's KPAD does not, so the mouse and
+    // gamepad pointers aim with its centre (see KpadPointerCentre).
+    bool kpad_sensor_height = true;
 };
 
 // Native desktop buttons are carried by explicit SDL virtual core-Wii devices.

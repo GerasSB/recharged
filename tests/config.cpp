@@ -40,6 +40,7 @@ int main()
         settings.height = 1080;
         settings.fullscreen = true;
         settings.master_volume = 65;
+        settings.sound_volumes = {20, 80, 35, 50, 70, 0, 60};
         settings.players = {"remote2", "keyboard", "remote1", "off"};
         settings.deadzone = 20;
         settings.rumble = false;
@@ -48,6 +49,7 @@ int main()
         const auto reloaded = LoadConfig(path);
         Require(reloaded.settings.width == 1920 && reloaded.settings.height == 1080
             && reloaded.settings.fullscreen && reloaded.settings.master_volume == 65
+            && reloaded.settings.sound_volumes == settings.sound_volumes
             && reloaded.settings.players == settings.players && reloaded.settings.deadzone == 20
             && !reloaded.settings.rumble && reloaded.settings.backend == "d3d12", "Settings round trip");
         Require(reloaded.contents.find("; keep my comment\r\n") != std::string::npos
@@ -63,6 +65,9 @@ int main()
         std::ofstream(path, std::ios::app) << "; edited elsewhere\r\n";
         Reject([&] { SaveConfig(file, settings); });
         Require(LoadConfig(path).contents.find("edited elsewhere") != std::string::npos, "External edits survive");
+        Require(Settings{}.sound_volumes == DefaultSoundVolumes()
+            && DescribeSoundVolumes(Settings{}.sound_volumes) == "original"
+            && DescribeSoundVolumes(settings.sound_volumes).find("Music 20%") == 0, "Sound group volumes");
         const auto missing = directory / "new.ini";
         auto fresh = LoadConfig(missing, true);
         Require(!fs::exists(missing), "Opening defaults must not create a file");
@@ -71,6 +76,11 @@ int main()
         std::ofstream(path) << "[display]\nwidth = 1920junk\n";
         Reject([&] { LoadConfig(path); });
         std::ofstream(path) << "[game]\ndisc = a.iso\ndisc = b.iso\n";
+        Reject([&] { LoadConfig(path); });
+        std::ofstream(path) << "[audio]\nmusic_volume = 20\ncutscene_volume = 0\n";
+        Require(LoadConfig(path).settings.sound_volumes == SoundVolumes{20, 100, 100, 100, 100, 0, 100},
+                "Sound group keys");
+        std::ofstream(path) << "[audio]\nmovie_volume = 101\n";
         Reject([&] { LoadConfig(path); });
         std::ofstream(path) << "[display]\nvsync = maybe\n";
         Reject([&] { LoadConfig(path); });
@@ -212,7 +222,20 @@ int main()
             const fs::path executable = directory / "bin";
             Require(Settings{}.save_folder.empty()
                     && ResolveSaveFolder(Settings{}, path, executable)
-                        == executable / "original-main-credits-data" / "nand", "Default save folder");
+                        == executable / "data" / "nand", "Default save folder");
+            // Earlier builds' data folder stays in use until it has been moved.
+            fs::create_directories(executable / "original-main-credits-data" / "nand");
+            std::ofstream(executable / "original-main-credits-data" / "nand" / "save.bin") << "save";
+            Require(DefaultSaveFolder(executable) == executable / "original-main-credits-data" / "nand",
+                    "The old data folder is used before the move");
+            Require(MoveOldDataFolder(executable) && DataFolder(executable) == executable / "data"
+                        && fs::exists(executable / "data" / "nand" / "save.bin")
+                        && !fs::exists(executable / "original-main-credits-data"),
+                    "The old data folder moves to data");
+            fs::create_directories(executable / "original-main-credits-data");
+            Require(!MoveOldDataFolder(executable) && DataFolder(executable) == executable / "data",
+                    "An existing data folder is kept");
+            fs::remove_all(executable);
             std::ofstream(path) << "[game]\nsave_folder = \"My Saves/charged\"\n";
             auto saves = LoadConfig(path);
             Require(saves.settings.save_folder == "My Saves/charged"
@@ -225,39 +248,81 @@ int main()
                     && ResolveSaveFolder(changed, path, executable) == directory / "absolute saves",
                     "An absolute save folder round trips");
         }
+        // The game folder (#65): game beside the settings file by default, in
+        // quotes, with its subfolders; the first builds' [library] list moves to it.
+        {
+            Require(Settings{}.folder == "game" && Settings{}.folder_subfolders, "Default game folder");
+            Require(ResolveGameFolder(Settings{}, path) == path.parent_path() / "game", "The game folder is relative");
+            const std::string sd = mscharged::PathUtf8(directory / "sd card" / "Wii");
+            std::ofstream(path) << "[game]\ndisc = \"game/R4QE01.rvz\"\nfolder = \"" << sd << "\"\n"
+                                   "folder_subfolders = false\n";
+            auto loaded = LoadConfig(path);
+            Require(loaded.settings.folder == sd && !loaded.settings.folder_subfolders
+                        && ResolveGameFolder(loaded.settings, path) == directory / "sd card" / "Wii",
+                    "An absolute game folder loads");
+            auto changed = loaded.settings;
+            changed.folder = "Wii games";
+            changed.folder_subfolders = true;
+            SaveConfig(loaded, changed);
+            Require(loaded.contents.find("folder = \"Wii games\"") != std::string::npos
+                        && loaded.contents.find("folder_subfolders = true") != std::string::npos
+                        && LoadConfig(path).settings.folder == "Wii games",
+                    "The game folder round trips in quotes");
+            std::ofstream(path) << "[game]\ndisc = \"x.rvz\"\n\n[library]\nfolder1 = \"" << sd
+                                << "\"\nfolder1_subfolders = false\nfolder2 = \"other\"\n";
+            auto old = LoadConfig(path);
+            Require(old.settings.folder == sd && !old.settings.folder_subfolders, "The first library folder is taken");
+            SaveConfig(old, old.settings);
+            Require(old.contents.find("[library]") == std::string::npos && old.contents.find("folder2") == std::string::npos
+                        && old.contents.find("folder = \"" + sd + "\"") != std::string::npos,
+                    "Saving replaces the old folder list");
+            std::ofstream(path) << "[game]\nfolder = \"\"\n";
+            Require(LoadConfig(path).settings.folder == "game", "An empty game folder is the default");
+            std::ofstream(path) << "[game]\nfolder = \"x\"\nfolder_subfolders = maybe\n";
+            Reject([&] { LoadConfig(path); });
+        }
 
         // Host presentation/diagnostic settings: defaults keep the previous
         // behaviour, values round trip and out-of-range input is rejected.
         const Settings defaults;
         Require(!defaults.fps_overlay && defaults.fps_overlay_corner == "top-right"
             && defaults.monitor == 0 && !defaults.graphics_validation
-            && defaults.log_level == "info" && !defaults.verbose_console && !defaults.frame_logging
-            && defaults.ui_scale == "auto",
+            && defaults.log_level == "info" && !defaults.verbose_console && !defaults.frame_logging && !defaults.log_window
+            && defaults.ui_scale == "auto" && defaults.check_updates && defaults.update_channel == "auto"
+            && !defaults.performance_mode,
             "Host setting defaults");
         const auto host = directory / "host.ini";
         auto hostFile = LoadConfig(host, true);
         Settings hostSettings;
         hostSettings.fps_overlay = true;
         hostSettings.fps_overlay_corner = "bottom-left";
+        hostSettings.performance_mode = true;
         hostSettings.monitor = 2;
         hostSettings.graphics_validation = true;
         hostSettings.log_level = "warning";
         hostSettings.verbose_console = true;
         hostSettings.frame_logging = true;
+        hostSettings.log_window = true;
         hostSettings.ui_scale = "150";
+        hostSettings.check_updates = false;
+        hostSettings.update_channel = "test";
         SaveConfig(hostFile, hostSettings);
         const auto hostReloaded = LoadConfig(host).settings;
         Require(hostReloaded.fps_overlay && hostReloaded.fps_overlay_corner == "bottom-left"
+            && hostReloaded.performance_mode
             && hostReloaded.monitor == 2 && hostReloaded.graphics_validation
             && hostReloaded.log_level == "warning" && hostReloaded.verbose_console && hostReloaded.frame_logging
-            && hostReloaded.ui_scale == "150",
+            && hostReloaded.log_window
+            && hostReloaded.ui_scale == "150" && !hostReloaded.check_updates && hostReloaded.update_channel == "test",
             "Host settings round trip");
         const auto hostText = LoadConfig(host).contents;
         Require(hostText.find("[advanced]") != std::string::npos && hostText.find("[launcher]") != std::string::npos
             && hostText.find("show_fps") == std::string::npos
             && hostText.find("fps_overlay = true") != std::string::npos
+            && hostText.find("performance_mode = true") != std::string::npos
             && hostText.find("fps_overlay_corner = bottom-left") != std::string::npos
-            && hostText.find("frame_logging = true") != std::string::npos, "Host settings sections");
+            && hostText.find("frame_logging = true") != std::string::npos
+            && hostText.find("log_window = true") != std::string::npos, "Host settings sections");
         hostSettings.frame_logging = false;
         SaveConfig(hostFile, hostSettings);
         Require(!LoadConfig(host).settings.frame_logging, "Frame logging can be disabled after enabling");
@@ -270,23 +335,31 @@ int main()
             && legacyFps.contents.find("custom = preserved") != std::string::npos, "Retired title key is removed alone");
         for (const char* invalid : {"[display]\nmonitor = 16\n",
                                     "[display]\nfps_overlay = maybe\n", "[display]\nfps_overlay_corner = center\n",
+                                    "[display]\nperformance_mode = maybe\n",
                                     "[advanced]\nlog_level = verbose\n", "[launcher]\nui_scale = 110\n",
                                     "[advanced]\ngraphics_validation = 2\n", "[advanced]\nverbose_console = yes\n",
-                                    "[advanced]\nframe_logging = maybe\n"})
+                                    "[advanced]\nframe_logging = maybe\n", "[advanced]\nlog_window = on\n", "[launcher]\ncheck_updates = sometimes\n",
+                                    "[launcher]\nupdate_channel = nightly\n"})
         {
             std::ofstream(path) << invalid;
             Reject([&] { LoadConfig(path); });
         }
-        // [gameplay] tweaks: all off by default and without the section;
-        // each round trips on its own and invalid values are rejected.
-        Require(defaults.GameTweakMask() == 0, "Tweaks are off by default");
+        // [gameplay] tweaks: only the recommended ones on by default and
+        // without the section, and those turn off; each round trips on its
+        // own and invalid values are rejected.
+        const unsigned recommended = GameTweakBit(GameTweak::FairBallContests);
+        Require(defaults.GameTweakMask() == recommended, "Only recommended tweaks are on by default");
         std::ofstream(path) << "[game]\ndisc = game.rvz\n";
-        Require(LoadConfig(path).settings.GameTweakMask() == 0, "No [gameplay] section means no tweaks");
+        Require(LoadConfig(path).settings.GameTweakMask() == recommended,
+            "No [gameplay] section means the recommended tweaks");
+        std::ofstream(path) << "[game]\ndisc = game.rvz\n[gameplay]\nfair_ball_contests = false\n";
+        Require(LoadConfig(path).settings.GameTweakMask() == 0, "A recommended tweak turns off");
         for (std::size_t n = 0; n < kGameTweaks.size(); ++n)
         {
             const auto tweaks = directory / ("tweaks" + std::to_string(n) + ".ini");
             auto tweakFile = LoadConfig(tweaks, true);
             Settings tweakSettings;
+            tweakSettings.tweaks = {};
             tweakSettings.tweaks[n] = true;
             SaveConfig(tweakFile, tweakSettings);
             const auto reloaded = LoadConfig(tweaks);

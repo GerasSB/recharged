@@ -1,38 +1,39 @@
-# Mario Strikers Charged — Native PC Port
+# Recharged — a native PC port of Mario Strikers Charged
 
-[![Latest release](https://img.shields.io/github/v/release/yannicksuter/mscharged-port?label=latest%20release)](https://github.com/yannicksuter/mscharged-port/releases/latest)
-[![Downloads](https://img.shields.io/github/downloads/yannicksuter/mscharged-port/total?label=downloads)](https://github.com/yannicksuter/mscharged-port/releases)
+[![Latest release](https://img.shields.io/github/v/release/previouslevelgames/recharged?label=latest%20release)](https://github.com/previouslevelgames/recharged/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/previouslevelgames/recharged/total?label=downloads)](https://github.com/previouslevelgames/recharged/releases)
 [![License CC0 1.0](https://img.shields.io/badge/license-CC0%201.0-lightgrey)](LICENSE)
 
 Play **Mario Strikers Charged** natively on Windows, Linux, macOS and Steam
-Deck. The port compiles the reconstructed source code of the original Wii game
-into a real PC program. It is not an emulator: the game's own code runs
-unchanged, and the port supplies what the Wii hardware used to provide:
+Deck. **Recharged** compiles the reconstructed source code of the original
+Wii game into a real PC program. It is not an emulator: the game's own code
+runs unchanged, and Recharged supplies what the Wii hardware used to provide:
 graphics, sound, controllers, disc access and saves.
 
 <p align="center">
-  <img src="docs/images/launcher.png" width="840" alt="The port's launcher, with the disc checked and ready to play">
+  <img src="docs/images/launcher.png" width="840" alt="The Recharged launcher, with the disc checked and ready to play">
 </p>
 
 > [!IMPORTANT]
 > **The downloads contain no game files.** You need your own copy of
-> **Mario Strikers Charged for the USA (game ID `R4QE01`, revision 1)** as an
-> `.iso` or `.rvz` disc image. Support for the European version arrives with
-> version 1.0.10; Japanese and Korean discs are not supported yet.
+> **Mario Strikers Charged** as an `.iso`, `.rvz` or `.wbfs` disc image: the
+> USA version (game ID `R4QE01`, revision 1) or the European version, *Mario
+> Strikers Charged Football* (`R4QP01`, revision 1 or 2). Japanese and Korean
+> discs are not supported yet.
 
 ## Download
 
 Get the package for your system from the
-[**latest release**](https://github.com/yannicksuter/mscharged-port/releases/latest):
+[**latest release**](https://github.com/previouslevelgames/recharged/releases/latest):
 
 <table>
 <tr>
 <td align="center" width="20%">
-<a href="https://github.com/yannicksuter/mscharged-port/releases/latest"><img alt="Windows" src="https://img.shields.io/badge/Windows-10%20%2F%2011%20%C2%B7%20x64-0078D4?logo=windows&logoColor=white"></a><br>
+<a href="https://github.com/previouslevelgames/recharged/releases/latest"><img alt="Windows" src="https://img.shields.io/badge/Windows-10%20%2F%2011%20%C2%B7%20x64-0078D4?logo=windows&logoColor=white"></a><br>
 <code>windows-x86_64.zip</code>
 </td>
 <td align="center" width="20%">
-<a href="https://github.com/yannicksuter/mscharged-port/releases/latest"><img alt="Linux" src="https://img.shields.io/badge/Linux-x86__64%20%C2%B7%20Vulkan-FCC624?logo=linux&logoColor=black"></a><br>
+<a href="https://github.com/previouslevelgames/recharged/releases/latest"><img alt="Linux" src="https://img.shields.io/badge/Linux-x86__64%20%C2%B7%20Vulkan-FCC624?logo=linux&logoColor=black"></a><br>
 <code>linux-x86_64.tar.gz</code>
 </td>
 <td align="center" width="20%">
@@ -41,25 +42,26 @@ Get the package for your system from the
 <a href="docs/STEAM_DECK.md">Steam Deck guide</a>
 </td>
 <td align="center" width="20%">
-<a href="https://github.com/yannicksuter/mscharged-port/releases/latest"><img alt="macOS Apple Silicon" src="https://img.shields.io/badge/macOS-Apple%20Silicon-0A84FF?logo=apple&logoColor=white"></a><br>
+<a href="https://github.com/previouslevelgames/recharged/releases/latest"><img alt="macOS Apple Silicon" src="https://img.shields.io/badge/macOS-Apple%20Silicon-0A84FF?logo=apple&logoColor=white"></a><br>
 <code>macos-arm64.tar.gz</code>
 </td>
 <td align="center" width="20%">
-<a href="https://github.com/yannicksuter/mscharged-port/releases/latest"><img alt="macOS Intel" src="https://img.shields.io/badge/macOS-Intel%20%C2%B7%2015%2B-0A84FF?logo=apple&logoColor=white"></a><br>
+<a href="https://github.com/previouslevelgames/recharged/releases/latest"><img alt="macOS Intel" src="https://img.shields.io/badge/macOS-Intel%20%C2%B7%2015%2B-0A84FF?logo=apple&logoColor=white"></a><br>
 <code>macos-x86_64.tar.gz</code>
 </td>
 </tr>
 </table>
 
 1. Unpack the package into a folder of its own.
-2. Start `mscharged` (`mscharged.exe` on Windows).
-3. In the launcher, choose your disc image and press **Play**.
+2. Start `recharged` (`recharged.exe` on Windows, `Recharged.app` on macOS).
+3. In the launcher, add the folder with your game image (or choose the image)
+   and press **Play**.
 
 The **[install guide](docs/INSTALL.md)** covers the first-start prompts of
 Windows and macOS. Steam Deck owners should follow the
 **[Steam Deck guide](docs/STEAM_DECK.md)**, which also adds the game to the
 Steam library. Once installed, the launcher tells you about new versions and
-updates the port in place when you agree.
+updates Recharged in place when you agree.
 
 ## Highlights
 
@@ -72,37 +74,39 @@ updates the port in place when you agree.
   16:9, any window size or fullscreen.
 - **High frame rates.** 120, 144, your display's refresh rate or unlimited,
   while the game keeps its original speed.
-- **Optional tweaks**, all off by default: skip the intro, fast menus, no Mega
-  Strikes, unlock everything, CPU vs CPU, fast terrain and mirror matches.
-  Three bugs of the original game are fixed.
+- **Optional tweaks**: skip the intro, fast menus, no Mega Strikes, unlock
+  everything, CPU vs CPU, fast terrain, Thunder Island walls, mirror matches,
+  blue Peach and no HUD, all off by default. **Fair ball contests**, on by
+  default, keeps the home team from winning loose balls more often. Three bugs
+  of the original game are fixed.
 - **A launcher** that checks your disc, keeps every setting in one place and
-  updates the port in place.
+  updates itself in place.
 
 See the **[feature list](docs/FEATURES.md)** and the
 [default controls](docs/FEATURES.md#default-bindings).
 
 ## Your game disc
 
-The port needs your own, legally obtained copy of the game as an `.iso` or
-`.rvz` disc image, which it reads directly from where you keep it. No game
+Recharged needs your own, legally obtained copy of the game as an `.iso`,
+`.rvz` or `.wbfs` disc image, which it reads directly from where you keep it. No game
 files are included, and this project cannot help you obtain them. The launcher
-checks the image and tells you if it is not the supported version; renaming a
-file does not change its version.
+lists the images in your game folder, checks each one and tells you which
+versions it runs; renaming a file does not change its version.
 
 ## Questions
 
 **Is this an emulator?** No. The game's original C/C++ code, reconstructed by
 the [mscharged-decomp](https://github.com/yannicksuter/mscharged-decomp)
-project, is compiled for your PC. Wii hardware is not emulated; the port
+project, is compiled for your PC. Wii hardware is not emulated; Recharged
 implements the Wii's system services natively. See
 [how it works](docs/ARCHITECTURE.md).
 
-**Does the port change the game?** No. Rules, physics, timing and presentation
+**Does Recharged change the game?** No. Rules, physics, timing and presentation
 come from the original code. Changes only happen with the optional tweaks you
 turn on, plus the three listed bug fixes.
 
 **Can I play online?** Not yet. Nintendo Wi-Fi Connection has shut down, so
-for now the port behaves like a Wii without internet; local multiplayer works.
+for now Recharged behaves like a Wii without internet; local multiplayer works.
 We are working hard on reworking the netcode to make online play functional
 again, and are looking into different options for matchmaking and lobbies.
 
@@ -110,20 +114,19 @@ again, and are looking into different options for matchmaking and lobbies.
 [optional gameplay tweaks](docs/FEATURES.md#optional-tweaks), and we are
 working on a modding framework. Stay tuned.
 
-**What about the European and Japanese versions?** Support for the European
-version (revisions 1 and 2) will be released with version 1.0.10. For the
-Japanese and Korean versions we are still working on the decompilation and on
-fixing all remaining differences.
+**What about the Japanese and Korean versions?** The USA and European versions
+are supported. For the Japanese and Korean versions we are still working on
+the decompilation and on fixing all remaining differences.
 
 **Something does not work.** See [troubleshooting](docs/TROUBLESHOOTING.md).
-To report a problem, open an [issue](https://github.com/yannicksuter/mscharged-port/issues)
-and attach `logs/mscharged.log` from the program folder.
+To report a problem, open an [issue](https://github.com/previouslevelgames/recharged/issues)
+and attach `logs/recharged.log` from the program folder.
 
 ## Documentation
 
 | Playing | Technical |
 | --- | --- |
-| [Install guide](docs/INSTALL.md) | [Architecture](docs/ARCHITECTURE.md): how the port works |
+| [Install guide](docs/INSTALL.md) | [Architecture](docs/ARCHITECTURE.md): how Recharged works |
 | [Steam Deck guide](docs/STEAM_DECK.md) | [Building from source](docs/BUILDING.md) |
 | [Features and controls](docs/FEATURES.md) | [Dependencies](extern/README.md) |
 | [Settings](docs/SETTINGS.md): Wii Remotes, saves, updates, options | [Licenses](LICENSES/README.md) |
@@ -132,7 +135,7 @@ and attach `logs/mscharged.log` from the program folder.
 ## Credits
 
 - [mscharged-decomp](https://github.com/yannicksuter/mscharged-decomp): the
-  reconstructed source code of the game, the foundation of this port, with
+  reconstructed source code of the game, the foundation of Recharged, with
   special thanks to its contributors [Jasu14](https://github.com/Jasu14),
   [vZylev](https://github.com/vZylev) and
   [GoldenPalazzo](https://github.com/GoldenPalazzo).
@@ -140,17 +143,17 @@ and attach `logs/mscharged.log` from the program folder.
   GameCube/Wii platform layer, with graphics through
   [Dawn](https://dawn.googlesource.com/dawn).
 - [SDL](https://libsdl.org), [Dear ImGui](https://github.com/ocornut/imgui),
-  [nod](https://github.com/encounter/nod) (reads the ISO/RVZ image) and the
-  other [libraries](extern/README.md) the port is built with.
+  [nod](https://github.com/encounter/nod) (reads the ISO/RVZ/WBFS image) and the
+  other [libraries](extern/README.md) Recharged is built with.
 - Launcher artwork from SteamGridDB: header by Jiquita, icon by roryypc.
-- Everyone who tested the port and sent in logs.
+- Everyone who tested Recharged and sent in logs.
 
 ## License
 
-Original port code, tools and documentation use [CC0 1.0 Universal](LICENSE).
-Third-party material keeps its own terms; see
+Recharged's original code, tools and documentation use
+[CC0 1.0 Universal](LICENSE). Third-party material keeps its own terms; see
 [license scope and notices](LICENSES/README.md).
 
 Mario Strikers Charged was developed by Next Level Games and published by
-Nintendo. This is an unofficial project, unaffiliated with either company. No
-game files are included or distributed.
+Nintendo. Recharged is an unofficial project, unaffiliated with either company.
+No game files are included or distributed.

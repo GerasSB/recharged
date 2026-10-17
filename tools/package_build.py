@@ -29,7 +29,8 @@ from pipeline_catalog import CatalogError, catalog_rows, verify_database
 
 WINDOWS_GRAPHICS_PIN = Path(__file__).with_name("windows_graphics.json")
 
-MODULES = ("mscharged_original_frontend_module", "mscharged_original_main_credits_module")
+# One game module per game version (USA, European).
+MODULES = ("recharged_game_us", "recharged_game_eu")
 ASSETS = ("header.png", "icon.png", "aurora.png", "Roboto-Medium.ttf", "README.md", "LICENSE-APACHE")
 # LLVM-MinGW runtime DLLs a Windows build imports, and the notices that cover
 # them (LLVM: libc++/libunwind; mingw-w64: winpthreads and CRT startup code).
@@ -43,9 +44,20 @@ WINDOWS_SYSTEM_DLLS = frozenset((
     "crypt32.dll", "d3d11.dll", "d3d12.dll", "dbghelp.dll", "dwmapi.dll", "dxgi.dll",
     "gdi32.dll", "imm32.dll", "kernel32.dll", "ntdll.dll", "ole32.dll", "oleaut32.dll", "pdh.dll",
     "rpcrt4.dll", "setupapi.dll", "shell32.dll", "shlwapi.dll", "ucrtbase.dll",
-    "user32.dll", "userenv.dll", "version.dll", "winmm.dll", "wintrust.dll", "ws2_32.dll",
+    "user32.dll", "userenv.dll", "version.dll", "winhttp.dll", "winmm.dll", "wintrust.dll", "ws2_32.dll",
 ))
-PUBLIC_FILES = ("README.md", "LICENSE", "mscharged.ini.example", "docs/INSTALL.md", "docs/STEAM_DECK.md",
+# macOS: Recharged.app as the build makes it (program, Info.plist, icon and
+# its ad-hoc signature); Finder starts it without Terminal (#61).
+MACOS_APP = "Recharged.app"
+MACOS_APP_FILES = ("Contents/Info.plist", "Contents/MacOS/recharged", "Contents/Resources/recharged.icns",
+                   "Contents/_CodeSignature/CodeResources")
+# Beside the app: starts its program from a terminal, with the output there.
+# Launchers from before the app restart this program after an update.
+MACOS_START_SCRIPT = b"""#!/bin/sh
+# Starts Recharged.app's program from a terminal, with its output there.
+exec "$(dirname "$0")/Recharged.app/Contents/MacOS/recharged" "$@"
+"""
+PUBLIC_FILES = ("README.md", "LICENSE", "recharged.ini.example", "docs/INSTALL.md", "docs/STEAM_DECK.md",
                 "docs/FEATURES.md", "docs/SETTINGS.md", "docs/TROUBLESHOOTING.md", "docs/ARCHITECTURE.md",
                 "docs/BUILDING.md", "LICENSES/README.md", "LICENSES/Apache-2.0.txt",
                 "extern/README.md")
@@ -284,10 +296,20 @@ def package_build(build, output, source, cargo_loader=cargo_packages, steamdeck=
         raise PackageError("Missing or invalid embedded build version.")
     version = match[1]
     windows = system == "windows"
-    executable_name = "mscharged.exe" if windows else "mscharged"
-    executable = regular_file(build, executable_name)
+    macos = system == "macos"
+    executable_name = "recharged.exe" if windows else "recharged"
+    if macos:
+        app = build / MACOS_APP
+        executable = regular_file(app, "Contents/MacOS/recharged")
+        for item in MACOS_APP_FILES:
+            regular_file(app, item)
+        found = {path.relative_to(app).as_posix() for path in app.rglob("*") if not path.is_dir()}
+        if extra := sorted(found - set(MACOS_APP_FILES)):
+            raise PackageError(f"{MACOS_APP} holds unexpected files: {', '.join(extra)}")
+    else:
+        executable = regular_file(build, executable_name)
     if not windows and not executable.stat().st_mode & 0o111:
-        raise PackageError("mscharged is not executable; refusing an unusable package.")
+        raise PackageError("recharged is not executable; refusing an unusable package.")
     runtime_root = None
     graphics_root = None
     graphics_pin = None
@@ -325,9 +347,9 @@ def package_build(build, output, source, cargo_loader=cargo_packages, steamdeck=
     if not re.fullmatch(r"[0-9a-f]{40}", revision):
         raise PackageError("Invalid packaging source Git revision.")
     packages, cargo_options = cargo_loader(build, cache)
-    package_name = f"mscharged-{version}-{'steamdeck' if steamdeck else system}-{arch}"
+    package_name = f"recharged-{version}-{'steamdeck' if steamdeck else system}-{arch}"
     output.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix=".mscharged-package-", dir=output) as temporary:
+    with tempfile.TemporaryDirectory(prefix=".recharged-package-", dir=output) as temporary:
         stage = Path(temporary) / package_name
         stage.mkdir()
         files = {}
@@ -349,7 +371,12 @@ def package_build(build, output, source, cargo_loader=cargo_packages, steamdeck=
                 raise PackageError(f"File differs from its recorded source: {path}")
             put(destination or relative, data, stat.S_IMODE(path.stat().st_mode))
 
-        copy(build, executable_name)
+        if macos:
+            for item in MACOS_APP_FILES:
+                copy(build, Path(MACOS_APP) / item)
+            put(executable_name, MACOS_START_SCRIPT, 0o755)
+        else:
+            copy(build, executable_name)
         for module in modules:
             copy(build, module)
         if windows:
@@ -436,20 +463,22 @@ def package_build(build, output, source, cargo_loader=cargo_packages, steamdeck=
                 raise PackageError(f"Unexpected unpinned local Rust dependency: {key[:2]}")
             rust.append(item)
 
-        run_command = "mscharged.exe" if windows else "./mscharged"
+        run_command = "recharged.exe" if windows else "./recharged"
         runtime_note = ", the runtime DLLs" if windows else ""
-        readme = f"""# mscharged build package
+        start = MACOS_APP if macos else executable_name
+        beside = MACOS_APP if macos else "the executable"
+        readme = f"""# Recharged build package
 
 Build: {version} ({system}, {arch}).
 
-Extract the entire directory, then start {executable_name} (the launcher), or
+Extract the entire directory, then start {start} (the launcher), or
 run the game directly from a terminal:
 
     {run_command} --disc /path/to/R4QE01.rvz --window
 
-Keep both loadable modules{runtime_note} and assets beside the executable. Game data is not
-included; players supply their own disc image (Mario Strikers Charged, USA,
-R4QE01 revision 1, as ISO or RVZ). docs/INSTALL.md covers the first start,
+Keep the loadable modules{runtime_note} and assets beside {beside}. Game data is not
+included; players supply their own disc image (Mario Strikers Charged, USA
+R4QE01 revision 1 or Europe R4QP01 revision 1 or 2, as ISO, RVZ or WBFS). docs/INSTALL.md covers the first start,
 docs/SETTINGS.md the settings and docs/TROUBLESHOOTING.md common problems.
 
 Host prerequisites remain system components: on Linux, the C/C++ runtimes,
@@ -472,6 +501,15 @@ and any component-specific obligations remain in the accompanying notices.
 Launcher artwork provenance and its unspecified redistribution license are
 recorded in assets/launcher/README.md and LICENSES/README.md.
 """
+        if macos:
+            readme += """
+## macOS
+
+Recharged.app holds only the program; it finds its modules, assets, settings
+and saves in the folder around it, so keep the folder together. The recharged
+script beside it starts the same program from Terminal, with its output there.
+This package is not signed: docs/INSTALL.md explains the first start.
+"""
         if steamdeck:
             readme += """
 ## Steam Deck
@@ -481,9 +519,9 @@ it needs no newer system libraries than glibc 2.40 and the GCC 14 C++ runtime.
 docs/STEAM_DECK.md has the full guide; in short:
 
 1. In Desktop Mode, extract the directory to a folder you can write to, for
-   example ~/Games/mscharged.
+   example ~/Games/recharged.
 2. In Steam, choose Games > Add a Non-Steam Game to My Library, browse to
-   mscharged in that folder and add it. Leave Compatibility unchecked.
+   recharged in that folder and add it. Leave Compatibility unchecked.
 3. In Gaming Mode, apply the Gamepad controller template to it and start it.
    Choose your disc image on the launcher's Game page, set player 1 to
    gamepad1 on the Controls page and press Play.

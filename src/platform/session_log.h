@@ -7,18 +7,18 @@ struct SDL_Window;
 
 namespace mscharged::platform
 {
-// The log of this run: logs/mscharged.log beside the executable (or in the
+// The log of this run: logs/recharged.log beside the executable (or in the
 // user's preference folder when that is not writable), with the previous
-// run kept as mscharged.previous.log. Everything printed to stdout/stderr
+// run kept as recharged.previous.log. Everything printed to stdout/stderr
 // still reaches the console and is also written to the log, after a header
 // with the version, command line, operating system, CPU and memory.
 //
 // It also records crashes: on Windows an unhandled exception, elsewhere a
 // fatal signal, is logged with its cause and the call stack as module +
 // offset, which the release's debug symbols turn back into source lines.
-// Windows also writes mscharged-crash.dmp (a minidump) beside the log.
+// Windows also writes recharged-crash.dmp (a minidump) beside the log.
 //
-// MSCHARGED_LOG_DIR selects another folder; MSCHARGED_LOG_DIR=off disables
+// RECHARGED_LOG_DIR selects another folder; RECHARGED_LOG_DIR=off disables
 // the log. Call once, early in main, on the main thread.
 void StartSessionLog(const char* version, int argc, char** argv);
 
@@ -38,6 +38,12 @@ void LogSessionDisplays(SDL_Window* window);
 
 // Writes everything printed so far to the log; call before TerminateProcessNow.
 void FlushSessionLog();
+
+// Before the program starts itself again (the launcher after an update):
+// writes what is pending and a closing line with `reason`, then gives stdout
+// and stderr back to the console, so the next program does not inherit this
+// run's pipes. Nothing is logged afterwards.
+void EndSessionLog(const char* reason);
 
 // An error that ends the program: printed, logged and, when the player has
 // no console to read it (a Windows game started by double-click), shown in

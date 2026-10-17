@@ -35,17 +35,21 @@ struct FrameTimingRecord {
     std::uint32_t pipelines_queued = 0;
     std::uint32_t texture_upload_bytes = 0;
     std::uint64_t fifo_bytes = 0;
+    int arena = -1;                  // stadium of the match being played, -1 outside matches
 };
+
+// Name of a stadium id as shown in the game; "Menus" for -1.
+const char* ArenaName(int stadium);
 
 // Opt-in per-frame timing log: advanced.frame_logging writes one CSV row per
 // original game frame and, on exit, a summary of the frame-interval distribution
-// and longest frames. Both files live beside the executable, with a new name
-// for each recording. Environment variables do not enable or redirect logging.
+// and longest frames. Both files go to `directory` (the logs folder beside the
+// executable), created when missing, with a new name for each recording. Environment variables do not enable or redirect logging.
 // Bookkeeping only: it never waits, paces frames or touches game state.
 class FrameTimingLog {
 public:
     static std::unique_ptr<FrameTimingLog> FromSettings(bool enabled,
-        const std::filesystem::path& executable_directory);
+        const std::filesystem::path& directory);
 
     // Takes ownership of file; nullptr keeps the records in memory only.
     FrameTimingLog(std::FILE* file, std::filesystem::path path);
@@ -56,6 +60,11 @@ public:
     // Around one original game frame, on the thread that runs it.
     void BeginFrame();
     void EndFrame(const FrameTimingCounters& counters);
+
+    // Settings text for the top of the summary (no paths or user names), and
+    // the arena of the match being played, tagged on every following frame.
+    void SetContext(std::string context) { context_ = std::move(context); }
+    void SetArena(int stadium) { arena_ = stadium; }
 
     // Completes the log (pending frame, file, summary) once; the destructor
     // calls it. FinishForProcessExit completes the active log before an
@@ -72,6 +81,8 @@ private:
     std::FILE* file_;
     std::filesystem::path path_;
     bool finished_ = false;
+    std::string context_;
+    int arena_ = -1;
     std::vector<FrameTimingRecord> records_;
     std::uint64_t next_index_ = 0;
     bool has_previous_ = false;

@@ -34,15 +34,16 @@ std::string Trim(const std::string& value)
 
 Values Encode(const Settings& s)
 {
-    Values values{{"game.disc", s.disc}, {"game.save_folder", s.save_folder}, {"game.language", s.language},
+    Values values{{"game.disc", s.disc}, {"game.folder", s.folder},
+            {"game.folder_subfolders", s.folder_subfolders ? "true" : "false"},
+            {"game.save_folder", s.save_folder}, {"game.language", s.language},
             {"display.width", std::to_string(s.width)}, {"display.height", std::to_string(s.height)},
             {"display.fullscreen", s.fullscreen ? "true" : "false"},
             {"display.vsync", s.vsync ? "true" : "false"}, {"display.frame_rate", s.frame_rate},
             {"display.backend", s.backend}, {"display.aspect", s.aspect}, {"display.picture", s.picture},
+            {"display.performance_mode", s.performance_mode ? "true" : "false"},
             {"display.antialiasing", s.antialiasing}, {"display.resolution", s.resolution},
             {"audio.master_volume", std::to_string(s.master_volume)},
-            {"audio.music_volume", std::to_string(s.music_volume)},
-            {"audio.effects_volume", std::to_string(s.effects_volume)},
             {"audio.mute", s.mute ? "true" : "false"},
             {"controls.player1", s.players[0]}, {"controls.player2", s.players[1]},
             {"controls.player3", s.players[2]}, {"controls.player4", s.players[3]},
@@ -58,11 +59,16 @@ Values Encode(const Settings& s)
             {"advanced.log_level", s.log_level},
             {"advanced.verbose_console", s.verbose_console ? "true" : "false"},
             {"advanced.frame_logging", s.frame_logging ? "true" : "false"},
-            {"launcher.ui_scale", s.ui_scale}};
+            {"advanced.log_window", s.log_window ? "true" : "false"},
+            {"launcher.ui_scale", s.ui_scale},
+            {"launcher.check_updates", s.check_updates ? "true" : "false"},
+            {"launcher.update_channel", s.update_channel}};
     for (std::size_t n = 0; n < KeyActionCount; ++n)
         values.emplace(std::string("keyboard.") + kKeyActions[n].key, s.keys[n]);
     for (std::size_t n = 0; n < kGameTweaks.size(); ++n)
         values.emplace(std::string("gameplay.") + kGameTweaks[n].key, s.tweaks[n] ? "true" : "false");
+    for (std::size_t n = 0; n < kSoundGroups.size(); ++n)
+        values.emplace(std::string("audio.") + kSoundGroups[n].key, std::to_string(s.sound_volumes[n]));
     for (std::size_t n = 0; n < s.pad_profiles.size(); ++n)
     {
         const auto& profile = s.pad_profiles[n];
@@ -110,6 +116,15 @@ Settings Decode(const Values& values)
     if (const auto it = values.find("game.disc"); it != values.end()) s.disc = it->second;
     if (s.disc.find_first_of("\r\n") != std::string::npos || s.disc.find('\0') != std::string::npos)
         throw std::runtime_error("Invalid configuration: the disc path contains a line break or NUL");
+    // The first builds of #65 kept a list of folders in [library]: the first one
+    // becomes the game folder.
+    const auto folder = values.count("game.folder") ? values.find("game.folder") : values.find("library.folder1");
+    if (folder != values.end() && !folder->second.empty()) s.folder = folder->second;
+    if (s.folder.find_first_of("\r\n") != std::string::npos || s.folder.find('\0') != std::string::npos)
+        throw std::runtime_error("Invalid configuration: the game folder contains a line break or NUL");
+    if (values.count("game.folder")) boolean("game.folder_subfolders", s.folder_subfolders);
+    else if (const auto old = values.find("library.folder1_subfolders"); old != values.end())
+        s.folder_subfolders = old->second != "false" && old->second != "0";
     if (const auto it = values.find("game.save_folder"); it != values.end()) s.save_folder = it->second;
     if (s.save_folder.find_first_of("\r\n") != std::string::npos || s.save_folder.find('\0') != std::string::npos)
         throw std::runtime_error("Invalid configuration: the save folder contains a line break or NUL");
@@ -129,11 +144,12 @@ Settings Decode(const Values& values)
     choice("display.backend", s.backend, {"auto", "vulkan", "metal", "d3d12"});
     choice("display.aspect", s.aspect, {"auto", "4:3", "16:9", "16:10", "21:9"});
     choice("display.picture", s.picture, {"soft", "clean", "sharp"});
+    boolean("display.performance_mode", s.performance_mode);
     choice("display.antialiasing", s.antialiasing, {"off", "4x"});
     choice("display.resolution", s.resolution, {"window", "native", "2x", "3x", "4x"});
     number("audio.master_volume", s.master_volume, 0, 100);
-    number("audio.music_volume", s.music_volume, 0, 100);
-    number("audio.effects_volume", s.effects_volume, 0, 100);
+    for (std::size_t n = 0; n < kSoundGroups.size(); ++n)
+        number((std::string("audio.") + kSoundGroups[n].key).c_str(), s.sound_volumes[n], 0, 100);
     boolean("audio.mute", s.mute);
     for (int n = 0; n < 4; ++n)
     {
@@ -230,10 +246,13 @@ Settings Decode(const Values& values)
     choice("advanced.log_level", s.log_level, {"error", "warning", "info", "debug"});
     boolean("advanced.verbose_console", s.verbose_console);
     boolean("advanced.frame_logging", s.frame_logging);
+    boolean("advanced.log_window", s.log_window);
     choice("launcher.ui_scale", s.ui_scale, {"auto", "75", "100", "125", "150", "175", "200"});
+    boolean("launcher.check_updates", s.check_updates);
+    choice("launcher.update_channel", s.update_channel, {"auto", "release", "test"});
     for (std::size_t n = 0; n < kGameTweaks.size(); ++n)
     {
-        bool value = false;
+        bool value = kGameTweaks[n].on_by_default;
         boolean((std::string("gameplay.") + kGameTweaks[n].key).c_str(), value);
         s.tweaks[n] = value;
     }
@@ -245,6 +264,8 @@ Settings Decode(const Values& values)
 // settings no longer contain are removed (a deleted gamepad profile).
 bool OwnedSection(const std::string& section)
 {
+    // [library]: the folder list of the first #65 builds, now game.folder; saving drops it.
+    if (section == "library") return true;
     const std::string prefix = "gamepad_profile";
     return section.size() > prefix.size() && section.compare(0, prefix.size(), prefix) == 0
         && std::all_of(section.begin() + std::ptrdiff_t(prefix.size()), section.end(),
@@ -252,7 +273,7 @@ bool OwnedSection(const std::string& section)
 }
 
 // Paths are written in quotes.
-bool QuotedKey(const std::string& key) { return key == "game.disc" || key == "game.save_folder"; }
+bool QuotedKey(const std::string& key) { return key == "game.disc" || key == "game.folder" || key == "game.save_folder"; }
 
 Values Parse(const std::string& contents, std::string* updated = nullptr, Values replacements = {})
 {
@@ -339,7 +360,7 @@ std::string Read(const std::filesystem::path& path)
     std::ifstream input(path, std::ios::binary);
     if (!input)
         throw std::runtime_error("Cannot read " + PathUtf8(path)
-            + ". Copy mscharged.ini.example to mscharged.ini and set [game] disc.");
+            + ". Copy recharged.ini.example to recharged.ini and set [game] disc.");
     if (std::filesystem::file_size(path) > 1024 * 1024)
         throw std::runtime_error("Configuration file is unexpectedly large: " + PathUtf8(path));
     std::ostringstream result;
@@ -440,14 +461,39 @@ void SaveConfig(ConfigFile& file, const Settings& settings)
 std::filesystem::path ResolveDiscPath(const Settings& settings, const std::filesystem::path& config)
 {
     if (settings.disc.empty())
-        throw std::runtime_error("Set [game] disc to an ISO or RVZ path in " + PathUtf8(config));
+        throw std::runtime_error("Set [game] disc to an ISO, RVZ or WBFS path in " + PathUtf8(config));
     const auto path = PathFromUtf8(settings.disc);
     return path.is_absolute() ? path : config.parent_path() / path;
 }
 
+namespace
+{
+constexpr const char* kDataFolder = "data";
+constexpr const char* kOldDataFolder = "original-main-credits-data";
+}
+
+std::filesystem::path DataFolder(const std::filesystem::path& executable_directory)
+{
+    auto folder = executable_directory / kDataFolder;
+    auto old = executable_directory / kOldDataFolder;
+    std::error_code error;
+    if (!std::filesystem::exists(folder, error) && std::filesystem::is_directory(old, error)) return old;
+    return folder;
+}
+
+bool MoveOldDataFolder(const std::filesystem::path& executable_directory)
+{
+    const auto folder = executable_directory / kDataFolder;
+    const auto old = executable_directory / kOldDataFolder;
+    std::error_code error;
+    if (std::filesystem::exists(folder, error) || !std::filesystem::is_directory(old, error)) return false;
+    std::filesystem::rename(old, folder, error);
+    return !error;
+}
+
 std::filesystem::path DefaultSaveFolder(const std::filesystem::path& executable_directory)
 {
-    return executable_directory / "original-main-credits-data" / "nand";
+    return DataFolder(executable_directory) / "nand";
 }
 
 std::filesystem::path ResolveSaveFolder(const Settings& settings, const std::filesystem::path& config,
@@ -455,6 +501,12 @@ std::filesystem::path ResolveSaveFolder(const Settings& settings, const std::fil
 {
     if (settings.save_folder.empty()) return DefaultSaveFolder(executable_directory);
     const auto path = PathFromUtf8(settings.save_folder);
+    return path.is_absolute() ? path : config.parent_path() / path;
+}
+
+std::filesystem::path ResolveGameFolder(const Settings& settings, const std::filesystem::path& config)
+{
+    const auto path = PathFromUtf8(settings.folder.empty() ? "game" : settings.folder);
     return path.is_absolute() ? path : config.parent_path() / path;
 }
 

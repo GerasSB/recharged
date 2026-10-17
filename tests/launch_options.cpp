@@ -137,8 +137,10 @@ int main()
             std::ofstream(tweaked, std::ios::binary) << "[gameplay]\nskip_intro = true\nunlock_all = true\n";
             const auto tweakedFile = LoadConfig(tweaked);
             const auto played = ResolveLaunch(tweakedFile, {});
+            // The INI's tweaks, plus the recommended one it leaves at its default.
             Check(played.settings.GameTweakMask()
-                    == (GameTweakBit(GameTweak::SkipIntro) | GameTweakBit(GameTweak::UnlockAll))
+                    == (GameTweakBit(GameTweak::SkipIntro) | GameTweakBit(GameTweak::UnlockAll)
+                        | GameTweakBit(GameTweak::FairBallContests))
                 && played.tweaks_source == SettingSource::Config, "INI tweaks not resolved");
             LaunchOptions retail; retail.no_tweaks = true;
             const auto original = ResolveLaunch(tweakedFile, retail);
@@ -157,11 +159,27 @@ int main()
             Reject([&] { Parse({"test", bad}); });
         {
             const auto paced = root / "config/paced.ini";
-            std::ofstream(paced, std::ios::binary) << "[display]\nframe_rate = 144\n";
+            std::ofstream(paced, std::ios::binary) << "[display]\nframe_rate = 144\nresolution = 2x\n"
+                "antialiasing = 4x\nperformance_mode = false\n";
             const auto pacedFile = LoadConfig(paced);
             const auto played = ResolveLaunch(pacedFile, {});
             Check(played.settings.frame_rate == "144" && played.frame_rate_source == SettingSource::Config
                 && DescribeLaunch(played).find("frame rate: 144 (INI)") != std::string::npos, "INI frame rate not resolved");
+            Check(played.settings.resolution == "2x" && played.settings.antialiasing == "4x"
+                && !played.settings.performance_mode, "Disabled performance mode changed display choices");
+            auto performanceDraft = pacedFile.settings;
+            performanceDraft.performance_mode = true;
+            const auto performance = ResolveLaunch(pacedFile, {}, &performanceDraft);
+            Check(performance.settings.performance_mode && performance.settings.resolution == "2x"
+                && performance.settings.antialiasing == "off"
+                && performanceDraft.resolution == "2x" && performanceDraft.antialiasing == "4x"
+                && pacedFile.settings.resolution == "2x" && pacedFile.settings.antialiasing == "4x"
+                && DescribeLaunch(performance).find("performance mode: on") != std::string::npos,
+                "Performance mode did not apply a run-only lower-cost render profile");
+            performanceDraft.performance_mode = false;
+            const auto restored = ResolveLaunch(pacedFile, {}, &performanceDraft);
+            Check(restored.settings.resolution == "2x" && restored.settings.antialiasing == "4x",
+                "Turning performance mode off did not restore the saved display choices");
             LaunchOptions run; run.frame_rate = "display";
             const auto overridden = ResolveLaunch(pacedFile, run);
             Check(overridden.settings.frame_rate == "display" && overridden.frame_rate_source == SettingSource::CommandLine,
@@ -224,6 +242,21 @@ int main()
         const auto tall = LoadConfig(path);
         Check(tall.settings.width == 600 && tall.settings.height == 900,
             "INI could not represent a qualified tall native output");
+        // Settings from before the rename (#64) are copied to recharged.ini.
+        const auto previous_directory = fs::current_path();
+        fs::current_path(root / "working");
+        fs::create_directories(root / "package/bin");
+        std::ofstream(root / "package/recharged.ini.example") << "";
+        Check(DefaultConfigPath(root / "package/bin") == root / "package/recharged.ini"
+            && !fs::exists(root / "package/recharged.ini"), "Settings belong beside the example");
+        std::ofstream(root / "package/mscharged.ini") << "[game]\ndisc = old.rvz\n";
+        Check(DefaultConfigPath(root / "package/bin") == root / "package/recharged.ini"
+            && Read(root / "package/recharged.ini") == "[game]\ndisc = old.rvz\n"
+            && fs::exists(root / "package/mscharged.ini"), "Older settings not copied");
+        std::ofstream(root / "package/mscharged.ini") << "[game]\ndisc = changed.rvz\n";
+        Check(Read(DefaultConfigPath(root / "package/bin")) == "[game]\ndisc = old.rvz\n",
+            "recharged.ini replaced by older settings");
+        fs::current_path(previous_directory);
         fs::remove_all(root);
         std::cout << checks << " launch parsing, precedence, provenance, path and no-write checks passed.\n";
         return 0;

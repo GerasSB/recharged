@@ -47,6 +47,10 @@ function(mscharged_add_native_ax_module_memory target)
         # objects, which CMake places ahead of ordinary module source objects.
         set(_early "${target}_ax_pre_static")
         add_library("${_early}" OBJECT src/platform/native_ax_module_storage.cpp)
+        get_target_property(_version "${target}" MSCHARGED_GAME_VERSION)
+        if(_version)
+            set_target_properties("${_early}" PROPERTIES MSCHARGED_GAME_VERSION ${_version})
+        endif()
         add_dependencies("${_early}" verify_prepared)
         foreach(_property IN ITEMS
                 COMPILE_FEATURES COMPILE_DEFINITIONS COMPILE_OPTIONS INCLUDE_DIRECTORIES)
@@ -69,6 +73,6 @@ function(mscharged_add_native_ax_module_memory target)
     target_compile_features("${target}" PRIVATE c_std_17)
     # Existing host is shared by the selected Credits/frontend modules; only
     # the frontend loader arms this endpoint. Credits retains its own module.
-    target_link_libraries(charged_original_main_credits_host PRIVATE
+    target_link_libraries(charged_original_game_host PRIVATE
         charged_native_ax_module_memory)
 endfunction()

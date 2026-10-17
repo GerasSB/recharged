@@ -4,6 +4,7 @@
 #include "bootstrap/game_tweaks.h"
 #include "bootstrap/gamepad_actions.h"
 #include "bootstrap/key_actions.h"
+#include "bootstrap/sound_groups.h"
 
 #include <array>
 #include <filesystem>
@@ -16,7 +17,15 @@ namespace mscharged
 {
 struct Settings
 {
+    // game.disc: the image the game starts with (the launcher's pinned image).
+    // A relative path counts from the settings file.
     std::string disc;
+    // game.folder: the game folder, whose Mario Strikers Charged images the
+    // launcher lists (`game` beside the settings file by default; relative
+    // paths count from the settings file, like the disc), and
+    // game.folder_subfolders: whether it also looks in its subfolders.
+    std::string folder = "game";
+    bool folder_subfolders = true;
     // game.save_folder: where the game keeps its Wii storage (saves). Empty
     // uses the default folder next to the executable; a relative path
     // counts from the settings file, like the disc.
@@ -35,6 +44,11 @@ struct Settings
     // display.picture: soft (the TV signal, as on a Wii), clean (one smooth
     // pass to the window, no TV flicker filter) or sharp (square pixels).
     std::string picture = "sharp";
+    // display.performance_mode: lighter matches. Turns off multisampling, and
+    // the game module skips purely decorative work (crowd, world NPCs, ambient
+    // effects, bloom, heat distortion, depth of field, stadium shadow volumes);
+    // the 3D render size stays as chosen.
+    bool performance_mode = false;
     // display.antialiasing: off or 4x (Aurora multisampling of the game's
     // frame; smooths polygon edges at any 3D resolution).
     std::string antialiasing = "4x";
@@ -43,8 +57,9 @@ struct Settings
     // multiples of it. Viewport and projection stay the game's own.
     std::string resolution = "window";
     int master_volume = 100;
-    int music_volume = 100;
-    int effects_volume = 100;
+    // [audio] <group>_volume: each group of the game's sounds (kSoundGroups
+    // order), 0-100 % of the levels the game sets itself.
+    SoundVolumes sound_volumes = DefaultSoundVolumes();
     bool mute = false;
     // controls.player1-4: keyboard, remote1-remote4 (Wii Remote in that
     // DolphinBar slot), remote-<Bluetooth address> (a Wii Remote paired over
@@ -113,10 +128,18 @@ struct Settings
     bool graphics_validation = false; // advanced.graphics_validation: backend graphics debug layers (off: fastest)
     std::string log_level = "info";   // advanced.log_level: error | warning | info | debug
     bool verbose_console = false;     // advanced.verbose_console: development traces and game debug output
-    bool frame_logging = false;       // advanced.frame_logging: CSV timings and summary beside the executable
+    bool frame_logging = false;       // advanced.frame_logging: CSV timings and summary in logs/ beside the executable
+    // advanced.log_window (Windows and macOS): a separate window that follows the log while the program runs.
+    bool log_window = false;
     std::string ui_scale = "auto";    // launcher.ui_scale: auto or a percentage (75 to 200)
-    // [gameplay]: opt-in game tweaks (kGameTweaks order), all off by default.
-    std::array<bool, kGameTweaks.size()> tweaks{};
+    // launcher.check_updates: look for a newer build each time the launcher starts.
+    bool check_updates = true;
+    // launcher.update_channel: release (official releases), test (also test
+    // builds of pull requests) or auto (where this build comes from).
+    std::string update_channel = "auto";
+    // [gameplay]: game tweaks (kGameTweaks order), off by default except the
+    // recommended ones.
+    std::array<bool, kGameTweaks.size()> tweaks = DefaultGameTweaks();
     unsigned GameTweakMask() const
     {
         unsigned mask = 0;
@@ -144,10 +167,18 @@ bool SamePadProfileName(const std::string& a, const std::string& b);
 ConfigFile LoadConfig(const std::filesystem::path& path, bool allow_missing = false);
 void SaveConfig(ConfigFile& file, const Settings& settings);
 std::filesystem::path ResolveDiscPath(const Settings& settings, const std::filesystem::path& config);
+// Saves, shader caches and the game clock, beside the executable: data/, or
+// the original-main-credits-data/ of earlier builds until it has been moved.
+std::filesystem::path DataFolder(const std::filesystem::path& executable_directory);
+// Renames the earlier builds' folder to data/ once. Returns false and leaves
+// the old folder in use when there is nothing to move or the rename fails.
+bool MoveOldDataFolder(const std::filesystem::path& executable_directory);
 // The game's Wii storage folder: game.save_folder, or by default
-// <executable directory>/original-main-credits-data/nand.
+// <data folder>/nand.
 std::filesystem::path DefaultSaveFolder(const std::filesystem::path& executable_directory);
 std::filesystem::path ResolveSaveFolder(const Settings& settings, const std::filesystem::path& config,
                                         const std::filesystem::path& executable_directory);
 std::filesystem::path LoadDiscPath(const std::filesystem::path& config);
+// The game folder's path: a relative one counts from the settings file.
+std::filesystem::path ResolveGameFolder(const Settings& settings, const std::filesystem::path& config);
 }

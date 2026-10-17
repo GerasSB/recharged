@@ -62,7 +62,7 @@ Fonts LoadFonts(const std::string& ttf, float font_raster, float density)
     fonts.title = add(30.0f);
     fonts.button = add(22.0f);
     fonts.overline = add(21.0f);
-    fonts.hero = add(54.0f);
+    fonts.hero = add(62.0f);
     io.FontDefault = fonts.body;
     io.FontGlobalScale = 1.0f / density;
     g_fonts = fonts;
@@ -262,13 +262,153 @@ void DrawIcon(ImDrawList* draw, Icon icon, ImVec2 c, float s, ImU32 color)
         draw->AddRect(p(-0.40f, -0.30f), p(0.16f, 0.40f), color, 0.08f * s, 0, t);
         draw->AddRect(p(-0.16f, -0.44f), p(0.40f, 0.20f), color, 0.08f * s, 0, t);
         break;
+    case Icon::Download:
+    {
+        // An arrow down into a tray.
+        draw->AddLine(p(0.0f, -0.44f), p(0.0f, 0.14f), color, t * 1.2f);
+        const ImVec2 head[] = {p(-0.22f, -0.06f), p(0.0f, 0.16f), p(0.22f, -0.06f)};
+        draw->AddPolyline(head, 3, color, 0, t * 1.2f);
+        const ImVec2 tray[] = {p(-0.42f, 0.10f), p(-0.42f, 0.40f), p(0.42f, 0.40f), p(0.42f, 0.10f)};
+        draw->AddPolyline(tray, 4, color, 0, t);
+        break;
+    }
+    case Icon::Flask:
+    {
+        // A lab flask (test builds): a narrow neck widening into a cone, half full.
+        const ImVec2 outline[] = {p(-0.12f, -0.42f), p(-0.12f, -0.12f), p(-0.40f, 0.34f), p(-0.34f, 0.44f),
+                                  p(0.34f, 0.44f),   p(0.40f, 0.34f),   p(0.12f, -0.12f), p(0.12f, -0.42f)};
+        draw->AddPolyline(outline, 8, color, 0, t);
+        draw->AddLine(p(-0.21f, -0.43f), p(0.21f, -0.43f), color, t);
+        const ImVec2 liquid[] = {p(-0.25f, 0.14f), p(0.25f, 0.14f), p(0.35f, 0.33f),
+                                 p(0.30f, 0.39f),  p(-0.30f, 0.39f), p(-0.35f, 0.33f)};
+        draw->AddConvexPolyFilled(liquid, 6, color);
+        break;
+    }
+    case Icon::Tag:
+    {
+        // A label tag (releases), pointing left, with its hole.
+        const ImVec2 outline[] = {p(-0.46f, 0.0f), p(-0.18f, -0.30f), p(0.44f, -0.30f), p(0.44f, 0.30f),
+                                  p(-0.18f, 0.30f)};
+        draw->AddPolyline(outline, 5, color, ImDrawFlags_Closed, t);
+        draw->AddCircleFilled(p(-0.15f, 0.0f), 0.075f * s, color);
+        break;
+    }
+    case Icon::Trophy:
+    {
+        // A cup (competitive play): the bowl with its two handles, the stem and the base.
+        draw->PathLineTo(p(-0.30f, -0.42f));
+        draw->PathLineTo(p(0.30f, -0.42f));
+        draw->PathBezierCubicCurveTo(p(0.30f, -0.06f), p(0.14f, 0.10f), p(0.0f, 0.10f));
+        draw->PathBezierCubicCurveTo(p(-0.14f, 0.10f), p(-0.30f, -0.06f), p(-0.30f, -0.42f));
+        draw->PathFillConvex(color);
+        draw->PathArcTo(p(-0.30f, -0.22f), 0.15f * s, 1.57f, 4.71f);
+        draw->PathStroke(color, 0, t);
+        draw->PathArcTo(p(0.30f, -0.22f), 0.15f * s, -1.57f, 1.57f);
+        draw->PathStroke(color, 0, t);
+        draw->AddLine(p(0.0f, 0.06f), p(0.0f, 0.30f), color, t * 1.3f);
+        draw->AddRectFilled(p(-0.24f, 0.28f), p(0.24f, 0.42f), color, 0.04f * s);
+        break;
+    }
+    case Icon::Gear:
+    {
+        // A filled gear: eight teeth around a thick ring.
+        for (int i = 0; i < 8; ++i)
+        {
+            const float a = float(i) * 0.785398f;
+            auto polar = [&](float angle, float radius) {
+                return p(std::cos(angle) * radius, std::sin(angle) * radius);
+            };
+            const ImVec2 tooth[] = {polar(a - 0.21f, 0.28f), polar(a - 0.14f, 0.47f), polar(a + 0.14f, 0.47f),
+                                    polar(a + 0.21f, 0.28f)};
+            draw->AddConvexPolyFilled(tooth, 4, color);
+        }
+        draw->AddCircle(c, 0.25f * s, color, 0, 0.16f * s);
+        break;
+    }
     case Icon::Link:
         draw->AddRect(p(-0.42f, -0.30f), p(0.30f, 0.42f), color, 0.08f * s, 0, t);
         draw->AddLine(p(-0.04f, 0.04f), p(0.44f, -0.44f), color, t);
         draw->AddLine(p(0.14f, -0.44f), p(0.44f, -0.44f), color, t);
         draw->AddLine(p(0.44f, -0.44f), p(0.44f, -0.14f), color, t);
         break;
+    case Icon::Close:
+        draw->AddLine(p(-0.28f, -0.28f), p(0.28f, 0.28f), color, t * 1.3f);
+        draw->AddLine(p(0.28f, -0.28f), p(-0.28f, 0.28f), color, t * 1.3f);
+        break;
     }
+}
+
+void DrawRegionFlag(ImDrawList* draw, ImVec2 pos, float height, char region)
+{
+    const float width = height * 1.5f;
+    const ImVec2 max{pos.x + width, pos.y + height};
+    const ImVec2 center{pos.x + width * 0.5f, pos.y + height * 0.5f};
+    const ImU32 white = IM_COL32(245, 245, 245, 255);
+    const float rounding = std::max(1.0f, height * 0.12f);
+    switch (region)
+    {
+    case 'E':
+    {
+        // Thirteen stripes and the blue canton with a few stars.
+        draw->AddRectFilled(pos, max, white, rounding);
+        const float stripe = height / 13.0f;
+        for (int n = 0; n < 13; n += 2)
+            draw->AddRectFilled({pos.x, pos.y + stripe * float(n)}, {max.x, pos.y + stripe * float(n + 1)},
+                                IM_COL32(178, 34, 52, 255), n == 0 || n == 12 ? rounding : 0.0f,
+                                n == 0 ? ImDrawFlags_RoundCornersTop : ImDrawFlags_RoundCornersBottom);
+        const ImVec2 canton{pos.x + width * 0.42f, pos.y + stripe * 7.0f};
+        draw->AddRectFilled(pos, canton, IM_COL32(60, 59, 110, 255), rounding, ImDrawFlags_RoundCornersTopLeft);
+        const float star = std::max(0.6f, height * 0.035f);
+        for (int row = 0; row < 3; ++row)
+            for (int column = 0; column < 4; ++column)
+                draw->AddCircleFilled({pos.x + (canton.x - pos.x) * (0.17f + 0.22f * float(column)),
+                                       pos.y + (canton.y - pos.y) * (0.22f + 0.28f * float(row))},
+                                      star, white, 6);
+        break;
+    }
+    case 'P':
+    {
+        // Twelve gold stars in a circle on blue.
+        draw->AddRectFilled(pos, max, IM_COL32(0, 51, 153, 255), rounding);
+        const float radius = height * 0.30f, star = std::max(0.7f, height * 0.05f);
+        for (int n = 0; n < 12; ++n)
+        {
+            const float angle = float(n) * 3.14159265f / 6.0f;
+            draw->AddCircleFilled({center.x + std::cos(angle) * radius, center.y + std::sin(angle) * radius}, star,
+                                  IM_COL32(255, 204, 0, 255), 6);
+        }
+        break;
+    }
+    case 'J':
+        draw->AddRectFilled(pos, max, white, rounding);
+        draw->AddCircleFilled(center, height * 0.30f, IM_COL32(188, 0, 45, 255));
+        break;
+    case 'K':
+    {
+        // The taegeuk (red over blue) and the four trigrams, simplified.
+        draw->AddRectFilled(pos, max, white, rounding);
+        const float radius = height * 0.24f;
+        draw->PathArcTo(center, radius, 3.14159265f, 2.0f * 3.14159265f);
+        draw->PathFillConvex(IM_COL32(205, 46, 58, 255));
+        draw->PathArcTo(center, radius, 0.0f, 3.14159265f);
+        draw->PathFillConvex(IM_COL32(0, 71, 160, 255));
+        const ImU32 black = IM_COL32(20, 20, 20, 255);
+        const float bar = std::max(1.0f, height * 0.08f);
+        const float dx = width * 0.33f, dy = height * 0.30f;
+        for (const float sx : {-1.0f, 1.0f})
+            for (const float sy : {-1.0f, 1.0f})
+            {
+                const ImVec2 a{center.x + sx * dx, center.y + sy * dy};
+                const ImVec2 along{-sy * height * 0.07f, sx * height * 0.07f};
+                draw->AddLine({a.x - along.x, a.y - along.y}, {a.x + along.x, a.y + along.y}, black, bar);
+            }
+        break;
+    }
+    default:
+        draw->AddRectFilled(pos, max, Col(color::dim), rounding);
+        break;
+    }
+    draw->AddRect(pos, max, IM_COL32(0, 0, 0, 70), rounding, 0, 1.0f);
 }
 
 float Animate(ImGuiID id, bool target, float speed)
@@ -403,6 +543,96 @@ bool PrimaryButton(const char* id, const char* label, ImVec2 size, bool enabled,
     return pressed && enabled;
 }
 
+SplitPress SplitPrimaryButton(const char* id, const char* label, ImVec2 size, const SplitSegment& segment,
+                              bool enabled, Icon icon, bool glow)
+{
+    ImGui::PushID(id);
+    SplitPress result;
+    const ImVec2 pos = ImGui::GetCursorScreenPos();
+    ImGui::BeginDisabled(!enabled);
+    result.button = ImGui::InvisibleButton("##button", size) && enabled;
+    result.button_hovered = ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled);
+    const bool button_held = ImGui::IsItemActive();
+    ImGui::EndDisabled();
+    const float split = pos.x + size.x;
+    ImGui::SetCursorScreenPos({split, pos.y});
+    result.segment = ImGui::InvisibleButton("##segment", {segment.width, size.y});
+    result.segment_hovered = ImGui::IsItemHovered();
+    const bool segment_held = ImGui::IsItemActive();
+    const float button_hover = Animate(ImGui::GetID("##button_hover"), result.button_hovered && enabled, 10.0f);
+    const float segment_hover = Animate(ImGui::GetID("##segment_hover"), result.segment_hovered || segment.open, 12.0f);
+
+    auto* draw = ImGui::GetWindowDrawList();
+    const float rounding = std::min(size.y * 0.5f, Dp(14));
+    const ImVec2 max{split + segment.width, pos.y + size.y};
+    if (glow && enabled)
+    {
+        const float pulse = 0.5f + 0.5f * std::sin(float(ImGui::GetTime()) * 2.2f);
+        for (int i = 0; i < 6; ++i)
+        {
+            const float grow = Dp(2.0f + 2.6f * float(i));
+            const float alpha = (0.085f - 0.012f * float(i)) * (0.55f + 0.30f * pulse + 0.45f * button_hover);
+            draw->AddRectFilled(Sub(pos, {grow, grow}), Add(max, {grow, grow}), Col(color::accent, alpha),
+                                rounding + grow);
+        }
+    }
+    // Hover lightens and a press darkens only the part under the pointer.
+    auto shade = [&](ImVec2 a, ImVec2 b, bool held, float hover, ImDrawFlags corners) {
+        if (held) draw->AddRectFilled(a, b, Col(color::accent_dark, 0.22f), rounding, corners);
+        else if (hover > 0.0f) draw->AddRectFilled(a, b, Col(ImVec4{1, 1, 1, 1}, 0.14f * hover), rounding, corners);
+    };
+    const ImVec2 split_top{split, pos.y};
+    const ImVec2 split_bottom{split, max.y};
+    if (enabled)
+    {
+        FillGradient(draw, pos, max, Col(color::accent_hi), Col(color::accent), rounding, true);
+        shade(pos, split_bottom, button_held, button_hover, ImDrawFlags_RoundCornersLeft);
+        shade(split_top, max, segment_held, segment_hover, ImDrawFlags_RoundCornersRight);
+        draw->AddRect(pos, max, IM_COL32(255, 255, 255, 46), rounding, 0, Dp(1));
+        draw->AddRectFilled({split - Dp(0.5f), pos.y + Dp(12)}, {split + Dp(0.5f), max.y - Dp(12)},
+                            Col(color::accent_dark, 0.45f));
+    }
+    else
+    {
+        draw->AddRectFilled(pos, max, Col(color::field), rounding);
+        draw->AddRectFilled(split_top, max, Col(Mix(color::field, color::border, 0.9f), segment_hover), rounding,
+                            ImDrawFlags_RoundCornersRight);
+        draw->AddRect(pos, max, Col(color::border), rounding, 0, Dp(1));
+        draw->AddRectFilled({split - Dp(0.5f), pos.y + Dp(12)}, {split + Dp(0.5f), max.y - Dp(12)}, Col(color::border));
+    }
+    if (segment.open)
+    {
+        const float inset = Dp(4);
+        draw->AddRect(Add(split_top, {inset, inset}), Sub(max, {inset, inset}),
+                      enabled ? IM_COL32(255, 255, 255, 170) : Col(color::accent, 0.8f), rounding - inset, 0, Dp(1.5f));
+    }
+
+    const auto& fonts = CurrentFonts();
+    ImFont* font = size.y >= Dp(52) ? fonts.button : fonts.label;
+    const ImVec2 text = TextSize(font, label);
+    const float icon_size = icon == Icon::None ? 0.0f : FontSize(font) * 0.82f;
+    const float gap = icon == Icon::None ? 0.0f : Dp(10);
+    const float left = pos.x + (size.x - (text.x + icon_size + gap)) * 0.5f;
+    const ImU32 ink = enabled ? IM_COL32(6, 33, 15, 255) : Col(color::dim);
+    if (icon != Icon::None)
+        DrawIcon(draw, icon, {left + icon_size * 0.5f, pos.y + size.y * 0.5f}, icon_size, ink);
+    DrawLabel(draw, font, {left + icon_size + gap, pos.y + (size.y - text.y) * 0.5f}, ink, label);
+
+    const ImVec2 center{split + segment.width * 0.5f, pos.y + size.y * 0.5f};
+    const float segment_icon = Dp(22);
+    const ImU32 segment_ink = enabled ? ink : Col(Mix(color::muted, color::text, 0.6f + 0.4f * segment_hover));
+    DrawIcon(draw, segment.icon, center, segment_icon, segment_ink);
+    if (segment.marked)
+    {
+        // The dot sits in the corner beside the icon, outlined so it reads over the gear.
+        const ImVec2 dot{center.x + segment_icon * 0.52f, center.y - segment_icon * 0.52f};
+        draw->AddCircleFilled(dot, Dp(5), enabled ? Col(color::accent_hi) : Col(color::field));
+        draw->AddCircleFilled(dot, Dp(3.5f), enabled ? ink : Col(color::accent));
+    }
+    ImGui::PopID();
+    return result;
+}
+
 bool SecondaryButton(const char* id, const char* label, ImVec2 size, bool enabled, Icon icon)
 {
     ImGui::PushID(id);
@@ -432,6 +662,47 @@ bool SecondaryButton(const char* id, const char* label, ImVec2 size, bool enable
     return pressed && enabled;
 }
 
+bool GhostButton(const char* id, const char* label, ImVec2 size, bool enabled, Icon icon)
+{
+    ImGui::PushID(id);
+    const ImVec2 pos = ImGui::GetCursorScreenPos();
+    ImGui::BeginDisabled(!enabled);
+    const bool pressed = ImGui::InvisibleButton("##ghost", size);
+    const bool hovered = ImGui::IsItemHovered();
+    const bool held = ImGui::IsItemActive();
+    ImGui::EndDisabled();
+    const float hover = Animate(ImGui::GetID("##hover"), hovered && enabled, 12.0f);
+    auto* draw = ImGui::GetWindowDrawList();
+    const float rounding = std::min(size.y * 0.5f, Dp(10));
+    if (hover > 0.0f || held)
+        draw->AddRectFilled(pos, Add(pos, size), Col(color::text, held ? 0.10f : 0.06f * hover), rounding);
+    const auto& fonts = CurrentFonts();
+    const ImVec2 text = TextSize(fonts.body, label);
+    const float icon_size = icon == Icon::None ? 0.0f : Dp(16);
+    const float gap = icon == Icon::None || !*label ? 0.0f : Dp(8);
+    const float left = pos.x + (size.x - (text.x + icon_size + gap)) * 0.5f;
+    const ImU32 ink = Col(enabled ? Mix(color::muted, color::text, 0.35f + 0.65f * hover) : color::dim);
+    if (icon != Icon::None) DrawIcon(draw, icon, {left + icon_size * 0.5f, pos.y + size.y * 0.5f}, icon_size, ink);
+    DrawLabel(draw, fonts.body, {left + icon_size + gap, pos.y + (size.y - text.y) * 0.5f}, ink, label);
+    ImGui::PopID();
+    return pressed && enabled;
+}
+
+namespace
+{
+// The switch of Toggle and MenuToggle; `on` and `hover` are animated 0..1.
+void DrawSwitch(ImDrawList* draw, ImVec2 pos, ImVec2 size, float on, float hover)
+{
+    const ImVec4 off_track = Mix(color::field, color::border, 0.6f + 0.4f * hover);
+    const ImVec4 on_track = Mix(color::accent, color::accent_hi, 0.25f * hover);
+    draw->AddRectFilled(pos, Add(pos, size), Col(Mix(off_track, on_track, on)), size.y * 0.5f);
+    const float radius = size.y * 0.5f - Dp(3.5f);
+    const ImVec2 knob{pos.x + size.y * 0.5f + on * (size.x - size.y), pos.y + size.y * 0.5f};
+    draw->AddCircleFilled({knob.x, knob.y + Dp(1)}, radius, IM_COL32(0, 0, 0, 70));
+    draw->AddCircleFilled(knob, radius, Col(Mix(color::muted, ImVec4{1, 1, 1, 1}, std::max(on, 0.4f * hover))));
+}
+} // namespace
+
 bool Toggle(const char* id, bool* value)
 {
     ImGui::PushID(id);
@@ -442,19 +713,72 @@ bool Toggle(const char* id, bool* value)
     const bool hovered = ImGui::IsItemHovered();
     const float on = Animate(ImGui::GetID("##on"), *value, 14.0f);
     const float hover = Animate(ImGui::GetID("##hover"), hovered, 12.0f);
-    auto* draw = ImGui::GetWindowDrawList();
-    const ImVec4 off_track = Mix(color::field, color::border, 0.6f + 0.4f * hover);
-    const ImVec4 on_track = Mix(color::accent, color::accent_hi, 0.25f * hover);
-    draw->AddRectFilled(pos, Add(pos, size), Col(Mix(off_track, on_track, on)), size.y * 0.5f);
-    const float radius = size.y * 0.5f - Dp(3.5f);
-    const ImVec2 knob{pos.x + size.y * 0.5f + on * (size.x - size.y), pos.y + size.y * 0.5f};
-    draw->AddCircleFilled({knob.x, knob.y + Dp(1)}, radius, IM_COL32(0, 0, 0, 70));
-    draw->AddCircleFilled(knob, radius, Col(Mix(color::muted, ImVec4{1, 1, 1, 1}, std::max(on, 0.4f * hover))));
+    DrawSwitch(ImGui::GetWindowDrawList(), pos, size, on, hover);
     ImGui::PopID();
     return pressed;
 }
 
+bool MenuToggle(const char* id, const char* label, const char* description, bool* value, float width)
+{
+    ImGui::PushID(id);
+    const auto& fonts = CurrentFonts();
+    const ImVec2 pos = ImGui::GetCursorScreenPos();
+    const ImVec2 pad = Dp(12, 10);
+    const ImVec2 switch_size = Dp(40, 24);
+    const float text_width = width - pad.x * 3 - switch_size.x;
+    const float label_height = FontSize(fonts.label);
+    const ImVec2 detail = fonts.caption->CalcTextSizeA(FontSize(fonts.caption), FLT_MAX, text_width, description);
+    const ImVec2 size{width, pad.y * 2 + label_height + Dp(3) + detail.y};
+    const bool pressed = ImGui::InvisibleButton("##row", size);
+    if (pressed) *value = !*value;
+    const bool hovered = ImGui::IsItemHovered();
+    const float hover = Animate(ImGui::GetID("##hover"), hovered, 14.0f);
+    const float on = Animate(ImGui::GetID("##on"), *value, 14.0f);
+    auto* draw = ImGui::GetWindowDrawList();
+    if (hover > 0.0f) draw->AddRectFilled(pos, Add(pos, size), Col(color::text, 0.06f * hover), Dp(7));
+    DrawLabel(draw, fonts.label, {pos.x + pad.x, pos.y + pad.y}, Col(color::text), label);
+    draw->AddText(fonts.caption, FontSize(fonts.caption), {pos.x + pad.x, pos.y + pad.y + label_height + Dp(3)},
+                  Col(color::muted), description, nullptr, text_width);
+    DrawSwitch(draw, {pos.x + width - pad.x - switch_size.x, pos.y + (size.y - switch_size.y) * 0.5f}, switch_size,
+               on, hover);
+    ImGui::PopID();
+    return pressed;
+}
+
+bool MenuAction(const char* id, const char* label, float width)
+{
+    ImGui::PushID(id);
+    const auto& fonts = CurrentFonts();
+    const ImVec2 pos = ImGui::GetCursorScreenPos();
+    const ImVec2 size{width, Dp(38)};
+    const bool pressed = ImGui::InvisibleButton("##row", size);
+    const float hover = Animate(ImGui::GetID("##hover"), ImGui::IsItemHovered(), 14.0f);
+    auto* draw = ImGui::GetWindowDrawList();
+    if (hover > 0.0f) draw->AddRectFilled(pos, Add(pos, size), Col(color::text, 0.06f * hover), Dp(7));
+    const ImU32 ink = Col(Mix(Mix(color::muted, color::text, 0.7f), color::text, hover));
+    DrawLabel(draw, fonts.label, {pos.x + Dp(12), pos.y + (size.y - FontSize(fonts.label)) * 0.5f}, ink, label);
+    DrawChevron(draw, {pos.x + width - Dp(18), pos.y + size.y * 0.5f}, Dp(12), ink);
+    ImGui::PopID();
+    return pressed;
+}
+
+void MenuSeparator(float width)
+{
+    const ImVec2 pos = ImGui::GetCursorScreenPos();
+    const float height = Dp(9);
+    ImGui::Dummy({width, height});
+    // A filled hairline: long 1 px AddLine strokes break up in SDL's software renderer.
+    ImGui::GetWindowDrawList()->AddRectFilled({pos.x + Dp(8), pos.y + height * 0.5f - Dp(0.5f)},
+                                              {pos.x + width - Dp(8), pos.y + height * 0.5f + Dp(0.5f)},
+                                              Col(color::border));
+}
+
 bool Segmented(const char* id, int* selected, std::initializer_list<const char*> items, float width)
+{
+    return Segmented(id, selected, std::vector<const char*>(items), width);
+}
+
+bool Segmented(const char* id, int* selected, const std::vector<const char*>& items, float width)
 {
     ImGui::PushID(id);
     const ImVec2 pos = ImGui::GetCursorScreenPos();
@@ -498,28 +822,107 @@ bool Segmented(const char* id, int* selected, std::initializer_list<const char*>
     return changed;
 }
 
-bool PercentSlider(const char* id, int* value, float width)
+bool SegmentedIcons(const char* id, int* selected, std::initializer_list<SegmentItem> items, ImVec2 size, bool glass)
 {
     ImGui::PushID(id);
     const ImVec2 pos = ImGui::GetCursorScreenPos();
-    const float height = ImGui::GetFrameHeight();
+    const int count = int(items.size());
+    const float segment = size.x / float(std::max(count, 1));
+    const float rounding = size.y * 0.5f;
     auto* draw = ImGui::GetWindowDrawList();
-    const float fraction = std::clamp(float(*value) / 100.0f, 0.0f, 1.0f);
-    draw->AddRectFilled(pos, {pos.x + width, pos.y + height}, Col(color::field), Dp(10));
-    if (fraction > 0.0f)
-        FillGradient(draw, pos, {pos.x + std::max(Dp(20), width * fraction), pos.y + height},
-                     Col(Mix(color::accent_dark, color::accent, 0.55f)), Col(Mix(color::accent_dark, color::accent, 0.9f)),
-                     Dp(10), true);
+    const bool enabled = !(GImGui->CurrentItemFlags & ImGuiItemFlags_Disabled);
+    if (glass)
+    {
+        draw->AddRectFilled(pos, Add(pos, size), Col(Mix(color::window, color::card, 0.55f), 0.88f), rounding);
+        draw->AddRect(pos, Add(pos, size), Col(color::border, 0.95f), rounding, 0, Dp(1));
+    }
+    else draw->AddRectFilled(pos, Add(pos, size), Col(color::field), rounding);
+    float* slide = ImGui::GetStateStorage()->GetFloatRef(ImGui::GetID("##slide"), float(*selected));
+    const SegmentItem* items_begin = items.begin();
+    if (*selected >= 0 && *selected < count)
+    {
+        *slide += (float(*selected) - *slide) * std::min(1.0f, ImGui::GetIO().DeltaTime * 16.0f);
+        // The indicator blends the tints while it slides.
+        const int from = std::clamp(int(std::floor(*slide)), 0, count - 1), to = std::min(from + 1, count - 1);
+        const ImVec4 tint = Mix(items_begin[from].tint, items_begin[to].tint, *slide - float(from));
+        const ImVec2 a{pos.x + *slide * segment + Dp(3), pos.y + Dp(3)};
+        const ImVec2 b{a.x + segment - Dp(6), pos.y + size.y - Dp(3)};
+        draw->AddRectFilled(a, b, Col(Mix(color::card, tint, 0.20f), enabled ? 1.0f : 0.6f), rounding - Dp(3));
+        draw->AddRect(a, b, Col(tint, enabled ? 0.65f : 0.3f), rounding - Dp(3), 0, Dp(1));
+    }
+    bool changed = false;
+    const auto& fonts = CurrentFonts();
+    const float icon_size = Dp(15), gap = Dp(7);
+    for (int index = 0; index < count; ++index)
+    {
+        const SegmentItem& item = items_begin[index];
+        ImGui::SetCursorScreenPos({pos.x + segment * float(index), pos.y});
+        ImGui::PushID(index);
+        if (ImGui::InvisibleButton("##segment", {segment, size.y}) && *selected != index)
+        {
+            *selected = index;
+            changed = true;
+        }
+        const float hover = Animate(ImGui::GetID("##hover"), ImGui::IsItemHovered() && enabled, 12.0f);
+        const bool active = index == *selected;
+        const ImVec2 text = TextSize(fonts.body, item.label);
+        const float left = pos.x + segment * float(index) + (segment - (icon_size + gap + text.x)) * 0.5f;
+        const float middle = pos.y + size.y * 0.5f;
+        const ImVec4 ink = active ? color::text : Mix(color::muted, color::text, hover * 0.7f);
+        DrawIcon(draw, item.icon, {left + icon_size * 0.5f, middle}, icon_size,
+                 Col(active ? item.tint : Mix(color::dim, color::muted, 0.5f + 0.5f * hover), enabled ? 1.0f : 0.6f));
+        DrawLabel(draw, fonts.body, {left + icon_size + gap, middle - text.y * 0.5f}, Col(ink, enabled ? 1.0f : 0.6f),
+                  item.label);
+        ImGui::PopID();
+    }
+    ImGui::SetCursorScreenPos(pos);
+    ImGui::Dummy(size);
+    ImGui::PopID();
+    return changed;
+}
+
+bool PercentSlider(const char* id, int* value, float width)
+{
+    ImGui::PushID(id);
+    const auto& fonts = CurrentFonts();
+    const ImVec2 pos = ImGui::GetCursorScreenPos();
+    const float height = ImGui::GetFrameHeight();
+    // A slim track with a round knob, and the value beside it. ImGui's slider
+    // keeps the input (mouse, keys, gamepad) but draws nothing itself.
+    const float label_width = TextSize(fonts.body, "100%").x + Dp(16);
+    const float track_width = std::max(Dp(60), width - label_width);
+    const float knob = Dp(16);
     ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4{0, 0, 0, 0});
-    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4{1, 1, 1, 0.04f});
-    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4{1, 1, 1, 0.06f});
-    ImGui::PushStyleColor(ImGuiCol_SliderGrab, ImVec4{1, 1, 1, 0.92f});
-    ImGui::PushStyleColor(ImGuiCol_SliderGrabActive, ImVec4{1, 1, 1, 1});
-    ImGui::PushStyleVar(ImGuiStyleVar_GrabMinSize, Dp(6));
-    ImGui::SetNextItemWidth(width);
-    const bool changed = ImGui::SliderInt("##slider", value, 0, 100, "%d%%", ImGuiSliderFlags_AlwaysClamp);
+    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4{0, 0, 0, 0});
+    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4{0, 0, 0, 0});
+    ImGui::PushStyleColor(ImGuiCol_SliderGrab, ImVec4{0, 0, 0, 0});
+    ImGui::PushStyleColor(ImGuiCol_SliderGrabActive, ImVec4{0, 0, 0, 0});
+    ImGui::PushStyleVar(ImGuiStyleVar_GrabMinSize, knob);
+    ImGui::SetNextItemWidth(track_width);
+    const bool changed = ImGui::SliderInt("##slider", value, 0, 100, "", ImGuiSliderFlags_AlwaysClamp);
     ImGui::PopStyleVar();
     ImGui::PopStyleColor(5);
+    const bool active = ImGui::IsItemActive();
+    const float lift = Animate(ImGui::GetID("##lift"), active || ImGui::IsItemHovered(), 14.0f);
+
+    // ImGui centres its grab between 2 px of padding at each end; the knob follows it.
+    auto* draw = ImGui::GetWindowDrawList();
+    const float alpha = ImGui::GetStyle().Alpha; // dimmed while disabled (Mute)
+    const float left = pos.x + 2.0f + knob * 0.5f, right = pos.x + track_width - 2.0f - knob * 0.5f;
+    const float x = left + (right - left) * std::clamp(float(*value) / 100.0f, 0.0f, 1.0f);
+    const float y = pos.y + height * 0.5f, half = Dp(2);
+    draw->AddRectFilled({left, y - half}, {right, y + half}, Col(color::text, 0.12f * alpha), half);
+    if (x > left + 0.5f)
+        FillGradient(draw, {left, y - half}, {x, y + half}, Col(Mix(color::accent_dark, color::accent, 0.6f), alpha),
+                     Col(color::accent, alpha), half, true);
+    const float radius = knob * 0.5f * (1.0f + 0.12f * lift);
+    if (lift > 0.01f) draw->AddCircleFilled({x, y}, radius + Dp(5), Col(color::accent, 0.16f * lift * alpha));
+    draw->AddCircleFilled({x, y + Dp(1)}, radius, Col(ImVec4{0, 0, 0, 1}, 0.35f * alpha));
+    draw->AddCircleFilled({x, y}, radius, Col(active ? color::accent_hi : color::text, alpha));
+
+    const std::string text = std::to_string(*value) + "%";
+    const ImVec2 size = TextSize(fonts.body, text.c_str());
+    DrawLabel(draw, fonts.body, {pos.x + width - size.x, y - size.y * 0.5f}, Col(color::text, 0.85f * alpha), text.c_str());
     ImGui::PopID();
     return changed;
 }

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(mscharged_port VERSION 1.0.9 LANGUAGES C CXX)
+project(mscharged_port VERSION 1.0.10 LANGUAGES C CXX)
 
 # The game module replaces the global operator new/delete with allocators whose
 # scopes are global state. GCC 15 assumes replaceable new/delete leave global
@@ -10,7 +10,7 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_G
     set(MSCHARGED_GCC_NO_SANE_NEW_DELETE -fno-assume-sane-operators-new-delete)
 endif()
 if(WIN32 AND MINGW)
-    # COFF weak definitions cannot be exported from mscharged.exe to the game
+    # COFF weak definitions cannot be exported from recharged.exe to the game
     # DLLs (OSReport and friends would bind to address 0). Plain definitions,
     # as the SDK and decomp headers already use for MSVC.
     add_compile_definitions(DECL_WEAK=)
@@ -26,6 +26,31 @@ include(cmake/MacOSDeploymentTarget.cmake)
 mscharged_set_macos_deployment_target()
 # Release version; the build appends +g<commit> and .dirty for local changes.
 set(MSCHARGED_PORT_VERSION "${PROJECT_VERSION}")
+# Where a build comes from, for the launcher's About page and update check.
+# CI sets these; other builds stay "dev". release: a push to stable, whose
+# packages become the GitHub release; test: a pull request's build, published
+# as a prerelease while the pull request is open.
+set(MSCHARGED_BUILD_CHANNEL dev CACHE STRING "Where the build comes from: release, test or dev")
+set_property(CACHE MSCHARGED_BUILD_CHANNEL PROPERTY STRINGS release test dev)
+set(MSCHARGED_BUILD_REPOSITORY previouslevelgames/recharged CACHE STRING
+    "GitHub repository (owner/name) whose releases and test builds update this build")
+set(MSCHARGED_BUILD_PULL_REQUEST 0 CACHE STRING "Pull request of a test build")
+set(MSCHARGED_BUILD_RUN 0 CACHE STRING "CI run that made the build (0: none)")
+set(MSCHARGED_BUILD_TIME 0 CACHE STRING "Build time in seconds since 1970, UTC (0: unknown)")
+if(NOT MSCHARGED_BUILD_CHANNEL MATCHES "^(release|test|dev)$")
+    message(FATAL_ERROR "MSCHARGED_BUILD_CHANNEL must be release, test or dev")
+endif()
+if(NOT MSCHARGED_BUILD_REPOSITORY MATCHES "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
+    message(FATAL_ERROR "MSCHARGED_BUILD_REPOSITORY must be owner/name")
+endif()
+foreach(number IN ITEMS MSCHARGED_BUILD_PULL_REQUEST MSCHARGED_BUILD_RUN MSCHARGED_BUILD_TIME)
+    if(NOT ${number} MATCHES "^(0|[1-9][0-9]*)$")
+        message(FATAL_ERROR "${number} must be a whole number")
+    endif()
+endforeach()
+if(MSCHARGED_BUILD_CHANNEL STREQUAL "test" AND MSCHARGED_BUILD_PULL_REQUEST STREQUAL "0")
+    message(FATAL_ERROR "A test build needs MSCHARGED_BUILD_PULL_REQUEST")
+endif()
 
 if(CMAKE_SOURCE_DIR STREQUAL CMAKE_BINARY_DIR)
     message(FATAL_ERROR "Use an out-of-source build: cmake -S . -B build -G Ninja")
@@ -41,12 +66,8 @@ option(MSCHARGED_BUILD_THP_AUDIO_DIAGNOSTIC "Build the temporary original audio-
 option(MSCHARGED_NATIVE_VIDEO "Enable original-source native VI hardware (output integration in progress)" OFF)
 option(MSCHARGED_BUILD_GX_CHECK "Build the standalone Aurora GX diagnostic" OFF)
 option(MSCHARGED_BUILD_SCENE_PREVIEW "Build the experimental static Wii asset preview (not a game scene)" OFF)
-option(MSCHARGED_BUILD_ORIGINAL_CREDITS_DIAGNOSTIC "Build the temporary original Credits scene rendering check" OFF)
-option(MSCHARGED_BUILD_ORIGINAL_FRONTEND_DIAGNOSTIC "Build the temporary original Boot/Intro task sequence check" OFF)
+option(MSCHARGED_BUILD_ORIGINAL_FRONTEND_DIAGNOSTIC "Build the original game runtime (the game modules)" OFF)
 if(MSCHARGED_BUILD_ORIGINAL_FRONTEND_DIAGNOSTIC)
-    set(MSCHARGED_BUILD_ORIGINAL_CREDITS_DIAGNOSTIC ON)
-endif()
-if(MSCHARGED_BUILD_ORIGINAL_CREDITS_DIAGNOSTIC)
     set(MSCHARGED_BUILD_GX_CHECK ON)
 endif()
 if(MSCHARGED_BUILD_SCENE_PREVIEW)
@@ -67,8 +88,8 @@ if(MSCHARGED_BUILD_GAME_STARTUP)
         message(FATAL_ERROR "Use separate graphics and startup builds until the game's GX adapter is implemented")
     endif()
     if(MSCHARGED_BUILD_LAUNCHER AND NOT MSCHARGED_BUILD_SCENE_PREVIEW
-            AND NOT MSCHARGED_BUILD_ORIGINAL_CREDITS_DIAGNOSTIC)
-        message(FATAL_ERROR "Enable the scene preview or original Credits diagnostic for shared GX/launcher providers; otherwise disable the launcher")
+            AND NOT MSCHARGED_BUILD_ORIGINAL_FRONTEND_DIAGNOSTIC)
+        message(FATAL_ERROR "Enable the scene preview or the original game runtime for shared GX/launcher providers; otherwise disable the launcher")
     endif()
     set(MSCHARGED_BUILD_AURORA_HOST ON)
 endif()
@@ -216,7 +237,10 @@ add_library(charged_host STATIC
     src/bootstrap/config.cpp
     src/bootstrap/launch_options.cpp
     src/platform/disc.cpp
+    src/platform/disc_message_images.cpp
+    src/platform/game_release.cpp
     src/platform/save_import.cpp
+    src/platform/sha1.cpp
     src/platform/shader_cache.cpp
 )
 target_include_directories(charged_host PUBLIC src)
@@ -232,6 +256,11 @@ add_custom_target(update_build_version
             "-DSOURCE_DIR:PATH=${CMAKE_CURRENT_SOURCE_DIR}"
             "-DOUTPUT_DIR:PATH=${MSCHARGED_VERSION_DIR}"
             "-DPORT_VERSION:STRING=${MSCHARGED_PORT_VERSION}"
+            "-DBUILD_CHANNEL:STRING=${MSCHARGED_BUILD_CHANNEL}"
+            "-DBUILD_REPOSITORY:STRING=${MSCHARGED_BUILD_REPOSITORY}"
+            "-DBUILD_PULL_REQUEST:STRING=${MSCHARGED_BUILD_PULL_REQUEST}"
+            "-DBUILD_RUN:STRING=${MSCHARGED_BUILD_RUN}"
+            "-DBUILD_TIME:STRING=${MSCHARGED_BUILD_TIME}"
             -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/WriteBuildVersion.cmake"
     BYPRODUCTS "${MSCHARGED_VERSION_DIR}/build_version.h"
     COMMENT "Record the port version and current source revision"
@@ -272,11 +301,8 @@ if(BUILD_TESTING OR MSCHARGED_BUILD_SCENE_PREVIEW OR MSCHARGED_BUILD_GAME_STARTU
 endif()
 
 if(MSCHARGED_BUILD_ORIGINAL_FRONTEND_DIAGNOSTIC)
-    # The game runtime enters original main. The older selected-scene fixture
-    # has a separate Linux-only module and is not a prerequisite for this path.
-    include(cmake/OriginalMainCreditsDiagnostic.cmake)
-elseif(MSCHARGED_BUILD_ORIGINAL_CREDITS_DIAGNOSTIC)
-    include(cmake/OriginalCreditsDiagnostic.cmake)
+    # The game runtime: the host enters original main in a game module.
+    include(cmake/OriginalGame.cmake)
 endif()
 
 if(BUILD_TESTING)
@@ -320,6 +346,13 @@ if(BUILD_TESTING)
         COMMAND "${Python3_EXECUTABLE}" -B "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_disc_title_id.py"
                 "$<TARGET_FILE:disc_title_id_tests>")
     set_tests_properties(disc_title_id PROPERTIES TIMEOUT 120)
+    add_executable(disc_message_images_tests tests/disc_message_images.cpp)
+    target_link_libraries(disc_message_images_tests PRIVATE charged_host)
+    add_test(NAME disc_message_images COMMAND disc_message_images_tests)
+    add_test(NAME disc_message_images_disc
+        COMMAND "${Python3_EXECUTABLE}" -B "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_disc_message_images.py"
+                "$<TARGET_FILE:disc_message_images_tests>")
+    set_tests_properties(disc_message_images_disc PROPERTIES TIMEOUT 120)
     add_executable(config_tests tests/config.cpp)
     target_link_libraries(config_tests PRIVATE charged_host)
     add_test(NAME configuration COMMAND config_tests)
@@ -330,6 +363,15 @@ if(BUILD_TESTING)
     add_executable(launch_options_tests tests/launch_options.cpp)
     target_link_libraries(launch_options_tests PRIVATE charged_host)
     add_test(NAME launch_options COMMAND launch_options_tests)
+    # Known releases: texts, game text languages and per-title save folders.
+    add_executable(game_release_tests tests/game_release.cpp)
+    target_link_libraries(game_release_tests PRIVATE charged_host)
+    if(TARGET SDL3::SDL3)
+        target_link_libraries(game_release_tests PRIVATE SDL3::SDL3)
+        target_compile_definitions(game_release_tests PRIVATE MSCHARGED_TEST_PC_LANGUAGES=1)
+    endif()
+    add_test(NAME game_release COMMAND game_release_tests)
+    set_tests_properties(game_release PROPERTIES TIMEOUT 30)
     add_executable(graphics_backend_tests tests/graphics_backend.cpp)
     target_include_directories(graphics_backend_tests PRIVATE src)
     target_compile_features(graphics_backend_tests PRIVATE cxx_std_17)
@@ -346,12 +388,27 @@ if(BUILD_TESTING)
     # original answers (the game module's tweak state).
     add_test(NAME tweak_patches
         COMMAND "${Python3_EXECUTABLE}" -B "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_tweak_patches.py")
+    # The same hooks in every game version's module.
+    add_test(NAME tweak_patch_versions
+        COMMAND "${Python3_EXECUTABLE}" -B "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_tweak_versions.py"
+            "${MSCHARGED_PREPARED}")
     add_executable(game_tweaks_tests tests/game_tweaks.cpp src/platform/game_tweaks.cpp)
     add_dependencies(game_tweaks_tests verify_prepared)
     target_include_directories(game_tweaks_tests PRIVATE src "${MSCHARGED_PREPARED}/include")
     target_compile_definitions(game_tweaks_tests PRIVATE MSCHARGED_NATIVE=1 MSCHARGED_GAME_MODULE=1 MSCHARGED_TWEAKS=1)
     target_compile_features(game_tweaks_tests PRIVATE cxx_std_17)
     add_test(NAME game_tweaks COMMAND game_tweaks_tests)
+    # Mirror match away kits made from the home kit's textures.
+    add_executable(away_kits_tests tests/away_kits.cpp src/platform/away_kits.cpp src/platform/host_metadata.cpp)
+    target_include_directories(away_kits_tests PRIVATE src)
+    target_compile_features(away_kits_tests PRIVATE cxx_std_20)
+    add_test(NAME away_kits COMMAND away_kits_tests)
+    # The logo reads RECHARGED: the rewrite of the front end's scene files.
+    add_executable(recharged_logo_tests tests/recharged_logo.cpp src/platform/recharged_logo.cpp
+        src/platform/host_metadata.cpp src/resources/frontend_scene.cpp)
+    target_include_directories(recharged_logo_tests PRIVATE src)
+    target_compile_features(recharged_logo_tests PRIVATE cxx_std_20)
+    add_test(NAME recharged_logo COMMAND recharged_logo_tests)
     add_executable(frame_rate_tests tests/frame_rate.cpp)
     target_include_directories(frame_rate_tests PRIVATE src)
     target_compile_features(frame_rate_tests PRIVATE cxx_std_17)
@@ -387,3 +444,5 @@ mscharged_apply_gnu_original_warning_policy()
 mscharged_apply_macos_original_warning_policy()
 include(cmake/GameModulePortOptimization.cmake)
 mscharged_optimize_game_module_port_sources()
+include(cmake/GameVersion.cmake)
+mscharged_apply_game_version()

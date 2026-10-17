@@ -1,8 +1,8 @@
 # Features
 
-What the native port of Mario Strikers Charged offers. The game itself
-is the original: its modes, rules, physics, timing and presentation come from
-the reconstructed source, unchanged.
+What Recharged, the native PC port of Mario Strikers Charged, offers. The game
+itself is the original: its modes, rules, physics, timing and presentation
+come from the reconstructed source, unchanged.
 
 ## The game
 
@@ -13,9 +13,17 @@ the reconstructed source, unchanged.
 - **Up to four players** on one machine, in any mix of keyboard & mouse,
   gamepads and Wii Remotes.
 - **Saves** like on the Wii: progress, unlocks, trophies and options are
-  stored in the port's own data folder.
-- **Languages** of the USA release: English, French and Spanish.
+  stored in Recharged's own data folder.
+- **The USA and European releases.** The European version, *Mario Strikers
+  Charged Football*, runs in its 60 Hz mode and keeps its own saves; its first
+  revision plays with the code of the second.
+- **Languages** of the disc: English, French and Spanish with the USA release;
+  English, German, French, Spanish and Italian with the European one.
 - **Movies, music and sound** as on the console.
+- **The logo reads Mario Strikers RECHARGED** on the title screen, in the main
+  menu and on the captain select, with every release: the game's own animated
+  letters, with an R and an E in front of CHARGED
+  ([#63](https://github.com/previouslevelgames/recharged/issues/63)).
 
 ## Controls
 
@@ -50,7 +58,7 @@ the reconstructed source, unchanged.
 | + / − / HOME | Tab / - / Home | Start / Back / Guide |
 | Shake Remote / Nunchuk | E / Q | RT / RB |
 
-Press **P** for a screenshot.
+Press **P** for a screenshot and **H** to show or hide the HUD in a match.
 
 ## Picture and sound
 
@@ -62,28 +70,32 @@ Press **P** for a screenshot.
 - Picture styles: **sharp** (default) or clean fill the window with the game's
   picture; soft keeps the console's TV look, with the TV signal's empty border.
 - **4x antialiasing**, on by default (Display → Antialiasing).
+- **Performance mode** (the gear on Play): lighter matches without 4x
+  antialiasing, crowd, background NPCs, ambient effects, bloom or stadium
+  shadows. Gameplay, hazards and their effects remain unchanged.
 - **High frame rates**: the console's 60 FPS by default, or 120, 144, your
   display's refresh rate or unlimited (Display → Frame rate). The game keeps its
   own speed: matches still simulate at their fixed 50 Hz and every frame is
   drawn from the game's own blend of its last two steps, so the extra frames
-  are real motion, not interpolation added by the port.
-- V-sync, a performance overlay (FPS, CPU and GPU load) in any corner, master
-  volume and mute; music, effects and voice levels stay in the game's own
-  options.
+  are real motion, not interpolation added by Recharged.
+- V-sync and a performance overlay (FPS, CPU and GPU load) in any corner.
+- Master volume, mute and **sound levels** (Audio): music, sound effects,
+  voices, the crowd, menus and HUD, cutscenes and movies each from 0 to 100 %,
+  on top of the game's own music, effect and voice options.
 - **Screenshots** with the P key.
 
 ## Optional tweaks
 
 Off by default; with all of them off the game plays as on the Wii. Three fixes
 of the original game are always on: a goal net no longer stays dented after a
-goal ([#19](https://github.com/yannicksuter/mscharged-port/issues/19)),
+goal ([#19](https://github.com/previouslevelgames/recharged/issues/19)),
 electrocuted players flash with the game's lightning texture instead of a
-debug texture ([#33](https://github.com/yannicksuter/mscharged-port/issues/33)),
+debug texture ([#33](https://github.com/previouslevelgames/recharged/issues/33)),
 and the NK ("No Kritter") bug is gone: a Boo deke into his own goalie, a
 teleport into a goal or a Chain Chomp hit during a deke no longer lets later
 shots pass through the goalies
-([#38](https://github.com/yannicksuter/mscharged-port/issues/38)).
-The launcher's **Gameplay** page (or `[gameplay]` in `mscharged.ini`) turns them on:
+([#38](https://github.com/previouslevelgames/recharged/issues/38)).
+The launcher's **Gameplay** page (or `[gameplay]` in `recharged.ini`) turns them on:
 
 - **Skip intro**: start at the main menu, without the notice screens, studio
   logo, intro movie and title screen.
@@ -100,23 +112,52 @@ The launcher's **Gameplay** page (or `[gameplay]` in `mscharged.ini`) turns them
   Stadium: the same running speed, ball roll and bounce, no sliding on ice or
   mud and no slow sand in the Sand Tomb. Stadium looks and hazards stay;
   online matches are unchanged.
+- **Thunder Island walls**: Thunder Island's open sides get the electric
+  fence of every other stadium, invisible but with its sparks: the ball and
+  items bounce off it, and players knocked into it are electrocuted instead
+  of falling off the island. Online matches are unchanged.
+- **Fair ball contests**: when players of both teams reach a loose ball in
+  the same instant, the one the game updates first takes it. The game
+  shuffles that order at every kickoff in a way that puts the home team
+  first slightly more often (52 % of the time on average, up to 55 %). With
+  this option the order is shuffled fairly, and again every simulation step.
+  On by default, as it is recommended to every player; online matches always
+  play with it.
 - **Mirror match**: both teams can pick the same captain in Domination. The
-  away team then wears the captain's away kit if the game has one (Bowser,
-  Bowser Jr., Daisy, Diddy Kong, Donkey Kong, Petey and Yoshi); with Mario,
-  Luigi, Peach, Wario and Waluigi both teams look the same. Online matches
-  are unchanged.
+  away team wears an away kit, in the menus as on the field: the game's own,
+  or for Mario, Luigi, Wario and Waluigi, who have none, one made from their
+  own kit (Mario blue, Luigi sky blue, Wario blue, Waluigi orange). Peach
+  wears her blue kit; its menu pictures and Mega Strike hand are made the
+  same way. Online matches are unchanged.
+- **Blue Peach**: Peach's team wears her blue and yellow kit on the field
+  (Peach, her sidekicks and her goalie). The game has it on the disc but only
+  uses it against a captain of her colours, and nobody else is pink. Her menu
+  pictures, Mega Strike hand, stadium banners and crowd have no blue version
+  and stay pink.
+- **No HUD**: matches start without the scoreboard (score, clock, items,
+  ability meter), the player markers and the captions (replay label, goal
+  banner, super ability card), for clean recordings and screenshots. Press
+  **H** in a match to show or hide them, with or without this option. The
+  Mega Strike meter and the goalie's Mega Strike defence stay, as you need
+  them to play.
 
 `--no-tweaks` turns them off for one run.
 
 ## Launcher
 
-A start window that checks your disc, explains what is missing, and keeps every
-setting in one place: players and controllers, keyboard keys, gamepad
+A start window that checks your game image, explains what is missing, and keeps
+every setting in one place: players and controllers, keyboard keys, gamepad
 profiles, display, audio, gameplay tweaks and advanced options. It asks before
-playing with unsaved changes. Everything is also stored in `mscharged.ini`
+playing with unsaved changes. Everything is also stored in `recharged.ini`
 beside the program ([settings](SETTINGS.md)).
 
-It also **updates the port**: when a newer release is out it shows the release
+Its **game images** table lists the Mario Strikers Charged images in your game
+folder, with their region, revision, game ID, format and size and the small
+banner the game uses for its save, read from your own image. Click the one to
+play; images of versions this build cannot run yet are listed with the reason
+([game images](SETTINGS.md#game-images)).
+
+It also **updates Recharged**: when a newer release is out it shows the release
 notes and asks, then installs it in place and restarts; only the program's own
 files are replaced. **Release / Test** on the Play page switches between
 official releases and test builds of changes not yet released, and back,
@@ -124,13 +165,11 @@ asking before it installs anything ([updates](SETTINGS.md#updates)).
 
 ## Not supported (yet)
 
-- **Other versions of the game.** For now only the USA release (R4QE01,
-  revision 1) runs. The European version (revisions 1 and 2) follows with
-  version 1.0.10; for the Japanese and Korean versions the decompilation is
-  still being completed.
-- **Online play.** Nintendo Wi-Fi Connection has shut down, so for now the
-  port behaves like a Wii without internet. The netcode is being reworked to
-  make online play functional again, and options for matchmaking and lobbies
-  are being explored.
+- **The Japanese and Korean versions.** Their decompilation is still being
+  completed.
+- **Online play.** Nintendo Wi-Fi Connection has shut down, so for now
+  Recharged behaves like a Wii without internet. The netcode is being reworked
+  to make online play functional again, and options for matchmaking and
+  lobbies are being explored.
 - **Mods.** A modding framework is in the works; until then, the optional
   tweaks above change the game.

@@ -25,11 +25,11 @@ class BootstrapTests(unittest.TestCase):
         return result.stdout + result.stderr
 
     def test_version_and_self_test_need_no_game_data(self):
-        self.assertRegex(self.run_port("--version"), r"mscharged-port \d+\.\d+\.\d+\+g[0-9a-f]+")
+        self.assertRegex(self.run_port("--version"), r"Recharged \d+\.\d+\.\d+\+g[0-9a-f]+")
         self.assertIn("checks passed", self.run_port("--self-test"))
 
     def test_missing_configuration_reports_setup(self):
-        self.assertIn("Copy mscharged.ini.example", self.run_port(expected=1))
+        self.assertIn("Copy recharged.ini.example", self.run_port(expected=1))
 
     def test_iso_opens_data_partition(self):
         disc = self.root / "test.iso"
@@ -38,9 +38,25 @@ class BootstrapTests(unittest.TestCase):
         self.assertIn("R4QE01 revision 1 (ISO)", output)
         self.assertIn("1 files", output)
 
+    def test_release_report(self):
+        disc = self.root / "release.iso"
+        write_disc(disc)
+        output = self.run_port("--disc", disc)
+        self.assertIn("Release: Mario Strikers Charged, USA\n", output)
+        self.assertNotIn("cannot run", output)
+        write_disc(disc, game_id=b"R4QP01", revision=2)
+        self.assertIn("Release: Mario Strikers Charged Football, Europe, revision 2\n", self.run_port("--disc", disc))
+        write_disc(disc, game_id=b"R4QP01", revision=1)
+        self.assertIn("Release: Mario Strikers Charged Football, Europe, revision 1. "
+                      "Plays with the game code of revision 2.", self.run_port("--disc", disc))
+        write_disc(disc, game_id=b"R4QP01", revision=3)
+        self.assertIn("in revision 2 and revision 1; this disc is revision 3.", self.run_port("--disc", disc))
+        write_disc(disc, game_id=b"R4QJ01", revision=0)
+        self.assertIn("Mario Strikers Charged for Japan (R4QJ01) is not supported yet.", self.run_port("--disc", disc))
+
     def test_default_configuration(self):
         write_disc(self.root / "test.iso")
-        (self.root / "mscharged.ini").write_text("[game]\ndisc = test.iso\n")
+        (self.root / "recharged.ini").write_text("[game]\ndisc = test.iso\n")
         self.assertIn("1 files", self.run_port())
 
     def test_config_relative_path_spaces_and_bom(self):
@@ -52,7 +68,7 @@ class BootstrapTests(unittest.TestCase):
         self.assertIn("1 files", self.run_port("--config", config))
 
     def test_empty_and_duplicate_configuration(self):
-        config = self.root / "mscharged.ini"
+        config = self.root / "recharged.ini"
         config.write_text("[game]\ndisc =\n")
         self.assertIn("Set [game] disc", self.run_port(expected=1))
         config.write_text("[game]\ndisc = one.iso\ndisc = two.iso\n")

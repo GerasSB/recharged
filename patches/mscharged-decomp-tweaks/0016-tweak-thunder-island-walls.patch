@@ -1,0 +1,406 @@
+Subject: Tweak: Thunder Island walls
+Upstream-base: 9046e67aa2077a7eb4ed6e28c9df3c1d3b368f84
+
+Thunder Island has the electric fence of the other stadiums only around its
+goals; along its sides the island ends. The field's walls are the same
+planes as in every stadium (CreateStaticPhysicsPrimitives), but on Thunder
+Island alone the game lets things through them along the sidelines:
+
+- The ball passes the sides above their low edge (0.36) and falls off past
+  them (PhysicsAIBall::Contact, QueueBallFall); shells, bananas, Bob-ombs and
+  the Chain Chomp do likewise (PhysicsShell, PhysicsBanana, PhysicsNPC).
+- A fielder without the ball, or deking, passes the sides
+  (PhysicsCharacter::Contact) and falls off once past a sideline
+  (cFielder::CollideWithWallCallback, fn_80046244), to come back after a
+  while. Launched players lose their wall collisions and land or fall
+  outside. The wind and teleport dekes may take players past the sides, and
+  the Chain Chomp may run past them; every other stadium keeps them inside
+  (cField::FixOutOfBoundsPosition).
+- Nobody is electrocuted along the sides or while launched
+  (cFielder::CanGetElectrocuted), and the ball and items hitting the sides
+  make no fence sparks or sound.
+- The CPU keeps further from the sidelines (cGame's boundary avoidables), and
+  a controlled player's steering avoids them, as with the High Voltage cheat.
+
+With "Thunder Island walls" enabled, all of these take the other stadiums'
+path in an offline match on Thunder Island (ThunderIslandWalls in
+GameInfo.cpp): the sides are an electric fence like the goal ends, invisible
+but sparking where the ball and items hit it, and players knocked into it are
+electrocuted (issue #54). The game's Power and High Voltage cheats then apply
+to the sides as well, and the Waluigi Striker Challenge, played there,
+follows the tweak like any offline match. Online and LAN matches keep the
+open sides, as does the game with the tweak off.
+
+Flying debris passes a player while the fence electrocutes him
+(cFielder::CollideWithWindDebrisCallback). Debris that throws a player into
+a side still overlaps him there; it threw him again at once, into the fence
+again, several times a frame, until the game ran out of sound handles and
+crashed in PlaySound. The original island never gets there, as a launched
+player has no walls and cannot be electrocuted. Otherwise the island's look,
+its wind, lightning and flying debris, and the shadows it hides near its
+edges are unchanged.
+
+diff --git a/include/Game/GameInfo.h b/include/Game/GameInfo.h
+index c80578d..3891420 100644
+--- a/include/Game/GameInfo.h
++++ b/include/Game/GameInfo.h
+@@ -246,4 +246,13 @@ void FormatFriendKey(unsigned long long friendKey, u16* output);
+ 
+ extern void* gOnlineFriendSelectionContext;
+ 
++#if defined(MSCHARGED_TWEAKS)
++// Port tweak "Thunder Island walls": Thunder Island has the electric fence of
++// the other stadiums only around its goals, and its open sides let players,
++// the ball, items and the Chain Chomp go over the edge. With the tweak, an
++// offline match there has the fence along the sides too: the game's checks
++// for the open sides take the other stadiums' path. True for such a match.
++bool ThunderIslandWalls();
++#endif
++
+ #endif // GAME_GAMEINFO_H
+diff --git a/src/Game/AI/DesireSteering.cpp b/src/Game/AI/DesireSteering.cpp
+index dd71daf..eb8a7a1 100644
+--- a/src/Game/AI/DesireSteering.cpp
++++ b/src/Game/AI/DesireSteering.cpp
+@@ -220,6 +220,11 @@ void UpdateSteeringAvoidance(DesireSteering* desire, float fDeltaT)
+                 nThingsToAvoid = AVOID_NOTHING;
+             }
+             else if (GameInfoManager::Instance()->GetStadium() == STAD_THUNDER_ISLAND
++#if defined(MSCHARGED_TWEAKS)
++                // Port tweak "Thunder Island walls": steering as next to any
++                // fence (the High Voltage cheat's rule still applies).
++                && !ThunderIslandWalls()
++#endif
+                 || GameInfoManager::Instance()->IsRule0x4Equal3())
+             {
+                 if (desire->m_pFielder->IsOnScreen()
+diff --git a/src/Game/AI/Fielder.cpp b/src/Game/AI/Fielder.cpp
+index 330be45..66b3552 100644
+--- a/src/Game/AI/Fielder.cpp
++++ b/src/Game/AI/Fielder.cpp
+@@ -1297,9 +1297,19 @@ bool cFielder::CanGetElectrocuted() const
+         return false;
+     if (IsYoshiSuperPowerActive())
+         return false;
+-    if (GameInfoManager::Instance()->GetStadium() == STAD_THUNDER_ISLAND && m_eActionState == ACTION_LAUNCHED)
++    if (GameInfoManager::Instance()->GetStadium() == STAD_THUNDER_ISLAND && m_eActionState == ACTION_LAUNCHED
++#if defined(MSCHARGED_TWEAKS)
++        // Port tweak "Thunder Island walls": the fence along the sides
++        // electrocutes like every other.
++        && !ThunderIslandWalls()
++#endif
++        )
+         return false;
+-    if (GameInfoManager::Instance()->GetStadium() == STAD_THUNDER_ISLAND)
++    if (GameInfoManager::Instance()->GetStadium() == STAD_THUNDER_ISLAND
++#if defined(MSCHARGED_TWEAKS)
++        && !ThunderIslandWalls()
++#endif
++        )
+     {
+         float x = (float)fabs(m_DetChar.m_v3Position.x);
+         if (x < cField::GetGoalLineX(1U) - 1.0f)
+@@ -2091,7 +2101,14 @@ void cFielder::CollideWithChainCallback(ChainChomp* chain)
+ 
+ void cFielder::CollideWithWindDebrisCallback(WindDebris* debris)
+ {
+-    if (!IsInvincible() && !IsShattered() && mbTangible && m_eActionState != ACTION_CROWD_RIOT && m_eActionState != ACTION_LAUNCHED)
++    if (!IsInvincible() && !IsShattered() && mbTangible && m_eActionState != ACTION_CROWD_RIOT && m_eActionState != ACTION_LAUNCHED
++#if defined(MSCHARGED_TWEAKS)
++        // Port tweak "Thunder Island walls": debris that throws a player
++        // into a side would throw him again while the fence electrocutes
++        // him, over and over; it passes him now.
++        && !(ThunderIslandWalls() && m_eActionState == ACTION_ELECTROCUTION)
++#endif
++        )
+     {
+         EndFrozenOrDazed();
+         nlVector3 debrisVelocity = debris->mv3Velocity;
+@@ -2210,7 +2227,12 @@ void cFielder::CollideWithWallCallback(
+         }
+     }
+     else if (m_eActionState != ACTION_FALL
+-             && GameInfoManager::Instance()->GetStadium() == STAD_THUNDER_ISLAND)
++             && GameInfoManager::Instance()->GetStadium() == STAD_THUNDER_ISLAND
++#if defined(MSCHARGED_TWEAKS)
++             // Port tweak "Thunder Island walls": nobody falls off the sides.
++             && !ThunderIslandWalls()
++#endif
++             )
+     {
+         float distance = (float)fabs(m_DetChar.m_v3Position.y);
+         distance -= GetScaledPlayerWidth(m_pTweaks, 1.0f);
+@@ -2650,7 +2672,12 @@ void cFielder::CleanUpAction(eFielderActionState actionState)
+         m_bShadowVisible = true;
+         m_DetChar.m_v3Position.z = 0.0f;
+         m_DetChar.m_v3Velocity.z = 0.0f;
+-        if (GameInfoManager::Instance()->GetStadium() == STAD_THUNDER_ISLAND)
++        if (GameInfoManager::Instance()->GetStadium() == STAD_THUNDER_ISLAND
++#if defined(MSCHARGED_TWEAKS)
++            // Port tweak "Thunder Island walls": the fall kept the walls.
++            && !ThunderIslandWalls()
++#endif
++            )
+         {
+             m_pPhysicsCharacter->m_CanCollideWithGoalLine = true;
+             m_pPhysicsCharacter->m_CanCollideWithWall = true;
+@@ -2789,7 +2816,12 @@ void cFielder::CleanUpAction(eFielderActionState actionState)
+             m_DetChar.m_v3Position.z = 0.0f;
+             m_DetChar.m_v3Velocity.z = 0.0f;
+         }
+-        if (GameInfoManager::Instance()->GetStadium() == STAD_THUNDER_ISLAND)
++        if (GameInfoManager::Instance()->GetStadium() == STAD_THUNDER_ISLAND
++#if defined(MSCHARGED_TWEAKS)
++            // Port tweak "Thunder Island walls": the launch kept the walls.
++            && !ThunderIslandWalls()
++#endif
++            )
+         {
+             m_pPhysicsCharacter->m_CanCollideWithGoalLine = true;
+             m_pPhysicsCharacter->m_CanCollideWithWall = true;
+@@ -4282,7 +4314,12 @@ void cFielder::BeginDekeIntangibility()
+             bool beyondSideline = fabsf(destination.y) > cField::GetSidelineY(1U);
+ #endif
+             bool fixed = false;
+-            if (GameInfoManager::Instance()->GetStadium() != STAD_THUNDER_ISLAND && m_pPhysicsCharacter->m_CanCollideWithWall)
++            if (GameInfoManager::Instance()->GetStadium() != STAD_THUNDER_ISLAND && m_pPhysicsCharacter->m_CanCollideWithWall
++#if defined(MSCHARGED_TWEAKS)
++                // Port tweak "Thunder Island walls": no deke ends past a side.
++                || (ThunderIslandWalls() && m_pPhysicsCharacter->m_CanCollideWithWall)
++#endif
++                )
+                 fixed = cField::FixOutOfBoundsPosition(destination, 0.9f * GetScaledPlayerWidth(m_pTweaks, GetPlayerScale()), false);
+             else if (m_pPhysicsCharacter->m_CanCollideWithGoalLine)
+                 fixed = cField::FixOutOfBoundsX(destination, false, 0.9f * GetScaledPlayerWidth(m_pTweaks, GetPlayerScale()));
+diff --git a/src/Game/AI/FielderActions.cpp b/src/Game/AI/FielderActions.cpp
+index 1918092..00c4d96 100644
+--- a/src/Game/AI/FielderActions.cpp
++++ b/src/Game/AI/FielderActions.cpp
+@@ -1040,7 +1040,12 @@ void cFielder::InitActionLaunched(const nlVector3& v3Velocity)
+     SetTangible(1, 0);
+     m_fOpacity = 1.0f;
+ 
+-    if (GameInfoManager::Instance()->GetStadium() == STAD_THUNDER_ISLAND)
++    if (GameInfoManager::Instance()->GetStadium() == STAD_THUNDER_ISLAND
++#if defined(MSCHARGED_TWEAKS)
++        // Port tweak "Thunder Island walls": a launched player stays inside.
++        && !ThunderIslandWalls()
++#endif
++        )
+     {
+         m_pPhysicsCharacter->m_CanCollideWithGoalLine = 0;
+         m_pPhysicsCharacter->m_CanCollideWithWall = 0;
+@@ -1069,6 +1074,10 @@ void cFielder::ActionLaunched(float fDeltaT)
+                 = (float)fabs(0.5f * (2.0f * cField::mv3FieldPosition.y));
+ 
+             if (GameInfoManager::Instance()->GetStadium() == STAD_THUNDER_ISLAND
++#if defined(MSCHARGED_TWEAKS)
++                // Port tweak "Thunder Island walls": he lands as anywhere else.
++                && !ThunderIslandWalls()
++#endif
+                 && (((float)fabs(v3Position.x) - fGoalLineX > 0.0f
+                         && (float)fabs(v3Position.x) - (5.0f + fGoalLineX)
+                                < 0.0f)
+@@ -1919,7 +1928,12 @@ void cFielder::InitActionFall()
+             SwapController(false);
+         }
+ 
+-        if (GameInfoManager::Instance()->GetStadium() == STAD_THUNDER_ISLAND)
++        if (GameInfoManager::Instance()->GetStadium() == STAD_THUNDER_ISLAND
++#if defined(MSCHARGED_TWEAKS)
++            // Port tweak "Thunder Island walls": the walls stay.
++            && !ThunderIslandWalls()
++#endif
++            )
+         {
+             m_pPhysicsCharacter->m_CanCollideWithGoalLine = 0;
+             m_pPhysicsCharacter->m_CanCollideWithWall = 0;
+diff --git a/src/Game/Character.cpp b/src/Game/Character.cpp
+index 1ea45da..f91234f 100644
+--- a/src/Game/Character.cpp
++++ b/src/Game/Character.cpp
+@@ -1401,7 +1401,13 @@ void cCharacter::UpdateMovementState(float fDeltaT)
+             nlVec2Set(*(nlVector2*)&m_DetChar.m_v3Position,
+                 unidentifiedForceScale * unidentifiedForce.x + m_DetChar.m_v3Position.x,
+                 unidentifiedForceScale * unidentifiedForce.y + m_DetChar.m_v3Position.y);
+-            if (GameInfoManager::Instance()->GetStadium() != STAD_THUNDER_ISLAND && m_pPhysicsCharacter->m_CanCollideWithWall)
++            if (GameInfoManager::Instance()->GetStadium() != STAD_THUNDER_ISLAND && m_pPhysicsCharacter->m_CanCollideWithWall
++#if defined(MSCHARGED_TWEAKS)
++                // Port tweak "Thunder Island walls": the wind no longer
++                // pushes players over the sides.
++                || (ThunderIslandWalls() && m_pPhysicsCharacter->m_CanCollideWithWall)
++#endif
++                )
+             {
+                 cField::FixOutOfBoundsPosition(
+                     m_DetChar.m_v3Position, fMinDistanceFromWall, false);
+@@ -2191,6 +2197,10 @@ void OnCollisionPowerupWall(CollisionPowerupWallData* pEventData)
+     unsigned long powerupID = (unsigned long)pEventData->pPowerup;
+ #endif
+     if (GameInfoManager::Instance()->GetStadium() != STAD_THUNDER_ISLAND
++#if defined(MSCHARGED_TWEAKS)
++        // Port tweak "Thunder Island walls": the sides spark like a fence.
++        || ThunderIslandWalls()
++#endif
+         || fabsf(pos.x) > cField::GetGoalLineX(1U) - 2.5f)
+     {
+         EmissionManager* unidentifiedManager = EmissionManager::Instance();
+@@ -2361,6 +2371,10 @@ void OnCollisionBallWall(CollisionBallWallData* pEventData)
+     {
+         HandleBallWallContact(pEventData->pBall);
+         if (GameInfoManager::Instance()->GetStadium() != STAD_THUNDER_ISLAND
++#if defined(MSCHARGED_TWEAKS)
++            // Port tweak "Thunder Island walls": the sides spark like a fence.
++            || ThunderIslandWalls()
++#endif
+             || fabsf(pEventData->pBall->m_v3Position.x) > cField::GetGoalLineX(1U) - 2.5f)
+         {
+             if (EmitElectricFenceBallEffect(pEventData->position, pEventData->normal, MSCHARGED_EMISSION_OWNER_ADDRESS(pEventData->pBall), false))
+diff --git a/src/Game/Game.cpp b/src/Game/Game.cpp
+index 87af7a7..36d981f 100644
+--- a/src/Game/Game.cpp
++++ b/src/Game/Game.cpp
+@@ -477,7 +477,13 @@ cGame::cGame(void* terrainIndex, int weatherType, bool startCrowdRiot)
+ 
+     if (GameInfoManager::Instance()->GetStadium() == STAD_SAND_TOMB)
+         avoidableWidth = 6.0f;
+-    else if (GameInfoManager::Instance()->GetStadium() == STAD_THUNDER_ISLAND)
++    else if (GameInfoManager::Instance()->GetStadium() == STAD_THUNDER_ISLAND
++#if defined(MSCHARGED_TWEAKS)
++             // Port tweak "Thunder Island walls": the CPU keeps the other
++             // stadiums' distance from the fenced sides.
++             && !ThunderIslandWalls()
++#endif
++             )
+         avoidableWidth = 3.0f;
+ 
+     avoidableCenter.x = 0.0f;
+diff --git a/src/Game/GameInfo.cpp b/src/Game/GameInfo.cpp
+index 9f8512b..963cddb 100644
+--- a/src/Game/GameInfo.cpp
++++ b/src/Game/GameInfo.cpp
+@@ -161,6 +161,15 @@ void GameInfoManager::SetStadium(int stadium)
+     mGameInfo[mCurrentMode]->mStadiumIndex = stadium;
+ }
+ 
++#if defined(MSCHARGED_TWEAKS)
++bool ThunderIslandWalls()
++{
++    GameInfoManager* info = GameInfoManager::Instance();
++    return info->GetStadium() == STAD_THUNDER_ISLAND && !info->IsOnline()
++        && mscharged_tweak_enabled(MSCHARGED_TWEAK_THUNDER_ISLAND_WALLS);
++}
++#endif
++
+ short GameInfoManager::GetPlayingSide(unsigned short pad) const
+ {
+     return mGameInfo[mCurrentMode]->mPadSides[pad];
+diff --git a/src/Game/Physics/PhysicsBanana.cpp b/src/Game/Physics/PhysicsBanana.cpp
+index 47278df..d77f4f9 100644
+--- a/src/Game/Physics/PhysicsBanana.cpp
++++ b/src/Game/Physics/PhysicsBanana.cpp
+@@ -316,7 +316,13 @@ ContactType PhysicsBanana::Contact(
+             }
+ 
+             if (hasWallContact
+-                && GameInfoManager::Instance()->GetStadium() == STAD_THUNDER_ISLAND)
++                && GameInfoManager::Instance()->GetStadium() == STAD_THUNDER_ISLAND
++#if defined(MSCHARGED_TWEAKS)
++                // Port tweak "Thunder Island walls": bananas and Bob-ombs stay
++                // inside the sides instead of falling off them.
++                && !ThunderIslandWalls()
++#endif
++                )
+             {
+                 float sidelineDistance
+                     = fabsf(contactPos.y) - m_pPowerupObject->GetRadius();
+diff --git a/src/Game/Physics/PhysicsCharacter.cpp b/src/Game/Physics/PhysicsCharacter.cpp
+index 4efaa42..909d3e9 100644
+--- a/src/Game/Physics/PhysicsCharacter.cpp
++++ b/src/Game/Physics/PhysicsCharacter.cpp
+@@ -192,6 +192,10 @@ ContactType PhysicsCharacter::Contact(PhysicsObject* other,
+ 
+         if (sidelineCollision && objectType == PHYSOBJ_WALL
+             && GameInfoManager::Instance()->GetStadium() == STAD_THUNDER_ISLAND
++#if defined(MSCHARGED_TWEAKS)
++            // Port tweak "Thunder Island walls": the sides stop every player.
++            && !ThunderIslandWalls()
++#endif
+             && m_pAICharacter->m_eClassType == FIELDER)
+         {
+             cFielder* fielder = (cFielder*)m_pAICharacter;
+diff --git a/src/Game/Physics/PhysicsNPC.cpp b/src/Game/Physics/PhysicsNPC.cpp
+index 5682ad4..941f169 100644
+--- a/src/Game/Physics/PhysicsNPC.cpp
++++ b/src/Game/Physics/PhysicsNPC.cpp
+@@ -113,7 +113,13 @@ ContactType PhysicsNPC::Contact(
+     default:
+     {
+         if (object->GetObjectType() == PHYSOBJ_WALL
+-            && GameInfoManager::Instance()->GetStadium() == STAD_THUNDER_ISLAND)
++            && GameInfoManager::Instance()->GetStadium() == STAD_THUNDER_ISLAND
++#if defined(MSCHARGED_TWEAKS)
++            // Port tweak "Thunder Island walls": the Chain Chomp does not fall
++            // off the sides.
++            && !ThunderIslandWalls()
++#endif
++            )
+         {
+             bool isChainChomp
+                 = ((SkinAnimatedNPC*)mpAINPC)->GetSkinAnimatedNPC_Type()
+diff --git a/src/Game/Physics/PhysicsShell.cpp b/src/Game/Physics/PhysicsShell.cpp
+index 6be4abe..b98209e 100644
+--- a/src/Game/Physics/PhysicsShell.cpp
++++ b/src/Game/Physics/PhysicsShell.cpp
+@@ -430,7 +430,13 @@ ContactType PhysicsShell::Contact(
+             }
+ 
+             if (bWasRicochet
+-                && GameInfoManager::Instance()->GetStadium() == STAD_THUNDER_ISLAND)
++                && GameInfoManager::Instance()->GetStadium() == STAD_THUNDER_ISLAND
++#if defined(MSCHARGED_TWEAKS)
++                // Port tweak "Thunder Island walls": shells ricochet off the
++                // sides instead of flying over them.
++                && !ThunderIslandWalls()
++#endif
++                )
+             {
+                 nlVector3 contactPos;
+                 nlVec3Set(contactPos, info->geom.pos[0], info->geom.pos[1], info->geom.pos[2]);
+diff --git a/src/Game/PhysicsAIBall.cpp b/src/Game/PhysicsAIBall.cpp
+index 521c17d..bcddb6f 100644
+--- a/src/Game/PhysicsAIBall.cpp
++++ b/src/Game/PhysicsAIBall.cpp
+@@ -182,7 +182,13 @@ ContactType PhysicsAIBall::Contact(
+                     info->geom.pos[2]);
+ 
+                 if (GameInfoManager::Instance()->GetStadium() == STAD_THUNDER_ISLAND
+-                    && objID == PHYSOBJ_WALL)
++                    && objID == PHYSOBJ_WALL
++#if defined(MSCHARGED_TWEAKS)
++                    // Port tweak "Thunder Island walls": the ball bounces off
++                    // the sides at any height, as off every fence.
++                    && !ThunderIslandWalls()
++#endif
++                    )
+                 {
+                     bool bAboveHeight = contactPos.z > 0.36f;
+                     float sideDist = fabsf(contactPos.y) - GetRadius();
+diff --git a/src/Game/Render/ChainChomp.cpp b/src/Game/Render/ChainChomp.cpp
+index 5db5f26..f091ffe 100644
+--- a/src/Game/Render/ChainChomp.cpp
++++ b/src/Game/Render/ChainChomp.cpp
+@@ -385,7 +385,12 @@ void ChainChomp::Update(float fDeltaT)
+     v3UpdatedPosition.x = mv3Position.x + fDeltaT * mv3Velocity.x;
+     v3UpdatedPosition.y = mv3Position.y + fDeltaT * mv3Velocity.y;
+     v3UpdatedPosition.z = gfChainChompGroundHeight;
+-    if (GameInfoManager::Instance()->GetStadium() != STAD_THUNDER_ISLAND && meChainChompState != CHAIN_STATE_LEAVE)
++    if (GameInfoManager::Instance()->GetStadium() != STAD_THUNDER_ISLAND && meChainChompState != CHAIN_STATE_LEAVE
++#if defined(MSCHARGED_TWEAKS)
++        // Port tweak "Thunder Island walls": the sides keep it in too.
++        || (ThunderIslandWalls() && meChainChompState != CHAIN_STATE_LEAVE)
++#endif
++        )
+     {
+         cField::FixOutOfBoundsPosition(v3UpdatedPosition,
+             gGameTweaks.m_pGameTweaks->fChainChompRadius.GetValue(),

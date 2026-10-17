@@ -1,8 +1,8 @@
 Subject: Declare the port's opt-in tweak hooks
-Upstream-base: 7a6bf165d9f1c5914181c079c7d4bfa7204f3509
+Upstream-base: 9046e67aa2077a7eb4ed6e28c9df3c1d3b368f84
 
 Opt-in game tweaks are the first changes of the port's mod phase: the player
-turns them on in [gameplay] of mscharged.ini, and each is off by default. This
+turns them on in [gameplay] of recharged.ini, and each is off by default. This
 series is separate from the faithful series and applied after it. Its hooks
 are compiled only into the game module built with MSCHARGED_TWEAKS; there,
 every hook takes the original path unless its tweak is enabled. Other targets
@@ -13,14 +13,14 @@ Add include/mscharged_tweaks.h, the hooks' interface to the port
 
 diff --git a/include/mscharged_tweaks.h b/include/mscharged_tweaks.h
 new file mode 100644
-index 0000000..df94716
+index 0000000..84ba3f5
 --- /dev/null
 +++ b/include/mscharged_tweaks.h
-@@ -0,0 +1,75 @@
+@@ -0,0 +1,148 @@
 +#ifndef MSCHARGED_TWEAKS_H
 +#define MSCHARGED_TWEAKS_H
 +
-+// Opt-in game tweaks of the native port ([gameplay] in mscharged.ini). They
++// Opt-in game tweaks of the native port ([gameplay] in recharged.ini). They
 +// are not part of the original game. Their hooks exist only in builds with
 +// MSCHARGED_TWEAKS, and each keeps the original behaviour unless the player
 +// enabled its tweak. The functions are the port's src/platform/game_tweaks.cpp.
@@ -39,9 +39,49 @@ index 0000000..df94716
 +    MSCHARGED_TWEAK_UNLOCK_ALL = 3,
 +    MSCHARGED_TWEAK_CPU_VS_CPU = 4,
 +    MSCHARGED_TWEAK_FAST_TERRAIN = 5,
++    MSCHARGED_TWEAK_MIRROR_MATCH = 6,
++    MSCHARGED_TWEAK_THUNDER_ISLAND_WALLS = 7,
++    MSCHARGED_TWEAK_BLUE_PEACH = 8,
++    MSCHARGED_TWEAK_NO_HUD = 9,
++    MSCHARGED_TWEAK_FAIR_BALL_CONTESTS = 10,
 +};
 +
 +bool mscharged_tweak_enabled(int tweak);
++
++// European revision 1 data on the revision 2 code (set by the host for such a
++// disc, whatever the enabled set): its sound bank number, presentation script
++// native and in-game texture budget. Identity without such a disc.
++int mscharged_tweak_rev1_sound_bank(int bank);
++unsigned int mscharged_tweak_rev1_presentation_function(unsigned int function);
++unsigned long mscharged_tweak_rev1_ingame_texture_budget(unsigned long size);
++
++// Mirror match: away kits made where the game has none: Mario's, Luigi's,
++// Wario's and Waluigi's whole kit, Peach's menu pictures and Mega Strike hand.
++// The colour (0xRRGGBB) of a captain's made kit and its kit texture, 0 when
++// he has none (the texture also when the game has his field kit); the two
++// teams whose textures and pictures tell the team-coloured texels apart;
++// turning texture `source` of a loaded bundle into the away kit in place,
++// renamed `target` (team textures compare with texture `texture0`/`texture1`
++// of the reference teams' bundles); recolouring one texture in place (its
++// 32-byte header and levels, as bundles store them): a kit texture, a team
++// texture compared with the same texture of the reference teams, or a painted
++// picture of the captain; and whether the game's photos of him (the newspaper
++// after a match) recolour cleanly.
++unsigned mscharged_tweak_away_kit_colour(const char* captain);
++unsigned mscharged_tweak_away_kit_source(const char* captain);
++const char* mscharged_tweak_away_kit_reference(const char* captain, int index);
++bool mscharged_tweak_make_away_kit(const char* captain, bool team, void* bundle, unsigned long size, unsigned source,
++    unsigned target, const void* reference0, unsigned long size0, unsigned texture0, const void* reference1,
++    unsigned long size1, unsigned texture1);
++enum
++{
++    MSCHARGED_AWAY_KIT_TEXTURE = 0,
++    MSCHARGED_AWAY_TEAM_TEXTURE = 1,
++    MSCHARGED_AWAY_PICTURE = 2,
++};
++bool mscharged_tweak_recolour_away_texture(const char* captain, int kind, void* texture, unsigned long size,
++    const void* reference0, unsigned long size0, const void* reference1, unsigned long size1);
++bool mscharged_tweak_away_kit_photos(const char* captain);
 +
 +// Skip intro: whether the title screen still has to be passed this launch,
 +// and taking that single press of A.
@@ -58,6 +98,9 @@ index 0000000..df94716
 +// transition time; every other task (effects, audio, pads) keeps real time.
 +void mscharged_tweak_set_transition_task(const void* task);
 +float mscharged_tweak_task_dilation(const void* task);
++// A time step back on real time: in the camera task during a transition the
++// step without its transition dilation, anywhere else the step itself.
++float mscharged_tweak_real_time(float deltaTime);
 +// Slides reset (Update(0)) this frame keep their first frame.
 +void mscharged_tweak_note_slide_reset(const void* slide);
 +bool mscharged_tweak_slide_reset_this_frame(const void* slide);
@@ -85,6 +128,36 @@ index 0000000..df94716
 +float mscharged_tweak_original_frames(void);
 +bool mscharged_tweak_original_frame(void);
 +unsigned long mscharged_tweak_frame_number(unsigned long renderedFrame);
++
++// Performance mode ([display] performance_mode, a host display setting outside
++// the tweak mask): lighter matches. The first is the setting itself (for match
++// loading); the second is true while a match runs with it on, so menus keep
++// every effect. The hooks only skip decorative work: no gameplay state and no
++// random number the game or the network shares depends on what they skip.
++bool mscharged_tweak_performance_mode(void);
++bool mscharged_tweak_performance_match(void);
++// The stadium of the match being rendered (frame recordings).
++void mscharged_tweak_report_stadium(int stadium);
++
++// Sound group volumes ([audio] in recharged.ini, a host setting outside the
++// tweak mask): the decibels to add to a sound of the named sound bank (null
++// when unknown) and mix category (its voice's calculation slider), 0 while
++// every group is at 100 %; and the gain (0-1) of the movies' audio samples.
++float mscharged_tweak_sound_volume(const char* bank, unsigned category);
++float mscharged_tweak_movie_volume(void);
++
++// No HUD: whether the match's HUD, player markers and captions are hidden.
++// Each match starts with the tweak's choice; the host's H key shows or hides
++// them during a match. Once a frame, at its start, the key's presses are
++// taken.
++void mscharged_tweak_hud_frame(void);
++bool mscharged_tweak_hud_hidden(void);
++
++// The front end's logo reads RECHARGED (issue #63; always on, the host's
++// RECHARGED_ORIGINAL_LOGO=1 keeps the game's own): a front-end scene file as
++// read from the disc (Wii FENL bytes), or a rewritten copy of it (its size in
++// *size), valid until the next call.
++void* mscharged_tweak_frontend_package(void* data, unsigned long* size);
 +
 +#ifdef __cplusplus
 +}

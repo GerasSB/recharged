@@ -6,21 +6,22 @@
 #include "bootstrap/config.h"
 #include "mscharged/build_version.h"
 #include "platform/disc.h"
+#include "platform/game_release.h"
 #include "platform/path.h"
 
 namespace
 {
 void PrintVersion()
 {
-    std::cout << "mscharged-port " << mscharged::build::version
+    std::cout << "Recharged " << mscharged::build::version
               << " (" << MSCHARGED_BUILD_CONFIG << "; development bootstrap)\n";
 }
 
 void PrintUsage(std::ostream& output)
 {
     output << "Usage: mscharged-bootstrap [--config FILE | --disc FILE | --self-test | --version | --help]\n"
-           << "With no arguments, read [game] disc from ./mscharged.ini.\n"
-           << "--disc accepts an ISO or RVZ directly; --self-test needs no game data.\n";
+           << "With no arguments, read [game] disc from ./recharged.ini.\n"
+           << "--disc accepts an ISO, RVZ or WBFS directly; --self-test needs no game data.\n";
 }
 }
 
@@ -64,14 +65,19 @@ int main(int argc, char** argv)
         try
         {
             const auto path = use_disc ? mscharged::PathFromUtf8(argv[2])
-                : mscharged::LoadDiscPath(use_config ? mscharged::PathFromUtf8(argv[2]) : "mscharged.ini");
+                : mscharged::LoadDiscPath(use_config ? mscharged::PathFromUtf8(argv[2]) : "recharged.ini");
             std::cout << "Disc image: " << mscharged::PathUtf8(path) << '\n';
             const auto info = mscharged::InspectDisc(path);
             std::cout << "Disc: " << info.game_id << " revision " << unsigned(info.revision)
                       << " (" << info.format << ") - " << info.title << '\n'
                       << "Game data partition opened: " << info.file_count << " files.\n";
-            if (info.game_id != "R4QE01" || info.revision != 1)
-                std::cout << "This disc differs from the source baseline R4QE01 revision 1; asset compatibility is unverified.\n";
+            if (const auto* release = mscharged::FindRelease(info))
+            {
+                const auto note = mscharged::ReleaseNote(*release);
+                std::cout << "Release: " << release->title << ", " << mscharged::ReleaseLabel(*release)
+                          << (note.empty() ? "" : ". " + note) << '\n';
+            }
+            if (const auto reason = mscharged::UnplayableReason(info); !reason.empty()) std::cout << reason << '\n';
         }
         catch (const std::exception& error)
         {
