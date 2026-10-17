@@ -257,7 +257,7 @@ DiscCheck RunDiscCheck(const fs::path& path, std::string selection, const std::s
         return result;
     }
     std::error_code error;
-    result.size = fs::file_size(path, error);
+    result.size = launcher::DiscImageSize(path, error);
     const auto time = fs::last_write_time(path, error);
     if (!error) result.modified = std::int64_t(time.time_since_epoch().count());
     try { result.info = InspectDisc(path); }
@@ -1758,8 +1758,8 @@ private:
     {
         // "All files" too: a system that does not know the .rvz type (macOS) may
         // grey such files out under the first filter. The check reads the content.
-        static const SDL_DialogFileFilter filters[] = {{"Wii disc images (ISO / RVZ)", "iso;rvz;ISO;RVZ"},
-                                                       {"All files", "*"}};
+        static const SDL_DialogFileFilter filters[] = {
+            {"Wii disc images (ISO / RVZ / WBFS)", "iso;rvz;wbfs;ISO;RVZ;WBFS"}, {"All files", "*"}};
         {
             std::lock_guard<std::mutex> lock(dialog_->mutex);
             dialog_->active = true;
@@ -1917,7 +1917,7 @@ private:
         if (DiscSelection().empty())
             return autochoose_ != AutoChoice::None && library_scanning_
                 ? "Reading your game folder..."
-                : "Choose your Mario Strikers Charged image (ISO or RVZ) on the Game page.";
+                : "Choose your Mario Strikers Charged image (ISO, RVZ or WBFS) on the Game page.";
         if (!PinnedMissing().empty()) return "Your game image is missing. " + PinnedMissing();
         if (!check_.info || check_.selection != DiscSelection())
             return check_.error.empty() ? "Check your image on the Game page." : check_.error;

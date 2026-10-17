@@ -17,9 +17,11 @@ be chosen.
 - **Another ID**, such as `R4QJ01` (Japan): not supported yet; the
   decompilation of these versions is still being completed. Renaming the file
   does not change the version inside it.
-- **"This build accepts ISO and RVZ disc images":** only complete `.iso` and
-  `.rvz` images work; other formats (`.wbfs`, `.ciso`, `.wia`, `.gcz`) and
-  extracted disc folders are not supported.
+- **"This build accepts ISO, RVZ and WBFS disc images":** only complete
+  `.iso`, `.rvz` and `.wbfs` images work; other formats (`.ciso`, `.wia`,
+  `.gcz`) and extracted disc folders are not supported. A WBFS image split into
+  parts (`.wbfs`, `.wbf1`, ...) works when all parts stay side by side; choose
+  the `.wbfs` file.
 - **"Expected a Mario Strikers Charged Wii image":** the file is another game
   or not a Wii disc image.
 - **"Cannot be read":** the file is incomplete or damaged (an unfinished

@@ -1,6 +1,6 @@
 # Copy this file to recharged.ini and set your disc image path.
 # Paths are relative to this INI file. Absolute paths also work.
-# ISO and RVZ are read directly; no extraction or conversion is needed.
+# ISO, RVZ and WBFS are read directly; no extraction or conversion is needed.
 [game]
 # The image Play starts (the one chosen on the launcher's Game page).
 disc = game/R4QE01.rvz

@@ -5,8 +5,8 @@ to build anything. On a Steam Deck, follow the [Steam Deck guide](STEAM_DECK.md)
 instead.
 
 > **The packages contain no game files.** You need your own copy of
-> **Mario Strikers Charged** as an `.iso` or `.rvz` disc image: the USA
-> version (game ID `R4QE01`, revision 1) or the European version (game ID
+> **Mario Strikers Charged** as an `.iso`, `.rvz` or `.wbfs` disc image: the
+> USA version (game ID `R4QE01`, revision 1) or the European version (game ID
 > `R4QP01`, revision 1 or 2). Other regions do not work yet, and renaming a
 > file does not change that.
 
@@ -63,9 +63,9 @@ Run **`recharged.exe`** (Windows), **`Recharged.app`** (macOS) or
 
 ## 4. Choose your game and play
 
-The launcher opens. Put your `.iso` or `.rvz` into a `game` folder beside the
-program, or on the **Game** page click the game folder (**Change...**) to pick
-the folder that holds it, and click the image to play. **Choose file...** plays
+The launcher opens. Put your `.iso`, `.rvz` or `.wbfs` into a `game` folder
+beside the program, or on the **Game** page click the game folder
+(**Change...**) to pick the folder that holds it, and click the image to play. **Choose file...** plays
 an image from anywhere else. The image is read directly; do not extract or
 mount it, and keep it where it is. Then press **Play**.
 

@@ -27,8 +27,8 @@ instead.
 ## Game images
 
 *Game → Game images* is one table of the Mario Strikers Charged images
-(`.iso`, `.rvz`) in your game folder: title, region, revision, game ID,
-format, size and file name. Click a column title to sort by it.
+(`.iso`, `.rvz`, `.wbfs`) in your game folder: title, region, revision, game
+ID, format, size and file name. Click a column title to sort by it.
 
 **Choosing the image.** Click an image to play it: its row is marked, and Play
 starts it from then on (`[game] disc`, saved with your settings). Sorting or
@@ -189,7 +189,7 @@ folder, the same for every copy of Recharged:
 | Linux, Steam Deck | `~/.local/share/recharged/saves` (or `$XDG_DATA_HOME/recharged/saves`) |
 
 A new version unpacked into a new folder, an update, or a game image that was
-renamed, moved or swapped for another dump of the same version (ISO or RVZ)
+renamed, moved or swapped for another dump of the same version (ISO, RVZ or WBFS)
 keeps them. **Game → Save data** (`[game] save_folder`) sets another folder,
 for example to keep everything in a portable folder; a new folder starts
 without saves and the old folder keeps its saves. Each version has its own

@@ -136,7 +136,7 @@ enum class LibrarySort
 {
     Release, // region, then revision, then file name; unreadable files last
     Name,    // file name
-    Format,  // ISO or RVZ, then release
+    Format,  // ISO, RVZ or WBFS, then release
     Size,    // file size, smallest first
 };
 // The images in this order; `descending` reverses it.

@@ -462,7 +462,7 @@ void SaveConfig(ConfigFile& file, const Settings& settings)
 std::filesystem::path ResolveDiscPath(const Settings& settings, const std::filesystem::path& config)
 {
     if (settings.disc.empty())
-        throw std::runtime_error("Set [game] disc to an ISO or RVZ path in " + PathUtf8(config));
+        throw std::runtime_error("Set [game] disc to an ISO, RVZ or WBFS path in " + PathUtf8(config));
     const auto path = PathFromUtf8(settings.disc);
     return path.is_absolute() ? path : config.parent_path() / path;
 }

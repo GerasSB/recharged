@@ -307,7 +307,7 @@ int mscharged::RunOriginalGame(int argc, char** argv,
         // advanced.log_window: the separate log window, when the launcher has not opened it.
         mscharged::platform::SetLogWindow(launch.settings.log_window);
         std::printf("%s\n",mscharged::DescribeLaunch(launch).c_str());
-        Check(!disc.empty() && std::filesystem::is_regular_file(launch.disc_path),"Supply your own game ISO/RVZ with --disc FILE or [game] disc in the INI");
+        Check(!disc.empty() && std::filesystem::is_regular_file(launch.disc_path),"Supply your own game ISO/RVZ/WBFS with --disc FILE or [game] disc in the INI");
         // Validate native preferences before acquiring any hardware/module owner.
         // The disc decides the release and so the languages a Wii could select;
         // the original game still owns its region and localization branches
