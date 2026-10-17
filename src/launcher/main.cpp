@@ -2178,9 +2178,7 @@ private:
             const float gap = Dp(16);
             const float width = (size.x - pad * 2 - gap * 2) / 3.0f;
             ImGui::SetCursorScreenPos({origin.x + pad, cards_y});
-            const auto pinned = PinnedInfo();
-            SummaryCard("##disc_card", "Game image", Icon::Disc, width, PageGame, DiscSummary(),
-                        pinned && PinnedMissing().empty() ? pinned->game_id : std::string());
+            SummaryCard("##disc_card", "Game image", Icon::Disc, width, PageGame, DiscSummary());
             ImGui::SameLine(0, gap);
             SummaryCard("##display_card", "Display", Icon::Display, width, PageDisplay, DisplaySummary());
             ImGui::SameLine(0, gap);
@@ -2394,8 +2392,7 @@ private:
         return {language + " text", audio, color::info};
     }
 
-    void SummaryCard(const char* id, const char* title, Icon icon, float width, int page, const Summary& summary,
-                     const std::string& banner = {})
+    void SummaryCard(const char* id, const char* title, Icon icon, float width, int page, const Summary& summary)
     {
         const auto& fonts = CurrentFonts();
         ImGui::PushStyleColor(ImGuiCol_ChildBg, Mix(color::card, color::window, 0.15f));
@@ -2411,9 +2408,6 @@ private:
         DrawLabel(draw, fonts.caption, {pos.x + Dp(40), pos.y + Dp(6)}, Col(color::muted), title);
         const float inner = ImGui::GetContentRegionAvail().x;
         DrawChevron(draw, {pos.x + inner - Dp(4), pos.y + Dp(14)}, Dp(14), Col(color::dim));
-        if (!banner.empty() && Banner(banner) && inner > Dp(200))
-            DrawBanner(draw, {pos.x + inner - Dp(24 + 78), pos.y + Dp(2)}, {pos.x + inner - Dp(24), pos.y + Dp(28)},
-                       banner);
         ImGui::SetCursorScreenPos({pos.x, pos.y + Dp(42)});
         ImGui::PushFont(fonts.label);
         ImGui::PushStyleColor(ImGuiCol_Text, color::text);
