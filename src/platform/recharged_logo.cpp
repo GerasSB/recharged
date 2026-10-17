@@ -77,7 +77,7 @@ constexpr float kEx = -26.0f / kTitleSpacing, kEy = -2.0f / kTitleSpacing;
 // letters fit between them, all on the black, at 90 % of their size (letters,
 // gaps and the lightning around them alike), the word moved right by this
 // much (before that scale).
-constexpr float kShift = 40.0f / kTitleSpacing;
+constexpr float kShift = 34.5f / kTitleSpacing;
 constexpr float kWordScale = 0.9f;
 // How far the letters' glyphs reach beyond their centres (texels).
 constexpr float kCLeft = -16.0f, kRLeft = -18.0f, kDRight = 27.0f;

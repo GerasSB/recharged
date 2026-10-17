@@ -325,13 +325,13 @@ void TestRecharge()
     Check(mscharged::platform::RechargeLogo(Bytes(original), out) == 1, "one group recharged");
     const FrontendScene scene = Read(out);
 
-    // R and E in front of C, the word 40/31.5 spacings further right, all at
-    // 90 % through the group's scale.
+    // R and E in front of C, the word 34.5/31.5 spacings further right, all
+    // at 90 % through the group's scale.
     const auto& charged = InstanceNamed(scene, "charged");
     std::vector<std::string> order;
     for (const auto child : charged.children) order.push_back(InstanceAt(scene, child).name);
     Check(order == std::vector<std::string>{"Re_R", "Re_E", "C", "h", "a", "r", "g", "e", "d"}, "letter order");
-    const float spacing = (87.0f + 102.0f) / 6.0f, shift = 40.0f / 31.5f * spacing, scale = 0.9f;
+    const float spacing = (87.0f + 102.0f) / 6.0f, shift = 34.5f / 31.5f * spacing, scale = 0.9f;
     Check((charged.overload_flags & 0x5) == 0x5, "group position and scale");
     Near(charged.attributes.position[0], -62, "group x");
     Near(charged.attributes.position[1], -128, "group y");
