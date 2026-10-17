@@ -170,6 +170,20 @@ void TestReleases()
               && !release->PackageFor("macos-x86_64") && release->Checksums(),
           "Package per platform");
 
+    // Packages are named recharged-... since the rename (#64), mscharged-... before.
+    std::string renamed = Release("v1.0.11", false, "2026-10-18T10:00:00Z", "1.0.11+gffffffffffff");
+    for (std::size_t at = 0; (at = renamed.find("mscharged-", at)) != std::string::npos;)
+        renamed.replace(at, 10, "recharged-");
+    const auto both = ParseReleases(platform::ParseJson("[" + renamed + "," + Release("v1.0.9", false,
+        "2026-10-15T17:22:00Z", "1.0.9+gaaaaaaaaaaaa") + "]"));
+    Check(both.size() == 2 && both[0].version.patch == 11 && both[0].PackageFor("windows-x86_64")
+              && both[0].PackageFor("linux-x86_64")->name == "recharged-1.0.11+gffffffffffff-linux-x86_64.tar.gz"
+              && both[1].PackageFor("linux-x86_64"),
+          "Recharged and mscharged packages");
+    const auto* renamed_update = FindUpdate(Build(BuildOrigin::Release, "1.0.10+gbbbbbbbbbbbb", 1792100000),
+                                            UpdateChannel::Release, both);
+    Check(renamed_update && renamed_update->tag == "v1.0.11", "A release finds the renamed release");
+
     // Release builds: newer versions only; the very same build is current.
     Check(!FindUpdate(Build(BuildOrigin::Release, "1.0.9+gaaaaaaaaaaaa", 1792084000), UpdateChannel::Release, builds),
           "A release is up to date with itself");
@@ -447,6 +461,23 @@ void TestInstall(const fs::path& fixtures, const fs::path& work)
         for (auto it = after.begin(); it != after.end();)
             it = it->first.rfind(".update/", 0) == 0 ? after.erase(it) : std::next(it);
         Check(after == installed, "Nothing changed");
+    }
+
+    // After an update the launcher restarts as recharged, or as mscharged in a
+    // folder that went back to a release from before the rename (#64).
+    {
+#ifdef _WIN32
+        const std::string recharged = "recharged.exe", mscharged = "mscharged.exe";
+#else
+        const std::string recharged = "recharged", mscharged = "mscharged";
+#endif
+        const fs::path base = Fresh(work, "restart");
+        fs::create_directories(base);
+        Check(InstalledLauncher(base) == base / recharged, "Restart defaults to recharged");
+        std::ofstream(base / mscharged) << "old launcher\n";
+        Check(InstalledLauncher(base) == base / mscharged, "Restart as mscharged in an older release");
+        std::ofstream(base / recharged) << "new launcher\n";
+        Check(InstalledLauncher(base) == base / recharged, "Restart prefers recharged");
     }
 
     // Folders that were not installed from a package are not updated in place.

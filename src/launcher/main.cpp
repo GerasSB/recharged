@@ -108,6 +108,7 @@ BuildIdentity CurrentBuild()
     return identity;
 }
 
+// The program, as tools/package_build.py ships it.
 #ifdef _WIN32
 constexpr const char* kExecutableName = "mscharged.exe";
 #else
@@ -278,7 +279,7 @@ public:
     const std::optional<ResolvedLaunch>& FrontendLaunch() const { return frontend_launch_; }
     // An update was installed: main() starts the updated launcher.
     bool RestartRequested() const { return restart_; }
-    fs::path RestartExecutable() const { return base_ / kExecutableName; }
+    fs::path RestartExecutable() const { return InstalledLauncher(base_); }
 
     ResolvedLaunch EffectiveLaunch() const { return ResolveLaunch(file_, options_.launch, &draft_); }
     std::string DiscSelection() const { return PathUtf8(EffectiveLaunch().disc_path); }
@@ -1533,12 +1534,7 @@ private:
     {
         const auto launch = EffectiveLaunch();
         const auto& s = launch.settings;
-#ifdef _WIN32
-        const auto executable = base_ / "mscharged.exe";
-#else
-        const auto executable = base_ / "mscharged";
-#endif
-        std::string command = Quote(PathUtf8(executable));
+        std::string command = Quote(PathUtf8(base_ / kExecutableName));
         if (!launch.disc_path.empty()) command += " --disc " + Quote(PathUtf8(launch.disc_path));
         command += s.fullscreen ? " --fullscreen" : " --window";
         command += " --size " + std::to_string(s.width) + "x" + std::to_string(s.height);

@@ -227,7 +227,7 @@ bool UpdateService::Preview(std::string_view state)
                           : ReleasesPageUrl(build.repository) + "/tag/" + offer.tag;
         offer.published = std::time(nullptr) - 3 * 3600;
         PackageAsset asset;
-        asset.name = "mscharged-" + VersionNumber(offer.version) + "+g" + offer.version.commit + "-" + build.package
+        asset.name = "recharged-" + VersionNumber(offer.version) + "+g" + offer.version.commit + "-" + build.package
             + ".tar.gz";
         asset.url = offer.page;
         asset.size = 19713229;
