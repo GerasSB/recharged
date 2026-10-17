@@ -63,10 +63,10 @@ Run **`recharged.exe`** (Windows), **`Recharged.app`** (macOS) or
 ## 4. Choose your game and play
 
 The launcher opens. Put your `.iso` or `.rvz` into a `game` folder beside the
-program, or point **Select folder...** on the **Game** page at the folder that
-holds it, and click the image to play. **Choose file...** plays an image from
-anywhere else. The image is read directly; do
-not extract or mount it, and keep it where it is. Then press **Play**.
+program, or on the **Game** page click the game folder (**Change...**) to pick
+the folder that holds it, and click the image to play. **Choose file...** plays
+an image from anywhere else. The image is read directly; do not extract or
+mount it, and keep it where it is. Then press **Play**.
 
 The first start shows **Preparing graphics** while the shaders for your
 graphics card are compiled. This takes a little while once; later starts reuse

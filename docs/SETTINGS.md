@@ -40,9 +40,9 @@ connected, its row and the Play page say so; click the row (or **Locate...**)
 to find it, use a copy of the same release, or choose another image. Recharged
 never switches to another image by itself.
 
-**Game folder.** By default the `game` folder beside the program; **Select
-folder...** (or dropping a folder onto the launcher) picks another one, and
-*Subfolders* also lists the images up to four levels below it. A folder on a
+**Game folder.** By default the `game` folder beside the program; clicking it
+(or **Change...**, or dropping a folder onto the launcher) picks another one,
+and *Subfolders* also lists the images up to four levels below it. A folder on a
 drive or memory card that is not connected shows *Not found* until it is.
 Images of other games are left out. Images are checked in the background and
 remembered; an unchanged file is not opened again, and the refresh button
