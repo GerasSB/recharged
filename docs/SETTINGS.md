@@ -31,22 +31,25 @@ instead.
 format, size and file name. Click a column title to sort by it.
 
 **Choosing the image.** Click an image to play it: its row is marked, and Play
-starts it from then on (`[game] disc`, saved with your settings). Nothing else
-changes it: sorting, refreshing or finding new images never does. **Choose
-file...** (or dropping an image onto the launcher) plays an image outside your
-game folder. Images of versions this build cannot run yet are listed with the
-reason and cannot be chosen. If the chosen image moves or its drive is not
-connected, its row and the Play page say so; click the row (or **Locate...**)
-to find it, use a copy of the same release, or choose another image. Recharged
-never switches to another image by itself.
+starts it from then on (`[game] disc`, saved with your settings). Sorting or
+refreshing never changes it. **Choose file...** (or dropping an image onto the
+launcher) plays an image from outside your game folder; it stays chosen until
+you click another image, whatever folder you select. Images of versions this
+build cannot run yet are listed with the reason and cannot be chosen. If the
+chosen image moves or its drive is not connected, its row and the Play page say
+so; click the row (or **Locate...**) to find it, use a copy of the same
+release, or choose another image. Recharged never switches to another image by
+itself.
 
 **Game folder.** By default the `game` folder beside the program; clicking it
-(or **Change...**, or dropping a folder onto the launcher) picks another one,
-and *Subfolders* also lists the images up to four levels below it. A folder on a
-drive or memory card that is not connected shows *Not found* until it is.
-Images of other games are left out. Images are checked in the background and
-remembered; an unchanged file is not opened again, and the refresh button
-looks through the folder once more.
+(or **Change...**, or dropping a folder onto the launcher) selects another one,
+and *Subfolders* also lists the images up to four levels below it. The list
+always shows the folder as it is now: it is read again at every start, when you
+select a folder or switch *Subfolders*, and with the refresh button. When the
+new folder or setting leaves out the chosen image, the folder's first playable
+image takes its place, or none when the folder has none. A folder on a drive or
+memory card that is not connected shows *Not found* until it is. Images of
+other games are left out.
 
 **Banners.** The small horizontal pictures are the banners the game puts into
 its Wii save, one per region. The launcher reads each one from your own image
