@@ -41,13 +41,18 @@ if(NOT WIN32)
     add_test(NAME session_log COMMAND session_log_tests)
 endif()
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/Updates.cmake")
-add_executable(mscharged src/launcher/main.cpp src/launcher/ui_kit.cpp src/launcher/release_notes_view.cpp
-    src/launcher/disc_search.cpp)
+# Finding and checking disc images: the first-start search and the image library (#65).
+add_library(charged_image_library STATIC src/launcher/disc_search.cpp src/launcher/image_library.cpp
+    src/launcher/release_banner.cpp)
+target_include_directories(charged_image_library PUBLIC src)
+target_compile_features(charged_image_library PUBLIC cxx_std_17)
+target_link_libraries(charged_image_library PUBLIC charged_host charged_json)
+add_executable(mscharged src/launcher/main.cpp src/launcher/ui_kit.cpp src/launcher/release_notes_view.cpp)
 # The program players start: recharged (recharged.exe). The target keeps its old name.
 # On Windows it is a Windows (GUI) program, so no console opens with it (#61).
 set_target_properties(mscharged PROPERTIES OUTPUT_NAME recharged WIN32_EXECUTABLE TRUE)
 target_link_libraries(mscharged PRIVATE charged_host charged_launcher_ui charged_app_icon mscharged_build_info
-    charged_wiimote_scan charged_session_log charged_updates)
+    charged_wiimote_scan charged_session_log charged_updates charged_image_library)
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/PipelineCatalog.cmake")
 mscharged_stage_pipeline_catalog(mscharged)
 if(APPLE)
@@ -121,9 +126,14 @@ if(BUILD_TESTING)
     add_executable(launcher_player_lineup_tests tests/launcher_player_lineup.cpp)
     target_include_directories(launcher_player_lineup_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
     add_test(NAME launcher_player_lineup COMMAND launcher_player_lineup_tests)
-    add_executable(launcher_disc_search_tests tests/launcher_disc_search.cpp src/launcher/disc_search.cpp)
-    target_include_directories(launcher_disc_search_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
-    target_compile_features(launcher_disc_search_tests PRIVATE cxx_std_17)
-    target_link_libraries(launcher_disc_search_tests PRIVATE charged_host)
+    add_executable(launcher_disc_search_tests tests/launcher_disc_search.cpp)
+    target_link_libraries(launcher_disc_search_tests PRIVATE charged_image_library)
     add_test(NAME launcher_disc_search COMMAND launcher_disc_search_tests)
+    # The library's scan, cache and order, and banners and probes of synthetic discs.
+    add_executable(launcher_image_library_tests tests/launcher_image_library.cpp)
+    target_link_libraries(launcher_image_library_tests PRIVATE charged_image_library)
+    add_test(NAME launcher_image_library
+        COMMAND "${Python3_EXECUTABLE}" -B "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_launcher_image_library.py"
+                "$<TARGET_FILE:launcher_image_library_tests>")
+    set_tests_properties(launcher_image_library PROPERTIES TIMEOUT 120)
 endif()
