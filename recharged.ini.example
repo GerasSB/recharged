@@ -2,7 +2,7 @@
 # Paths are relative to this INI file. Absolute paths also work.
 # ISO and RVZ are read directly; no extraction or conversion is needed.
 [game]
-# The image Play starts (the launcher's pinned image).
+# The image Play starts (the one chosen on the launcher's Game page).
 disc = game/R4QE01.rvz
 
 # Game text: auto, or a language of the disc: english, french or spanish
@@ -14,9 +14,9 @@ language = auto
 # A different folder starts without saves.
 save_folder = ""
 
-# The launcher's image library: folders with your game images (up to 16). The
-# launcher lists the Mario Strikers Charged images in them; Use this image sets
-# disc above. folderN_subfolders = true also lists the images in subfolders.
+# Game folders (up to 16): the launcher lists the Mario Strikers Charged images
+# in them; clicking one sets disc above. folderN_subfolders = true also lists
+# the images in subfolders.
 #[library]
 #folder1 = "game"
 #folder1_subfolders = true
