@@ -14,8 +14,8 @@ Everything stays in the program folder:
 | Path | Contents |
 | --- | --- |
 | `mscharged.ini` | Your settings |
-| `original-main-credits-data/nand/` | The game's Wii saves (or the folder set under *Game → Save data*) |
-| `original-main-credits-data/pipeline_cache.db` | Compiled shaders for your graphics card |
+| `data/nand/` | The game's Wii saves (or the folder set under *Game → Save data*) |
+| `data/pipeline_cache.db` | Compiled shaders for your graphics card |
 | `logs/mscharged.log` | The log of the last run |
 | `screenshots/` | Screenshots taken with **P**, in the folder the game was started from |
 
@@ -120,12 +120,16 @@ and how each Remote answers.
 
 ## Saves
 
-The game keeps its Wii saves (`Strikers2` and `banner.bin`) in
-`original-main-credits-data/nand` in the program folder, or in the folder set
-under **Game → Save data** (`[game] save_folder`). A new folder starts without
-saves; the old folder keeps its saves. Each version has its own saves, as on
-the Wii: the USA version uses the folder itself, the European version its
-`R4QP` subfolder (shared by both European revisions).
+The game keeps its Wii saves (`Strikers2` and `banner.bin`) in `data/nand` in
+the program folder, or in the folder set under **Game → Save data**
+(`[game] save_folder`). A new folder starts without saves; the old folder
+keeps its saves. Each version has its own saves, as on the Wii: the USA
+version uses the folder itself, the European version its `R4QP` subfolder
+(shared by both European revisions).
+
+Earlier builds called the data folder `original-main-credits-data`; the first
+start of a newer build renames it to `data`. Switched back to an earlier
+build, the game starts without saves until `data` gets its old name again.
 
 **Import from Dolphin** copies the save Dolphin keeps for the game
 (`<Dolphin user folder>/Wii/title/00010000/52345145/data` for the USA version,

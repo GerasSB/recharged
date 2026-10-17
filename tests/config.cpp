@@ -212,7 +212,20 @@ int main()
             const fs::path executable = directory / "bin";
             Require(Settings{}.save_folder.empty()
                     && ResolveSaveFolder(Settings{}, path, executable)
-                        == executable / "original-main-credits-data" / "nand", "Default save folder");
+                        == executable / "data" / "nand", "Default save folder");
+            // Earlier builds' data folder stays in use until it has been moved.
+            fs::create_directories(executable / "original-main-credits-data" / "nand");
+            std::ofstream(executable / "original-main-credits-data" / "nand" / "save.bin") << "save";
+            Require(DefaultSaveFolder(executable) == executable / "original-main-credits-data" / "nand",
+                    "The old data folder is used before the move");
+            Require(MoveOldDataFolder(executable) && DataFolder(executable) == executable / "data"
+                        && fs::exists(executable / "data" / "nand" / "save.bin")
+                        && !fs::exists(executable / "original-main-credits-data"),
+                    "The old data folder moves to data");
+            fs::create_directories(executable / "original-main-credits-data");
+            Require(!MoveOldDataFolder(executable) && DataFolder(executable) == executable / "data",
+                    "An existing data folder is kept");
+            fs::remove_all(executable);
             std::ofstream(path) << "[game]\nsave_folder = \"My Saves/charged\"\n";
             auto saves = LoadConfig(path);
             Require(saves.settings.save_folder == "My Saves/charged"

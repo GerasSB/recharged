@@ -175,7 +175,7 @@ checksum = "{self.checksum}"
             manifest = json.load(archive.extractfile(manifest_member))
             self.assertEqual(manifest["version"], "1.0.0+g123456789abc")
             self.assertEqual(manifest["packaging_source_commit"], "6" * 40)
-            self.assertEqual(len(manifest["modules"]), 3)
+            self.assertEqual(len(manifest["modules"]), 2)
             self.assertEqual(len(manifest["prepared"]), len(PACKAGER.DEPENDENCIES))
             self.assertEqual(manifest["cargo"]["packages"][0]["name"], "codec")
             self.assertEqual(len(manifest["cargo"]["packages"]), 2)
@@ -233,8 +233,7 @@ checksum = "{self.checksum}"
         shutil.rmtree(self.source)
         manifest = json.loads((relocated / "SOURCE-MANIFEST.json").read_text())
         self.assertEqual(manifest["modules"], ["mscharged_original_frontend_module_us.so",
-                                              "mscharged_original_frontend_module_eu.so",
-                                              "mscharged_original_main_credits_module.so"])
+                                              "mscharged_original_frontend_module_eu.so"])
         self.assertFalse((relocated / "prepared").exists())
         self.assertFalse((relocated / "mscharged_original_loading_module.so").exists())
         for relative, recorded in manifest["files"].items():

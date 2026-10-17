@@ -37,8 +37,8 @@
 #include "runtime/startup.h"
 #endif
 #include "runtime/scene.h"
-#ifdef MSCHARGED_HAS_ORIGINAL_CREDITS
-#include "runtime/original_main_credits.h"
+#ifdef MSCHARGED_HAS_ORIGINAL_FRONTEND
+#include "runtime/original_game.h"
 #endif
 #include <charconv>
 #include <cmath>
@@ -177,10 +177,9 @@ struct Options
     bool smoke_test = false;
     bool experimental_startup = false;
     bool experimental_scene = false;
-    bool experimental_credits = false;
     bool experimental_frontend = false;
     bool experimental_options = false;
-    bool credits_arguments = false;
+    bool frame_arguments = false;
     bool scene_arguments = false;
     bool standalone_assets = false;
     bool page_selected = false;
@@ -230,7 +229,7 @@ enum class NoticeKind { Info, Success, Warning, Error };
 enum class FolderPurpose { SaveFolder, DolphinSave };
 
 // The save a release keeps: its title and the identity the runtime gives its
-// storage (InitializeNativeFilesystemForDisc in original_main_credits.cpp).
+// storage (InitializeNativeFilesystemForDisc in original_game.cpp).
 mscharged::platform::SaveTitle SaveTitleOf(const GameRelease& release)
 {
     return {release.title_id, 0x1001, release.title_group};
@@ -4245,9 +4244,6 @@ int main(int argc, char** argv)
 #ifdef MSCHARGED_HAS_GAME_STARTUP
             std::cout << "Original startup prototype: --experimental-startup [--config FILE] (not playable)\n";
 #endif
-#ifdef MSCHARGED_HAS_ORIGINAL_CREDITS
-            std::cout << "Original-main Credits test: --experimental-credits [--disk FILE] [--window] (temporary startup omissions)\n";
-#endif
 #ifdef MSCHARGED_HAS_ORIGINAL_FRONTEND
             std::cout << "Original Boot/Intro test: --experimental-frontend [--disk FILE] [--window] (startup and game sound incomplete)\n";
 #endif
@@ -4283,10 +4279,9 @@ int main(int argc, char** argv)
         else if (arg == "--launcher") options.launcher = true;
         else if (arg == "--experimental-startup") options.experimental_startup = true;
         else if (arg == "--experimental-scene") options.experimental_scene = true;
-        else if (arg == "--experimental-credits") options.experimental_credits = true;
         else if (arg == "--experimental-frontend") options.experimental_frontend = true;
         else if (arg == "--experimental-options") options.experimental_options = true;
-        else if (arg == "--native-send" || arg == "--diagnostic-frame" || arg == "--resize-check") options.credits_arguments = true;
+        else if (arg == "--native-send" || arg == "--diagnostic-frame" || arg == "--resize-check") options.frame_arguments = true;
         else if (arg == "--frontend-world") { options.scene_arguments = true; options.scene.frontend_world = true; }
         else if (arg == "--frontend-animate") { options.scene_arguments = true; options.scene.frontend_animate = true; }
         else if (arg == "--frontend-boot") { options.scene_arguments = true; options.scene.frontend_boot = true; }
@@ -4376,8 +4371,8 @@ int main(int argc, char** argv)
     }
     options.config = options.launch.config;
     unsigned runtime_modes = unsigned(options.experimental_startup)
-        + unsigned(options.experimental_scene) + unsigned(options.experimental_credits)
-        + unsigned(options.experimental_frontend) + unsigned(options.experimental_options);
+        + unsigned(options.experimental_scene) + unsigned(options.experimental_frontend)
+        + unsigned(options.experimental_options);
     const bool launcher_requested = options.launcher || options.smoke_test
         || !options.screenshot.empty() || options.page_selected;
     if (!runtime_modes && options.launch.disc && !launcher_requested)
@@ -4387,8 +4382,8 @@ int main(int argc, char** argv)
     }
     if (runtime_modes && (runtime_modes > 1 || launcher_requested))
     { std::cerr << "Select one runtime mode; --launcher and capture/smoke/page options select the launcher.\n"; return 2; }
-    if (options.credits_arguments && !options.experimental_credits && !options.experimental_frontend && !options.experimental_options)
-    { std::cerr << "Frame/resize options require --experimental-credits or --experimental-frontend.\n"; return 2; }
+    if (options.frame_arguments && !options.experimental_frontend && !options.experimental_options)
+    { std::cerr << "Frame/resize options require --experimental-frontend or --experimental-options.\n"; return 2; }
     if (options.scene_arguments && !options.experimental_scene)
     { std::cerr << "Asset/frame options require --experimental-scene.\n"; return 2; }
     if (options.scene.frame_timeout && !options.scene.frames)
@@ -4471,28 +4466,12 @@ int main(int argc, char** argv)
                 if (std::string_view(argv[i]) != "--experimental-frontend" &&
                     std::string_view(argv[i]) != "--experimental-options") arguments.push_back(argv[i]);
             arguments.push_back(nullptr);
-            return RunOriginalMainCredits(static_cast<int>(arguments.size()) - 1, arguments.data(),
+            return RunOriginalGame(static_cast<int>(arguments.size()) - 1, arguments.data(),
                 nullptr, false, options.experimental_options ?
                     OriginalMainScene::FrontendOptions : OriginalMainScene::FrontendSequence, GameTitle().c_str());
 #else
             std::cerr << "Original game runtime is not included in this build. "
                          "A game-enabled build is required for direct disc startup; --launcher opens settings.\n";
-            return 2;
-#endif
-        }
-        if (options.experimental_credits)
-        {
-#ifdef MSCHARGED_HAS_ORIGINAL_CREDITS
-            // Preserve all shared launch options and diagnostic frame arguments;
-            // remove only the launcher mode selector before the shared driver.
-            std::vector<char*> arguments;
-            for (int i = 0; i < argc; ++i)
-                if (std::string_view(argv[i]) != "--experimental-credits") arguments.push_back(argv[i]);
-            arguments.push_back(nullptr);
-            return RunOriginalMainCredits(static_cast<int>(arguments.size()) - 1, arguments.data(), nullptr, false,
-                OriginalMainScene::Credits, GameTitle().c_str());
-#else
-            std::cerr << "Original-main Credits is not in this build. Enable MSCHARGED_BUILD_ORIGINAL_CREDITS_DIAGNOSTIC and MSCHARGED_BUILD_LAUNCHER.\n";
             return 2;
 #endif
         }
@@ -4549,7 +4528,7 @@ int main(int argc, char** argv)
             return 1;
         }
 #ifdef MSCHARGED_HAS_ORIGINAL_FRONTEND
-        if (frontend_launch) return RunOriginalMainCredits(argc, argv, &*frontend_launch, true,
+        if (frontend_launch) return RunOriginalGame(argc, argv, &*frontend_launch, true,
             OriginalMainScene::FrontendSequence, GameTitle().c_str());
 #endif
         return result;

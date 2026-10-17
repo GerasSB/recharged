@@ -108,7 +108,7 @@ struct Child {
 };
 
 void Run(const fs::path& root) {
-    Check(mscharged::platform::ShaderCacheDirectory(root) == root / "original-main-credits-data",
+    Check(mscharged::platform::ShaderCacheDirectory(root) == root / "data",
           "Runtime and launcher cache directory disagree");
     const auto missing = root / "missing";
     Check(ClearShaderCache(missing).removed_files == 0 && !fs::exists(missing),

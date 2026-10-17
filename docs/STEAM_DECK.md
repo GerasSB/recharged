@@ -138,7 +138,7 @@ From now on, start the game from your library and press **Play**.
 - **Updates:** when a new release is out, the launcher shows its notes and
   asks (**A** updates, **B** closes, the right stick scrolls the notes); it
   then updates the folder in place and restarts. Your settings and saves stay.
-- **Saves** are in `/home/deck/Games/mscharged/original-main-credits-data/nand`.
+- **Saves** are in `/home/deck/Games/mscharged/data/nand`.
   Copy that folder to back them up.
 - **Removal:** in Steam choose *Manage → Remove non-Steam game from your
   library*, then delete the folder (back up the saves first).

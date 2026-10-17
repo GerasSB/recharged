@@ -386,7 +386,7 @@ void TestInstall(const fs::path& fixtures, const fs::path& work)
               "New files in place, removed files gone");
         Check(ReadPackageManifest(base / kPackageManifest).version == "1.0.10+gbbbbbbbbbbbb", "New manifest in place");
         Check(Read(base / "mscharged.ini") == installed.at("mscharged.ini")
-                  && Read(base / "original-main-credits-data/nand/save.bin") == "save data"
+                  && Read(base / "data/nand/save.bin") == "save data"
                   && Read(base / "logs/mscharged.log") == "previous log\n",
               "Settings, saves and logs stay");
 #ifndef _WIN32

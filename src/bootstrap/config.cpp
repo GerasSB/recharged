@@ -451,9 +451,34 @@ std::filesystem::path ResolveDiscPath(const Settings& settings, const std::files
     return path.is_absolute() ? path : config.parent_path() / path;
 }
 
+namespace
+{
+constexpr const char* kDataFolder = "data";
+constexpr const char* kOldDataFolder = "original-main-credits-data";
+}
+
+std::filesystem::path DataFolder(const std::filesystem::path& executable_directory)
+{
+    auto folder = executable_directory / kDataFolder;
+    auto old = executable_directory / kOldDataFolder;
+    std::error_code error;
+    if (!std::filesystem::exists(folder, error) && std::filesystem::is_directory(old, error)) return old;
+    return folder;
+}
+
+bool MoveOldDataFolder(const std::filesystem::path& executable_directory)
+{
+    const auto folder = executable_directory / kDataFolder;
+    const auto old = executable_directory / kOldDataFolder;
+    std::error_code error;
+    if (std::filesystem::exists(folder, error) || !std::filesystem::is_directory(old, error)) return false;
+    std::filesystem::rename(old, folder, error);
+    return !error;
+}
+
 std::filesystem::path DefaultSaveFolder(const std::filesystem::path& executable_directory)
 {
-    return executable_directory / "original-main-credits-data" / "nand";
+    return DataFolder(executable_directory) / "nand";
 }
 
 std::filesystem::path ResolveSaveFolder(const Settings& settings, const std::filesystem::path& config,

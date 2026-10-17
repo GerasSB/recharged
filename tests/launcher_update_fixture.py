@@ -37,7 +37,7 @@ NEW_FILES = {
 }
 USER_FILES = {
     "mscharged.ini": b"[game]\ndisc = game/R4QE01.rvz\n",
-    "original-main-credits-data/nand/save.bin": b"save data",
+    "data/nand/save.bin": b"save data",
     "logs/mscharged.log": b"previous log\n",
 }
 

@@ -34,7 +34,7 @@ matches the source catalogue.
 
 Change the catalogue deliberately when new coverage is collected; builds never
 scan a developer's runtime caches. To merge the configurations a game run
-recorded (`original-main-credits-data/pipeline_cache.db` beside the executable),
+recorded (`data/pipeline_cache.db` beside the executable),
 or the new ones that testers' session logs list (each line is checked against
 its key):
 
