@@ -63,11 +63,11 @@ std::vector<std::uint8_t> MakeTpl(std::uint16_t (*texel)(std::size_t), std::uint
     return data;
 }
 
-DiscProbe Charged(const char* id, std::uint8_t revision)
+DiscProbe Charged(const char* id, std::uint8_t revision, const char* format = "RVZ")
 {
     DiscProbe probe;
     probe.kind = DiscProbe::Kind::Charged;
-    probe.info = {"RVZ", id, "Mario Strikers Charged", revision, 2354};
+    probe.info = {format, id, "Mario Strikers Charged", revision, 2354};
     return probe;
 }
 
@@ -168,8 +168,8 @@ void CheckScan(const fs::path& root)
 {
     // Files named after what the made-up reader reports for them.
     const std::map<std::string, DiscProbe> contents{
-        {"us.rvz", Charged("R4QE01", 1)},  {"us copy.iso", Charged("R4QE01", 1)},
-        {"eu2.rvz", Charged("R4QP01", 2)}, {"eu1.iso", Charged("R4QP01", 1)},
+        {"us.rvz", Charged("R4QE01", 1)},  {"us copy.iso", Charged("R4QE01", 1, "ISO")},
+        {"eu2.rvz", Charged("R4QP01", 2)}, {"eu1.iso", Charged("R4QP01", 1, "ISO")},
         {"jp.rvz", Charged("R4QJ01", 0)},  {"deep.rvz", Charged("R4QK01", 0)},
     };
     std::map<std::string, int> opened;
@@ -224,20 +224,17 @@ void CheckScan(const fs::path& root)
     Require(scan.banners.size() == 2 && scan.banners.count("R4QP01") && scan.banner_failures.count("R4QJ01"),
             "Banners and failures are reported");
 
-    // Order and search.
-    auto arranged = ArrangeImages(scan.images, LibrarySort::Release, false, "");
+    // Order.
+    auto arranged = ArrangeImages(scan.images, LibrarySort::Release, false);
     Require(Names(arranged) == "us copy.iso, us.rvz, eu1.iso, eu2.rvz, jp.rvz, deep.rvz, broken.rvz",
             "Release order: " + Names(arranged));
-    arranged = ArrangeImages(scan.images, LibrarySort::Size, false, "");
-    Require(PathUtf8(arranged.front()->path.filename()) == "eu1.iso", "Largest first");
-    arranged = ArrangeImages(scan.images, LibrarySort::Name, true, "");
+    arranged = ArrangeImages(scan.images, LibrarySort::Size, true);
+    Require(PathUtf8(arranged.front()->path.filename()) == "eu1.iso", "Largest first, descending");
+    arranged = ArrangeImages(scan.images, LibrarySort::Name, true);
     Require(PathUtf8(arranged.front()->path.filename()) == "us.rvz", "Names descending");
-    Require(Names(ArrangeImages(scan.images, LibrarySort::Release, false, "europe REV 2")) == "eu2.rvz",
-            "Search words match region and revision");
-    Require(Names(ArrangeImages(scan.images, LibrarySort::Release, false, "r4qj")) == "jp.rvz", "Search the ID");
-    Require(Names(ArrangeImages(scan.images, LibrarySort::Release, false, "broken")) == "broken.rvz",
-            "Search file names");
-    Require(ArrangeImages(scan.images, LibrarySort::Release, false, "zzz").empty(), "No match");
+    arranged = ArrangeImages(scan.images, LibrarySort::Format, false);
+    Require(Names(arranged) == "us copy.iso, eu1.iso, us.rvz, eu2.rvz, jp.rvz, deep.rvz, broken.rvz",
+            "Format, then release: " + Names(arranged));
 
     // States, titles and copies.
     for (const auto& image : scan.images)
@@ -347,7 +344,7 @@ int main(int argc, char** argv)
             ScanProgress progress;
             const auto scan = ScanLibrary({{PathFromUtf8(argv[2]), true}}, {}, false, {}, {}, progress, ProbeDisc,
                                           ReadReleaseBanner);
-            for (const auto* image : ArrangeImages(scan.images, LibrarySort::Name, false, ""))
+            for (const auto* image : ArrangeImages(scan.images, LibrarySort::Name, false))
             {
                 const char* state = StateOf(*image) == ImageState::Playable      ? "playable"
                                     : StateOf(*image) == ImageState::Unsupported ? "unsupported"

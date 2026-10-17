@@ -126,19 +126,17 @@ LibraryScan ScanLibrary(const std::vector<LibraryFolder>& folders, ImageCache ca
                         ScanProgress& progress, const ProbeFunction& probe = ProbeDisc,
                         const BannerFunction& banner = nullptr);
 
-// How the library's list can be ordered.
+// How the library's table can be ordered (its column headers).
 enum class LibrarySort
 {
-    Release,  // region, then revision, then file name; unreadable files last
-    Name,     // file name
-    Size,     // file size, largest first
-    Location, // full path
+    Release, // region, then revision, then file name; unreadable files last
+    Name,    // file name
+    Format,  // ISO or RVZ, then release
+    Size,    // file size, smallest first
 };
-// The images in this order (`descending` reverses it) that match `search`:
-// every word of it appears in the title, region, disc ID, revision, format or
-// file name, ignoring case.
+// The images in this order; `descending` reverses it.
 std::vector<const LibraryImage*> ArrangeImages(const std::vector<LibraryImage>& images, LibrarySort sort,
-                                               bool descending, std::string_view search);
+                                               bool descending);
 
 // "Mario Strikers Charged Football": the release's title, the disc header's
 // for a release Recharged does not know, or the file name of an unreadable image.
