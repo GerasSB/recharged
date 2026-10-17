@@ -239,7 +239,7 @@ ImageState StateOf(const DiscProbe& probe)
     return SupportedRelease(probe.info) ? ImageState::Playable : ImageState::Unsupported;
 }
 
-LibraryScan ScanLibrary(const std::vector<LibraryFolder>& folders, ImageCache cache, bool recheck_unreadable,
+LibraryScan ScanLibrary(const std::vector<LibraryFolder>& folders, ImageCache cache,
                         const std::set<std::string>& banners_known, const std::vector<fs::path>& keep,
                         ScanProgress& progress, const ProbeFunction& probe, const BannerFunction& banner)
 {
@@ -272,14 +272,8 @@ LibraryScan ScanLibrary(const std::vector<LibraryFolder>& folders, ImageCache ca
             break;
         }
         listed.insert(ImageCache::Key(file.path));
-        const DiscProbe* cached = cache.Find(file.path, file.size, file.modified);
-        DiscProbe result;
-        if (cached && !(recheck_unreadable && cached->kind == DiscProbe::Kind::Unreadable)) result = *cached;
-        else
-        {
-            result = probe(file.path);
-            cache.Put(file.path, file.size, file.modified, result);
-        }
+        DiscProbe result = probe(file.path);
+        cache.Put(file.path, file.size, file.modified, result);
         ++progress.checked;
         if (result.kind == DiscProbe::Kind::OtherGame) { ++scan.other_games; continue; }
         if (result.kind == DiscProbe::Kind::NotDisc) continue;
@@ -403,6 +397,21 @@ std::vector<LibraryFolder> FoldersOfImages(const std::vector<fs::path>& images)
         merged.push_back(kept);
     }
     return merged;
+}
+
+bool InFolder(const fs::path& image, const LibraryFolder& folder)
+{
+    // Absolute and normalised, without a trailing separator ("/games/" is "/games").
+    const auto normal = [](const fs::path& path) {
+        auto key = PathFromUtf8(ImageCache::Key(path));
+        if (key.filename().empty() && key.has_relative_path()) key = key.parent_path();
+        return key;
+    };
+    const auto relative = normal(image.parent_path()).lexically_relative(normal(folder.path));
+    if (relative.empty() || *relative.begin() == "..") return false;
+    if (relative == ".") return true;
+    const auto depth = std::distance(relative.begin(), relative.end());
+    return folder.subfolders && depth <= kLibraryDepth;
 }
 
 std::string MissingImageReason(const fs::path& path)

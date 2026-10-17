@@ -32,8 +32,8 @@ constexpr int kLibraryDepth = 4;
 constexpr std::size_t kLibraryImageLimit = 400;
 constexpr std::size_t kLibraryEntryLimit = 4096;
 
-// What earlier checks found, by file. An image whose size and last write time
-// are unchanged is not opened again.
+// What earlier checks found, by file: what a chosen image that has gone was.
+// The list itself always comes from a fresh scan.
 class ImageCache
 {
 public:
@@ -116,15 +116,20 @@ using ProbeFunction = std::function<DiscProbe(const std::filesystem::path&)>;
 using BannerFunction =
     std::function<std::vector<std::uint8_t>(const std::filesystem::path&, const std::string& game_id)>;
 
-// Lists and checks the images of these folders. Unchanged files take their
-// result from `cache`; `recheck_unreadable` opens unreadable ones again. The
-// returned cache keeps this scan's files, the files below folders that are not
-// available now (an unplugged drive) and the paths in `keep`. A banner is read
-// for each release whose disc ID is not in `banners_known`.
-LibraryScan ScanLibrary(const std::vector<LibraryFolder>& folders, ImageCache cache, bool recheck_unreadable,
+// Lists and checks the images of these folders, opening every one: the list
+// never comes from earlier results. The returned cache records them, and keeps
+// the files below folders that are not available now (an unplugged drive) and
+// the paths in `keep`. A banner is read for each release whose disc ID is not
+// in `banners_known`.
+LibraryScan ScanLibrary(const std::vector<LibraryFolder>& folders, ImageCache cache,
                         const std::set<std::string>& banners_known, const std::vector<std::filesystem::path>& keep,
                         ScanProgress& progress, const ProbeFunction& probe = ProbeDisc,
                         const BannerFunction& banner = nullptr);
+
+// Whether a scan of this folder covers this path: an image in the folder
+// itself, or with subfolders up to kLibraryDepth levels below it. Compares
+// paths only; the file need not exist.
+bool InFolder(const std::filesystem::path& image, const LibraryFolder& folder);
 
 // How the library's table can be ordered (its column headers).
 enum class LibrarySort

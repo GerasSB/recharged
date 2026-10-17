@@ -1445,12 +1445,12 @@ private:
     }
 
     // Nothing chosen yet (a first start): the game folder's scan chooses its
-    // first playable image (AutoPin); without one, the usual places are
+    // first playable image (AutoChoose); without one, the usual places are
     // searched. A chosen image that has gone is never replaced without asking.
     void StartDiscSearch()
     {
         if (!config_ok_ || options_.launch.disc || options_.smoke_test || !draft_.disc.empty()) return;
-        library_autopin_ = true;
+        autochoose_ = AutoChoice::FirstStart;
     }
 
     // Looks for the game in the settings folder, Games, Emulation/roms/wii,
@@ -1535,18 +1535,41 @@ private:
 
     void SelectGameFolder(const fs::path& folder)
     {
+        const auto before = GameFolder();
         draft_.folder = SettingsPath(folder);
-        dirty_ = true;
         Notice("Your game folder is now " + PathUtf8(folder) + ".", NoticeKind::Info);
+        GameFolderChanged(before);
     }
 
-    // Starts a scan of the game folder. A scan already running is told to
-    // stop, and the new one follows it.
-    void StartLibraryScan(bool recheck)
+    // The player selected a game folder (the same one too) or switched
+    // Subfolders: the folder is read again from scratch. An image chosen in
+    // the old folder that the new rules leave out gives way to the new
+    // folder's first playable image, or to none; a file added with Choose file
+    // (outside the old folder) stays chosen.
+    void GameFolderChanged(const LibraryFolder& before)
     {
-        library_recheck_ = library_recheck_ || recheck;
+        dirty_ = true;
+        const auto chosen = PathFromUtf8(DiscSelection());
+        if (!options_.launch.disc && !chosen.empty() && InFolder(chosen, before) && !InFolder(chosen, GameFolder()))
+        {
+            draft_.disc.clear();
+            check_ = {};
+        }
+        if (!options_.launch.disc && draft_.disc.empty()) autochoose_ = AutoChoice::NewFolder;
+        StartLibraryScan();
+    }
+
+    // Reads the game folder again from scratch: the list is empty until the
+    // scan has opened every image. A scan already running is told to stop,
+    // and the new one follows it.
+    void StartLibraryScan()
+    {
         scanned_folder_ = draft_.folder;
         scanned_subfolders_ = draft_.folder_subfolders;
+        library_ = {};
+        library_available_ = {};
+        library_other_games_ = 0;
+        library_limited_ = false;
         if (library_scanning_)
         {
             library_rescan_ = true;
@@ -1560,13 +1583,11 @@ private:
         library_progress_ = std::make_shared<ScanProgress>();
         library_scanning_ = true;
         library_scan_folders_ = folders;
-        const bool recheck_now = library_recheck_;
-        library_recheck_ = false;
-        library_scan_ = std::async(std::launch::async, [folders, cache = image_cache_, recheck_now,
-                                                        known = KnownBanners(), keep, progress = library_progress_] {
+        library_scan_ = std::async(std::launch::async, [folders, cache = image_cache_, known = KnownBanners(), keep,
+                                                        progress = library_progress_] {
             try
             {
-                return ScanLibrary(folders, cache, recheck_now, known, keep, *progress, ProbeDisc, ReadReleaseBanner);
+                return ScanLibrary(folders, cache, known, keep, *progress, ProbeDisc, ReadReleaseBanner);
             }
             catch (const std::exception&)
             {
@@ -1598,16 +1619,18 @@ private:
             library_limited_ = scan.limited;
             for (auto& [id, rgba] : scan.banners) StoreBanner(id, rgba);
             banner_failures_.insert(scan.banner_failures.begin(), scan.banner_failures.end());
-            if (library_autopin_ && !library_rescan_) AutoPin();
+            if (autochoose_ != AutoChoice::None && !library_rescan_) AutoChoose();
         }
-        if (library_rescan_) StartLibraryScan(false);
+        if (library_rescan_) StartLibraryScan();
     }
 
-    // Nothing chosen yet: the first playable image of the game folder, in
-    // release order; without one, the usual places are searched.
-    void AutoPin()
+    // Nothing chosen (a first start, or a new folder): the first playable
+    // image of the game folder, in release order. Without one, a first start
+    // searches the usual places; a new folder leaves nothing chosen.
+    void AutoChoose()
     {
-        library_autopin_ = false;
+        const auto reason = autochoose_;
+        autochoose_ = AutoChoice::None;
         if (!draft_.disc.empty() || options_.launch.disc) return;
         for (const auto* image : ArrangeImages(library_, LibrarySort::Release, false))
             if (StateOf(*image) == ImageState::Playable)
@@ -1620,7 +1643,10 @@ private:
                        NoticeKind::Success);
                 return;
             }
-        SearchUsualPlaces();
+        if (reason == AutoChoice::FirstStart) SearchUsualPlaces();
+        else
+            Notice("No playable Mario Strikers Charged image in this folder. Select another folder or choose a file.",
+                   NoticeKind::Warning);
     }
 
     // Once a frame: scan when the game folder changes or when it was
@@ -1629,7 +1655,7 @@ private:
     void SyncLibrary()
     {
         if (!config_ok_) return;
-        if (draft_.folder != scanned_folder_ || draft_.folder_subfolders != scanned_subfolders_) StartLibraryScan(false);
+        if (draft_.folder != scanned_folder_ || draft_.folder_subfolders != scanned_subfolders_) StartLibraryScan();
         if (!library_scanning_ && SDL_GetTicks() - folders_probe_ > 3000)
         {
             folders_probe_ = SDL_GetTicks();
@@ -1638,7 +1664,7 @@ private:
                 std::error_code error;
                 if (!library_available_[n] && fs::is_directory(library_folders_[n].path, error))
                 {
-                    StartLibraryScan(false);
+                    StartLibraryScan();
                     break;
                 }
             }
@@ -1888,7 +1914,10 @@ private:
         if (!config_ok_) return "Fix the settings file problem shown below first.";
         if (searching_) return "Looking for your game image...";
         if (pending_) return "Checking your game image...";
-        if (DiscSelection().empty()) return "Choose your Mario Strikers Charged image (ISO or RVZ) on the Game page.";
+        if (DiscSelection().empty())
+            return autochoose_ != AutoChoice::None && library_scanning_
+                ? "Reading your game folder..."
+                : "Choose your Mario Strikers Charged image (ISO or RVZ) on the Game page.";
         if (!PinnedMissing().empty()) return "Your game image is missing. " + PinnedMissing();
         if (!check_.info || check_.selection != DiscSelection())
             return check_.error.empty() ? "Check your image on the Game page." : check_.error;
@@ -2316,14 +2345,7 @@ private:
 
     // Browse for the pinned image where it is now, starting in its old folder
     // (or the nearest folder above it that is still there).
-    void Locate()
-    {
-        fs::path start = PathFromUtf8(DiscSelection()).parent_path();
-        std::error_code error;
-        while (!start.empty() && !fs::is_directory(start, error) && start != start.parent_path())
-            start = start.parent_path();
-        Browse(start);
-    }
+    void Locate() { Browse(ExistingFolder(PathFromUtf8(DiscSelection()).parent_path())); }
 
     struct Summary { std::string value; std::string detail; ImVec4 tint; };
 
@@ -2709,15 +2731,31 @@ private:
         return TitleSaveFolder(ResolveSaveFolder(draft_, file_.path, base_), Release().title_id);
     }
 
-    void BrowseFolder(FolderPurpose purpose)
+    // `start`: the folder the dialog opens in (or the nearest one above it
+    // that exists); the system's choice when empty.
+    void BrowseFolder(FolderPurpose purpose, const fs::path& start = {})
     {
         {
             std::lock_guard<std::mutex> lock(folder_dialog_->mutex);
             folder_dialog_->active = true;
         }
         folder_purpose_ = purpose;
-        SDL_ShowOpenFolderDialog(DiscChosen, new std::shared_ptr<DialogResult>(folder_dialog_), window_, nullptr,
-                                 false);
+        const std::string location = PathUtf8(ExistingFolder(start));
+        SDL_ShowOpenFolderDialog(DiscChosen, new std::shared_ptr<DialogResult>(folder_dialog_), window_,
+                                 location.empty() ? nullptr : location.c_str(), false);
+    }
+
+    // The folder itself, or the nearest folder above it that exists; empty
+    // when none does.
+    static fs::path ExistingFolder(fs::path folder)
+    {
+        std::error_code error;
+        while (!folder.empty() && !fs::is_directory(folder, error))
+        {
+            if (folder == folder.parent_path()) return {};
+            folder = folder.parent_path();
+        }
+        return folder;
     }
 
     void FolderChosen(const std::string& chosen)
@@ -2835,8 +2873,9 @@ private:
                            [&](const LibraryImage& image) { return ImageCache::Key(image.path) == key; });
     }
 
-    // One row of the images table: a library image, or the chosen image when
-    // the library does not list it (outside the folders, gone or unchecked).
+    // One row of the images table: an image of the game folder, or the chosen
+    // image when the folder's scan does not list it: a file added with Choose
+    // file (outside the folder), or one that has gone.
     struct ImageRow
     {
         LibraryImage image;
@@ -2846,15 +2885,23 @@ private:
         bool checking = false;
     };
 
+    // The list belongs to a finished scan of exactly the current folder setting.
+    bool FolderScanned() const
+    {
+        return !library_scanning_ && scanned_folder_ == draft_.folder && scanned_subfolders_ == draft_.folder_subfolders;
+    }
+
     std::vector<ImageRow> ImageRows() const
     {
         std::vector<ImageRow> rows;
         const std::string selection = DiscSelection();
         const std::string chosen = selection.empty() ? std::string() : ImageCache::Key(PathFromUtf8(selection));
-        if (!selection.empty() && !InLibrary(PathFromUtf8(selection)))
+        const bool inside = !selection.empty() && InFolder(PathFromUtf8(selection), GameFolder());
+        if (!selection.empty() && (!inside || (FolderScanned() && !InLibrary(PathFromUtf8(selection)))))
         {
             ImageRow row;
-            row.chosen = row.outside = true;
+            row.chosen = true;
+            row.outside = !inside;
             row.missing = !PinnedMissing().empty();
             row.checking = pending_;
             row.image.path = PathFromUtf8(selection);
@@ -2891,19 +2938,31 @@ private:
         GameFolderPicker();
         ImGui::Dummy({0, Dp(6)});
 
-        // The scan belongs to exactly this folder setting.
-        const bool scanned = !library_scanning_ && scanned_folder_ == draft_.folder
-            && scanned_subfolders_ == draft_.folder_subfolders;
+        // The folder's images come from a fresh scan; until it is done the
+        // table shows only a file added with Choose file.
+        const bool scanned = FolderScanned();
         const bool missing_folder = scanned && !library_available_.empty() && !library_available_[0];
-        if (library_.empty() && DiscSelection().empty())
-            Callout(!scanned ? "Looking for images..."
-                    : missing_folder
+        if (!ImageRows().empty()) ImageTable();
+        if (!scanned)
+        {
+            const ImVec2 at = ImGui::GetCursorScreenPos();
+            const float line = Dp(44);
+            Spinner({at.x + Dp(22), at.y + line * 0.5f}, Dp(7), Col(color::info));
+            const auto* progress = library_progress_.get();
+            const std::string text = !progress || progress->listing ? "Reading your game folder..."
+                : "Checking images: " + std::to_string(progress->checked.load()) + " of "
+                    + std::to_string(progress->found.load()) + "...";
+            DrawLabel(ImGui::GetWindowDrawList(), fonts.body,
+                      {at.x + Dp(44), at.y + (line - FontSize(fonts.body)) * 0.5f}, Col(color::muted), text.c_str());
+            ImGui::Dummy({ImGui::GetContentRegionAvail().x, line});
+        }
+        else if (library_.empty())
+            Callout(missing_folder
                         ? "Your game folder is not there. Create it and put your Mario Strikers Charged images (ISO "
                           "or RVZ) into it, connect its drive, or select another folder."
-                        : "No Mario Strikers Charged images in your game folder yet. Put them into it, select another "
+                        : "No Mario Strikers Charged images in your game folder. Put them into it, select another "
                           "folder, or choose a file below.",
                     color::info, Icon::Info);
-        else ImageTable();
 
         // Footer: what the table leaves out, and a file from anywhere else.
         ImGui::Dummy({0, Dp(4)});
@@ -2929,7 +2988,7 @@ private:
         ImGui::SetCursorScreenPos({at.x + width - button.x, at.y});
         if (GhostButton("choose_file", choose, button,
                         config_ok_ && !options_.launch.disc && !DialogActive() && !candidate_pending_, Icon::Disc))
-            Browse();
+            Browse(ExistingFolder(GameFolder().path));
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip("Play an image that is not in your game folder.\n"
                               "You can also drop an image onto this window.");
@@ -2973,17 +3032,13 @@ private:
         DrawIcon(draw, Icon::Folder, {box.x + Dp(18), box.y + Dp(18)}, Dp(18), Col(color::accent));
 
         const fs::path path = GameFolder().path;
-        const bool scanned = !library_scanning_ && scanned_folder_ == draft_.folder
-            && scanned_subfolders_ == draft_.folder_subfolders;
+        const bool scanned = FolderScanned();
         const bool unavailable = scanned && !library_available_.empty() && !library_available_[0];
         std::string status;
         ImVec4 tint = color::muted;
         if (!scanned)
         {
-            const auto* progress = library_progress_.get();
-            status = !progress || progress->listing ? "Looking through the folder..."
-                                                    : "Checking images: " + std::to_string(progress->checked.load())
-                                                          + " of " + std::to_string(progress->found.load());
+            status = "Reading...";
             tint = color::info;
         }
         else if (unavailable)
@@ -3004,7 +3059,7 @@ private:
         const float top = center - lines * 0.5f;
         DrawPath(draw, fonts.label, {text_x, top}, text_w, color::text, PathUtf8(path));
         DrawClipped(draw, fonts.caption, {text_x, top + FontSize(fonts.label) + Dp(3)}, text_w, tint, status);
-        if (picked) BrowseFolder(FolderPurpose::GameFolder);
+        if (picked) BrowseFolder(FolderPurpose::GameFolder, path);
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip("%s\nClick to select another game folder.\nYou can also drop a folder onto this window.",
                               PathUtf8(path).c_str());
@@ -3012,20 +3067,21 @@ private:
         DrawLabel(draw, fonts.caption, {label_x, center - FontSize(fonts.caption) * 0.5f}, Col(color::muted),
                   subfolders);
         ImGui::SetCursorScreenPos({toggle_x, center - Dp(14)});
-        if (Toggle("subfolders", &draft_.folder_subfolders)) dirty_ = true;
+        const auto before = GameFolder();
+        if (Toggle("subfolders", &draft_.folder_subfolders)) GameFolderChanged(before);
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip("Also list the images in its subfolders (%d levels down).", kLibraryDepth);
         draw->AddRectFilled({divider_x, center - Dp(14)}, {divider_x + Dp(1), center + Dp(14)}, Col(color::border));
         ImGui::SetCursorScreenPos({refresh_x, center - Dp(17)});
         if (GhostButton("refresh_library", "", Dp(34, 34), config_ok_ && !library_scanning_, Icon::Refresh))
         {
-            StartLibraryScan(true);
+            StartLibraryScan();
             if (!DiscSelection().empty() && !pending_) CheckDisc();
         }
         if (ImGui::IsItemHovered()) ImGui::SetTooltip("Look through the folder again.");
         ImGui::SetCursorScreenPos({change_x, center - Dp(17)});
         if (SecondaryButton("change_folder", change, {change_w, Dp(34)}, can_select))
-            BrowseFolder(FolderPurpose::GameFolder);
+            BrowseFolder(FolderPurpose::GameFolder, path);
         if (ImGui::IsItemHovered()) ImGui::SetTooltip("Select another game folder.");
         ImGui::SetCursorScreenPos(pos);
         ImGui::Dummy({width, height});
@@ -3133,7 +3189,7 @@ private:
         }
         else if (const auto* release = charged ? FindRelease(info) : nullptr; release && !ReleaseNote(*release).empty())
             note = ReleaseNote(*release);
-        if (row.outside && note.empty()) note = "Not in your game folder.";
+        if (row.outside && note.empty()) note = "Chosen file outside your game folder.";
 
         const float label = FontSize(fonts.label), caption = FontSize(fonts.caption);
         const ImVec2 banner = narrow ? Dp(78, 26) : Dp(128, 43);
@@ -5148,7 +5204,10 @@ private:
     bool scanned_subfolders_ = true;
     std::future<LibraryScan> library_scan_;
     std::shared_ptr<ScanProgress> library_progress_;
-    bool library_scanning_ = false, library_rescan_ = false, library_recheck_ = false, library_autopin_ = false;
+    bool library_scanning_ = false, library_rescan_ = false;
+    // Who chooses an image when the next scan is done, if nothing is chosen then.
+    enum class AutoChoice { None, FirstStart, NewFolder };
+    AutoChoice autochoose_ = AutoChoice::None;
     LibrarySort library_sort_ = LibrarySort::Release;
     bool library_descending_ = false;
     std::map<std::string, SDL_Texture*> banners_; // by disc ID
