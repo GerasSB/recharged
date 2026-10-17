@@ -2661,15 +2661,10 @@ private:
                                "Saves in the old folder stay there.");
         }
 
-        const fs::path root = ResolveSaveFolder(draft_, file_.path, base_);
-        const fs::path folder = TitleSaveFolder(root, Release().title_id);
+        const fs::path folder = SaveFolder();
         if (BeginRows("##data_rows"))
         {
-            // Saves beside the program (earlier builds) move to the default
-            // folder when the game next starts.
-            const bool moving = draft_.save_folder.empty() && root != DefaultSaveFolder(base_);
-            const std::string path = PathUtf8(folder)
-                + (moving ? "\nMoves to " + PathUtf8(DefaultSaveFolder(base_)) + " when you next play." : "");
+            const std::string path = PathUtf8(folder);
             Row("Folder in use", path.c_str());
             if (SecondaryButton("open_data", "Open folder", {ImGui::GetContentRegionAvail().x, Dp(40)},
                                 fs::exists(folder), Icon::Folder))

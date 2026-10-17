@@ -13,7 +13,7 @@ come from the reconstructed source, unchanged.
 - **Up to four players** on one machine, in any mix of keyboard & mouse,
   gamepads and Wii Remotes.
 - **Saves** like on the Wii: progress, unlocks, trophies and options are
-  stored in your user folder, so updates and new folders keep them.
+  stored in Recharged's own data folder.
 - **The USA and European releases.** The European version, *Mario Strikers
   Charged Football*, runs in its 60 Hz mode and keeps its own saves; its first
   revision plays with the code of the second.

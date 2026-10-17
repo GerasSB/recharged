@@ -16,11 +16,8 @@ folder_subfolders = true
 # the computer's language when the disc has it, else English.
 language = auto
 
-# Folder for the game's Wii saves. Empty: saves in your user folder
-# (Windows %APPDATA%\Recharged\saves, macOS ~/Library/Application
-# Support/Recharged/saves, Linux ~/.local/share/recharged/saves), where the
-# first start moves the saves of earlier builds from data/nand next to the
-# program. A different folder starts without saves.
+# Folder for the game's Wii saves. Empty: data/nand next to the program.
+# A different folder starts without saves.
 save_folder = ""
 
 [display]

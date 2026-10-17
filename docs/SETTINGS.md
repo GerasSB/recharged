@@ -9,18 +9,18 @@ audio, Wii Remotes, saves, updates and command-line options. For installing, see
 
 ## What is stored where
 
-Everything but your saves stays in the program folder:
+Everything stays in the program folder:
 
 | Path | Contents |
 | --- | --- |
 | `recharged.ini` | Your settings (older versions: `mscharged.ini`, copied at the first start) |
+| `data/nand/` | The game's Wii saves (or the folder set under *Game → Save data*) |
 | `data/pipeline_cache.db` | Compiled shaders for your graphics card |
 | `data/launcher/` | What the launcher found in your game images, and their banners |
 | `logs/recharged.log` | The log of the last run |
 | `screenshots/` | Screenshots taken with **P**, in the folder the game was started from |
 
-The game's saves are in your user folder ([saves](#saves)). Updates replace
-only the program's own files; these stay. If the program
+Updates replace only the program's own files; these stay. If the program
 folder is not writable, the log goes to your user's application data folder
 instead.
 
@@ -179,29 +179,16 @@ and how each Remote answers.
 
 ## Saves
 
-The game keeps its Wii saves (`Strikers2` and `banner.bin`) in your user
-folder, the same for every copy of Recharged:
+The game keeps its Wii saves (`Strikers2` and `banner.bin`) in `data/nand` in
+the program folder, or in the folder set under **Game → Save data**
+(`[game] save_folder`). A new folder starts without saves; the old folder
+keeps its saves. Each version has its own saves, as on the Wii: the USA
+version uses the folder itself, the European version its `R4QP` subfolder
+(shared by both European revisions).
 
-| System | Saves |
-| --- | --- |
-| Windows | `%APPDATA%\Recharged\saves` |
-| macOS | `~/Library/Application Support/Recharged/saves` |
-| Linux, Steam Deck | `~/.local/share/recharged/saves` (or `$XDG_DATA_HOME/recharged/saves`) |
-
-A new version unpacked into a new folder, an update, or a game image that was
-renamed, moved or swapped for another dump of the same version (ISO, RVZ or WBFS)
-keeps them. **Game → Save data** (`[game] save_folder`) sets another folder,
-for example to keep everything in a portable folder; a new folder starts
-without saves and the old folder keeps its saves. Each version has its own
-saves, as on the Wii: the USA version uses the folder itself, the European
-version its `R4QP` subfolder (shared by both European revisions).
-
-Earlier builds kept the saves in the program folder (`data/nand`, before that
-`original-main-credits-data/nand`). The game's first start moves them to your
-user folder, unless that already has saves; then they stay where they are.
-The log's `Saves:` line names the folder in use. To bring the saves of another
-program folder, copy the contents of its `nand` folder into the saves folder
-while Recharged is closed; this replaces the saves there.
+Earlier builds called the data folder `original-main-credits-data`; the first
+start of a newer build renames it to `data`. Switched back to an earlier
+build, the game starts without saves until `data` gets its old name again.
 
 **Import from Dolphin** copies the save Dolphin keeps for the game
 (`<Dolphin user folder>/Wii/title/00010000/52345145/data` for the USA version,

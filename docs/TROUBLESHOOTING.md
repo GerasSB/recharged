@@ -63,7 +63,7 @@ xattr -dr com.apple.quarantine <unpacked folder>
 
 While the folder still carries that quarantine mark, macOS starts
 `Recharged.app` from a temporary read-only copy, where it cannot see its
-modules and settings. Recharged then offers to remove the mark from its
+modules, settings and saves. Recharged then offers to remove the mark from its
 folder and start again; choose *Allow and restart*, or run the command above.
 
 ## macOS: controllers do nothing

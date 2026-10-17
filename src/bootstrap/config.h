@@ -172,25 +172,9 @@ std::filesystem::path DataFolder(const std::filesystem::path& executable_directo
 // Renames the earlier builds' folder to data/ once. Returns false and leaves
 // the old folder in use when there is nothing to move or the rename fails.
 bool MoveOldDataFolder(const std::filesystem::path& executable_directory);
-// The user's own Recharged folder, the same for every copy of the program:
-// %APPDATA%\Recharged (Windows), ~/Library/Application Support/Recharged
-// (macOS), $XDG_DATA_HOME/recharged or ~/.local/share/recharged (others).
-// Empty when the system names no such folder.
-std::filesystem::path UserDataFolder();
-// The game's Wii storage (saves) by default: <user folder>/saves, so a new
-// program folder or an update keeps them. Without a user folder, the
-// program's <data folder>/nand.
+// The game's Wii storage folder: game.save_folder, or by default
+// <data folder>/nand.
 std::filesystem::path DefaultSaveFolder(const std::filesystem::path& executable_directory);
-// Where earlier builds kept the saves: <data folder>/nand beside the program.
-std::filesystem::path ProgramSaveFolder(const std::filesystem::path& executable_directory);
-// Whether a save folder holds saves: any file but the storage's metadata.txt.
-bool HasSaves(const std::filesystem::path& folder);
-// Moves the saves beside the program to the default save folder once, when
-// that folder has none yet. Returns false when there is nothing to move, or
-// sets `error` and leaves the saves where they were when the move fails.
-bool MoveProgramSaves(const std::filesystem::path& executable_directory, std::string* error = nullptr);
-// The game's Wii storage folder: game.save_folder, or the default one; the
-// program's saves until MoveProgramSaves has moved them.
 std::filesystem::path ResolveSaveFolder(const Settings& settings, const std::filesystem::path& config,
                                         const std::filesystem::path& executable_directory);
 std::filesystem::path LoadDiscPath(const std::filesystem::path& config);
