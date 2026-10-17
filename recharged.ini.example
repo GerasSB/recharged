@@ -5,6 +5,12 @@
 # The image Play starts (the one chosen on the launcher's Game page).
 disc = game/R4QE01.rvz
 
+# Game folder: the launcher lists the Mario Strikers Charged images in it;
+# clicking one sets disc above. folder_subfolders also lists the images in its
+# subfolders.
+folder = game
+folder_subfolders = true
+
 # Game text: auto, or a language of the disc: english, french or spanish
 # (USA); english, german, french, spanish or italian (Europe). Automatic takes
 # the computer's language when the disc has it, else English.
@@ -13,13 +19,6 @@ language = auto
 # Folder for the game's Wii saves. Empty: data/nand next to the program.
 # A different folder starts without saves.
 save_folder = ""
-
-# Game folders (up to 16): the launcher lists the Mario Strikers Charged images
-# in them; clicking one sets disc above. folderN_subfolders = true also lists
-# the images in subfolders.
-#[library]
-#folder1 = "game"
-#folder1_subfolders = true
 
 [display]
 width = 1280
