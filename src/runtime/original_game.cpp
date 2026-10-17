@@ -641,6 +641,20 @@ int mscharged::RunOriginalGame(int argc, char** argv,
             mscharged::platform::SessionLogLine(line);
             std::fprintf(stderr,"%s\n",line.c_str());
         }
+        // The logo reads RECHARGED (issue #63): always on, whatever the tweak
+        // set; RECHARGED_ORIGINAL_LOGO=1 keeps the game's own (a kill switch).
+        {
+            const char* original=std::getenv("RECHARGED_ORIGINAL_LOGO");
+            const bool keepOriginal=original && *original && std::strcmp(original,"0")!=0;
+            auto* configureLogo=reinterpret_cast<void(*)(bool)>(
+                mscharged::platform::FindNativeModuleSymbol(module,"charged_configure_title_logo"));
+            if(configureLogo)
+                configureLogo(!keepOriginal);
+            const std::string line=std::string("Title logo: ")+(keepOriginal ? "original (RECHARGED_ORIGINAL_LOGO)"
+                : configureLogo ? "RECHARGED" : "original (this build's game module has no RECHARGED logo)");
+            mscharged::platform::SessionLogLine(line);
+            std::fprintf(stderr,"%s\n",line.c_str());
+        }
         // display.frame_rate: above the original, Aurora
         // presents each frame as the game swaps and paces the next; VI retraces
         // keep their real rate for everything that counts them.
