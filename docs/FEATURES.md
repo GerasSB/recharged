@@ -32,16 +32,19 @@ come from the reconstructed source, unchanged.
   action).
 - **Gamepads**: Xbox, PlayStation, Switch Pro, GameCube (USB adapter) and
   other standard controllers stand in for the Wii Remote with Nunchuk the game
-  is played with, with rumble. The right stick moves the pointer. **Gamepad
-  profiles** say which controller button presses each Wii button: a built-in
+  is played with, with rumble (its strength can be set). The right stick
+  moves the pointer. **Gamepad profiles** say which controller button presses
+  each Wii button: a built-in
   Default that gives each controller family its own layout (Nintendo's A is
   its right button) plus up to 16 named profiles (up to two buttons per Wii
   button, or none; sticks can be swapped). A profile belongs to one kind of
   controller (Xbox and PlayStation share profiles), so each gamepad is offered
   the profiles that fit it; they are kept for the next session.
 - **Real Wii Remotes with Nunchuk**, paired over **Bluetooth** or through a
-  **Mayflash DolphinBar** (mode 4): pointer, rumble and battery level, with the
-  sensor bar above or below the screen.
+  **Mayflash DolphinBar** (mode 4): pointer, rumble, the Remote speaker and
+  battery level, with the sensor bar above or below the screen and the Wii's
+  sensitivity and speaker volume settings
+  ([#60](https://github.com/previouslevelgames/recharged/issues/60)).
 - **Mouse beside a controller**: a single player on a Wii Remote or gamepad
   can also point and press A/B with the mouse.
 

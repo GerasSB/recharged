@@ -44,6 +44,9 @@ int main()
         settings.players = {"remote2", "keyboard", "remote1", "off"};
         settings.deadzone = 20;
         settings.rumble = false;
+        settings.rumble_strength = 40;
+        settings.ir_sensitivity = 5;
+        settings.speaker_volume = 0;
         settings.backend = "d3d12";
         SaveConfig(file, settings);
         const auto reloaded = LoadConfig(path);
@@ -51,7 +54,9 @@ int main()
             && reloaded.settings.fullscreen && reloaded.settings.master_volume == 65
             && reloaded.settings.sound_volumes == settings.sound_volumes
             && reloaded.settings.players == settings.players && reloaded.settings.deadzone == 20
-            && !reloaded.settings.rumble && reloaded.settings.backend == "d3d12", "Settings round trip");
+            && !reloaded.settings.rumble && reloaded.settings.rumble_strength == 40
+            && reloaded.settings.ir_sensitivity == 5 && reloaded.settings.speaker_volume == 0
+            && reloaded.settings.backend == "d3d12", "Settings round trip");
         Require(reloaded.contents.find("; keep my comment\r\n") != std::string::npos
             && reloaded.contents.find("option = keep me\r\n") != std::string::npos
             && reloaded.contents.compare(0, 3, "\xEF\xBB\xBF") == 0, "Preserve comments, unknown keys, BOM and CRLF");
@@ -102,6 +107,17 @@ int main()
         std::ofstream(path) << "[controls]\nplayer1 = gamepad1\nplayer2 = keyboard\n";
         Require(LoadConfig(path).settings.players[0] == "gamepad1", "Gamepad player loads");
         std::ofstream(path) << "[controls]\nplayer1 = gamepad1\nplayer2 = gamepad1\n";
+        Reject([&] { LoadConfig(path); });
+        // Wii Remote settings: the Wii's defaults (sensitivity 3, speaker 70 %).
+        Require(Settings{}.ir_sensitivity == 3 && Settings{}.speaker_volume == 70 && Settings{}.rumble_strength == 100,
+                "Wii Remote defaults");
+        std::ofstream(path) << "[controls]\nir_sensitivity = 0\n";
+        Reject([&] { LoadConfig(path); });
+        std::ofstream(path) << "[controls]\nir_sensitivity = 6\n";
+        Reject([&] { LoadConfig(path); });
+        std::ofstream(path) << "[controls]\nspeaker_volume = 101\n";
+        Reject([&] { LoadConfig(path); });
+        std::ofstream(path) << "[controls]\nrumble_strength = -1\n";
         Reject([&] { LoadConfig(path); });
         Require(Settings{}.mouse_pointer, "Mouse pointer default");
         std::ofstream(path) << "[controls]\nmouse_pointer = false\n";

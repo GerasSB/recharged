@@ -49,6 +49,9 @@ Values Encode(const Settings& s)
             {"controls.player3", s.players[2]}, {"controls.player4", s.players[3]},
             {"controls.deadzone", std::to_string(s.deadzone)},
             {"controls.rumble", s.rumble ? "true" : "false"},
+            {"controls.rumble_strength", std::to_string(s.rumble_strength)},
+            {"controls.ir_sensitivity", std::to_string(s.ir_sensitivity)},
+            {"controls.speaker_volume", std::to_string(s.speaker_volume)},
             {"controls.mouse_pointer", s.mouse_pointer ? "true" : "false"},
             {"controls.bluetooth_search", s.bluetooth_search ? "true" : "false"},
             {"controls.sensor_bar", s.sensor_bar},
@@ -236,6 +239,9 @@ Settings Decode(const Values& values)
     }
     number("controls.deadzone", s.deadzone, 0, 50);
     boolean("controls.rumble", s.rumble);
+    number("controls.rumble_strength", s.rumble_strength, 0, 100);
+    number("controls.ir_sensitivity", s.ir_sensitivity, 1, 5);
+    number("controls.speaker_volume", s.speaker_volume, 0, 100);
     boolean("controls.mouse_pointer", s.mouse_pointer);
     boolean("controls.bluetooth_search", s.bluetooth_search);
     choice("controls.sensor_bar", s.sensor_bar, {"bottom", "top"});

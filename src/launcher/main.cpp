@@ -4109,8 +4109,27 @@ private:
 #endif
             EndRows();
         }
-        // From the settings, not from what is connected right now: the row stays.
-        if ((RemotePlayer() || draft_.sensor_bar != "bottom") && BeginRows("##sensor_rows"))
+        EndCard();
+    }
+
+    bool GamepadPlayer() const
+    {
+        return std::any_of(draft_.players.begin(), draft_.players.end(),
+                           [](const std::string& device) { return device.rfind("gamepad", 0) == 0; });
+    }
+
+    // The Wii's Sensor Bar and Wii Remote settings. Shown from the settings,
+    // not from what is connected right now: the card stays while remotes come
+    // and go, and while a setting differs from the Wii's default.
+    void WiiRemoteCard()
+    {
+        const Settings defaults;
+        if (!RemotePlayer() && draft_.sensor_bar == defaults.sensor_bar &&
+            draft_.ir_sensitivity == defaults.ir_sensitivity && draft_.speaker_volume == defaults.speaker_volume)
+            return;
+        BeginCard("##wii_remote", "Wii Remote", "As in the Wii's own settings. Changes apply when the game starts.",
+                  Icon::Target);
+        if (BeginRows("##wii_remote_rows"))
         {
             Row("Sensor bar", "Where your sensor bar or DolphinBar sits. The game aims the Wii Remote pointer from it.");
             int position = draft_.sensor_bar == "top" ? 0 : 1;
@@ -4119,6 +4138,47 @@ private:
             {
                 draft_.sensor_bar = position == 0 ? "top" : "bottom";
                 dirty_ = true;
+            }
+            Row("Sensitivity", "How readily the Remote's camera sees the sensor bar (3 is the Wii's default). Raise it "
+                "when the pointer drops out far from the bar, lower it when lamps or windows disturb it.");
+            int level = std::clamp(draft_.ir_sensitivity, 1, 5) - 1;
+            if (Segmented("##ir_sensitivity", &level, {"1", "2", "3", "4", "5"}, ImGui::GetContentRegionAvail().x))
+            {
+                draft_.ir_sensitivity = level + 1;
+                dirty_ = true;
+            }
+            Row("Speaker volume", "Sounds the game plays on each player's Wii Remote; they play on the TV as well. "
+                "Off sends no sound to the Remotes.");
+            if (PercentSlider("##speaker_volume", &draft_.speaker_volume, ImGui::GetContentRegionAvail().x, "Off"))
+                dirty_ = true;
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("Speaker sound depends on the Bluetooth link: if it crackles, turn it down or off.");
+            EndRows();
+        }
+        EndCard();
+    }
+
+    // controls.rumble for every controller, controls.rumble_strength for
+    // gamepads (a Wii Remote's motor is on or off).
+    void RumbleCard()
+    {
+        const Settings defaults;
+        const bool controller = std::any_of(draft_.players.begin(), draft_.players.end(),
+            [](const std::string& device) { return device != "keyboard" && device != "off"; });
+        if (!controller && draft_.rumble == defaults.rumble && draft_.rumble_strength == defaults.rumble_strength)
+            return;
+        BeginCard("##rumble", "Rumble", nullptr, Icon::Gamepad);
+        if (BeginRows("##rumble_rows"))
+        {
+            Row("Rumble", "The game's rumble on Wii Remotes and gamepads, like the Wii's rumble setting.");
+            if (Toggle("##rumble", &draft_.rumble)) dirty_ = true;
+            if (GamepadPlayer() || draft_.rumble_strength != defaults.rumble_strength)
+            {
+                Row("Gamepad strength", "How strongly gamepads rumble. A Wii Remote's motor is either on or off.");
+                ImGui::BeginDisabled(!draft_.rumble);
+                if (PercentSlider("##rumble_strength", &draft_.rumble_strength, ImGui::GetContentRegionAvail().x, "Off"))
+                    dirty_ = true;
+                ImGui::EndDisabled();
             }
             EndRows();
         }
@@ -4779,6 +4839,8 @@ private:
     {
         PageHeader("Controls", "Play with keyboard and mouse, an Xbox, PlayStation or other gamepad, or a Wii Remote with Nunchuk. Keep the game window focused.");
         PlayersCard();
+        WiiRemoteCard();
+        RumbleCard();
 
         BeginCard("##controller", "Controller test", "Check a gamepad's buttons and sticks. Assign gamepads to players above.", Icon::Gamepad);
         if (!gamepad_)

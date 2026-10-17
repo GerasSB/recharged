@@ -93,9 +93,15 @@ mouse_pointer = true
 # over Bluetooth when you press 1+2 or the SYNC button on them.
 bluetooth_search = true
 deadzone = 15
+# Rumble on Wii Remotes and gamepads; how strongly gamepads rumble (0-100).
 rumble = true
+rumble_strength = 100
 # Where the sensor bar or DolphinBar sits: bottom or top of the screen.
 sensor_bar = bottom
+# The Wii's sensor bar sensitivity (1-5) and Wii Remote speaker volume
+# (0-100, 0 = no sound on the Remotes).
+ir_sensitivity = 3
+speaker_volume = 70
 # Button profile of each gamepad: Default (built in; each controller family
 # gets its own layout) or the name of a [gamepad_profileN] below. A missing
 # profile plays as Default.

@@ -881,7 +881,7 @@ bool SegmentedIcons(const char* id, int* selected, std::initializer_list<Segment
     return changed;
 }
 
-bool PercentSlider(const char* id, int* value, float width)
+bool PercentSlider(const char* id, int* value, float width, const char* zero_label)
 {
     ImGui::PushID(id);
     const auto& fonts = CurrentFonts();
@@ -920,7 +920,7 @@ bool PercentSlider(const char* id, int* value, float width)
     draw->AddCircleFilled({x, y + Dp(1)}, radius, Col(ImVec4{0, 0, 0, 1}, 0.35f * alpha));
     draw->AddCircleFilled({x, y}, radius, Col(active ? color::accent_hi : color::text, alpha));
 
-    const std::string text = std::to_string(*value) + "%";
+    const std::string text = *value == 0 && zero_label ? zero_label : std::to_string(*value) + "%";
     const ImVec2 size = TextSize(fonts.body, text.c_str());
     DrawLabel(draw, fonts.body, {pos.x + width - size.x, y - size.y * 0.5f}, Col(color::text, 0.85f * alpha), text.c_str());
     ImGui::PopID();

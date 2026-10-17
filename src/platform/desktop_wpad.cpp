@@ -130,8 +130,14 @@ bool SDLCALL Rumble(void* opaque, Uint16 low, Uint16 high) {
     // controllers forward motor requests only where that device has a motor;
     // this profile does not claim physical haptics on keyboard/unsupported pads.
     if (device.input && SDL_GetBooleanProperty(SDL_GetGamepadProperties(device.input),
-            SDL_PROP_GAMEPAD_CAP_RUMBLE_BOOLEAN, false))
+            SDL_PROP_GAMEPAD_CAP_RUMBLE_BOOLEAN, false)) {
+        const auto scale = [](Uint16 value) {
+            return static_cast<Uint16>(unsigned(value) * unsigned(std::clamp(Get().settings.rumble_strength, 0, 100)) / 100u);
+        };
+        low = scale(low);
+        high = scale(high);
         return SDL_RumbleGamepad(device.input, low, high, (low || high) ? 0xffffffffu : 0);
+    }
     return true;
 }
 std::unique_ptr<Device> MakeDevice(SDL_Gamepad* input = nullptr) {

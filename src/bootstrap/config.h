@@ -113,7 +113,17 @@ struct Settings
     const PadProfile& PadProfileOf(std::size_t slot) const;
     static const PadProfile& DefaultPadProfile();
     int deadzone = 15;
+    // controls.rumble: the Wii's rumble setting (Wii Remotes and gamepads);
+    // controls.rumble_strength (0-100 %) scales gamepad motors only, as a
+    // Wii Remote's motor is either on or off.
     bool rumble = true;
+    int rumble_strength = 100;
+    // controls.ir_sensitivity: the Wii's sensor bar sensitivity (1-5), the
+    // camera settings a Wii Remote gets.
+    int ir_sensitivity = 3;
+    // controls.speaker_volume: Wii Remote speaker volume (0-100 %, 70 = the
+    // Wii's default); 0 sends no sound to the Remotes.
+    int speaker_volume = 70;
     // The mouse also points for player 1 on a Wii Remote or gamepad playing alone.
     bool mouse_pointer = true;
     // controls.bluetooth_search: on Windows the launcher's Controls page
