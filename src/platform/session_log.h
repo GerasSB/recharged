@@ -18,7 +18,7 @@ namespace mscharged::platform
 // offset, which the release's debug symbols turn back into source lines.
 // Windows also writes recharged-crash.dmp (a minidump) beside the log.
 //
-// MSCHARGED_LOG_DIR selects another folder; MSCHARGED_LOG_DIR=off disables
+// RECHARGED_LOG_DIR selects another folder; RECHARGED_LOG_DIR=off disables
 // the log. Call once, early in main, on the main thread.
 void StartSessionLog(const char* version, int argc, char** argv);
 

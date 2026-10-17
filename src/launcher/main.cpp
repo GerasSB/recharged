@@ -546,11 +546,12 @@ private:
     void StartUpdates()
     {
         updates_ = std::make_unique<UpdateService>(CurrentBuild(), base_);
-        // Development captures stay offline unless MSCHARGED_CAPTURE_UPDATES
+        // Development captures stay offline unless RECHARGED_CAPTURE_UPDATES
         // asks for the real check: "dialog" also opens an offered update,
         // "install" installs it and restarts (the screenshot comes from the
         // restarted launcher), "preview-..." shows a made-up state.
-        const char* capture_updates = std::getenv("MSCHARGED_CAPTURE_UPDATES");
+        const char* capture_updates = std::getenv("RECHARGED_CAPTURE_UPDATES");
+        if (!capture_updates) capture_updates = std::getenv("MSCHARGED_CAPTURE_UPDATES"); // before the rename (#64)
         if (capture_ && !(capture_updates && *capture_updates)) return;
         if (capture_)
         {

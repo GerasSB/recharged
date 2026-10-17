@@ -129,7 +129,7 @@ function(mscharged_add_original_frontend_diagnostic target version suffix)
     mscharged_select_original_frontend_lan(${target})
     # Last selection: copies the module's final settings for the original CreditScene.
     mscharged_select_original_frontend_credits(${target})
-    # MSCHARGED_DEBUG_LAYERS_OFF: switch the game's own rendering layers off.
+    # RECHARGED_DEBUG_LAYERS_OFF: switch the game's own rendering layers off.
     target_sources(${target} PRIVATE src/platform/debug_layer_toggles.cpp)
     # [gameplay] tweaks: the hooks of patches/mscharged-decomp-tweaks are
     # compiled into this game module only; every other target that builds the

@@ -581,7 +581,7 @@ int mscharged::RunOriginalGame(int argc, char** argv,
             Check(moduleVersion && std::strcmp(moduleVersion(),expectedVersion)==0,
                   "The game module does not match the disc's game version");
         }
-        // MSCHARGED_DEBUG_LAYERS_OFF: diagnostic layer switches.
+        // RECHARGED_DEBUG_LAYERS_OFF: diagnostic layer switches.
         if(auto* layers=reinterpret_cast<void(*)()>(mscharged::platform::FindNativeModuleSymbol(
                module,"charged_apply_debug_layer_toggles"))) {
             layers();

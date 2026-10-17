@@ -355,7 +355,8 @@ void WriteDump(EXCEPTION_POINTERS* info)
 bool OwnConsole()
 {
     DWORD processes[2];
-    return GetConsoleProcessList(processes, 2) <= 1 && !std::getenv("MSCHARGED_NO_DIALOGS");
+    return GetConsoleProcessList(processes, 2) <= 1 && !std::getenv("RECHARGED_NO_DIALOGS")
+        && !std::getenv("MSCHARGED_NO_DIALOGS"); // before the rename (#64)
 }
 
 void CrashDialog(const char* headline)
@@ -514,7 +515,9 @@ void SDLCALL SdlLog(void*, int category, SDL_LogPriority priority, const char* m
 
 fs::path ChooseDirectory()
 {
-    if (const char* chosen = std::getenv("MSCHARGED_LOG_DIR"); chosen && *chosen)
+    const char* chosen = std::getenv("RECHARGED_LOG_DIR");
+    if (!chosen) chosen = std::getenv("MSCHARGED_LOG_DIR"); // before the rename (#64)
+    if (chosen && *chosen)
         return std::string(chosen) == "off" ? fs::path() : PathFromUtf8(chosen);
     std::error_code error;
     if (const char* base = SDL_GetBasePath())

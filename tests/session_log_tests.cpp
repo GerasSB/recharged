@@ -33,7 +33,7 @@ int Child(const std::string& directory, const char* mode, char* program)
     Require(pid >= 0, "fork failed");
     if (pid == 0)
     {
-        setenv("MSCHARGED_LOG_DIR", directory.c_str(), 1);
+        setenv("RECHARGED_LOG_DIR", directory.c_str(), 1);
         char* argv[] = {program, const_cast<char*>(mode), nullptr};
         mscharged::platform::StartSessionLog("test", 2, argv);
         std::printf("stdout before %s\n", mode);
