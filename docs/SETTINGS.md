@@ -27,34 +27,35 @@ instead.
 ## Game images
 
 *Game → Game images* is one table of the Mario Strikers Charged images
-(`.iso`, `.rvz`) in your game folders: title, region, revision, game ID,
+(`.iso`, `.rvz`) in your game folder: title, region, revision, game ID,
 format, size and file name. Click a column title to sort by it.
 
 **Choosing the image.** Click an image to play it: its row is marked, and Play
 starts it from then on (`[game] disc`, saved with your settings). Nothing else
 changes it: sorting, refreshing or finding new images never does. **Choose
 file...** (or dropping an image onto the launcher) plays an image outside your
-game folders. Images of versions this build cannot run yet are listed with the
+game folder. Images of versions this build cannot run yet are listed with the
 reason and cannot be chosen. If the chosen image moves or its drive is not
 connected, its row and the Play page say so; click the row (or **Locate...**)
 to find it, use a copy of the same release, or choose another image. Recharged
 never switches to another image by itself.
 
-**Game folders.** **Add folder...** (or dropping a folder onto the launcher)
-adds a folder, *Subfolders* also lists the images up to four levels below it,
-and a drive or memory card that is not connected shows *Not available* until
-it is. Images of other games are left out. Images are checked in the
-background and remembered; an unchanged file is not opened again, and
-**Refresh** looks through the folders once more.
+**Game folder.** By default the `game` folder beside the program; **Select
+folder...** (or dropping a folder onto the launcher) picks another one, and
+*Subfolders* also lists the images up to four levels below it. A folder on a
+drive or memory card that is not connected shows *Not found* until it is.
+Images of other games are left out. Images are checked in the background and
+remembered; an unchanged file is not opened again, and the refresh button
+looks through the folder once more.
 
 **Banners.** The small horizontal pictures are the banners the game puts into
 its Wii save, one per region. The launcher reads each one from your own image
 and keeps a copy in `data/launcher/banners/`; Recharged ships no game artwork
 and downloads nothing.
 
-The folders are stored as `[library] folder1` to `folder16` with
-`folderN_subfolders` in `recharged.ini`; relative folders count from the
-settings file, like the disc.
+The folder is stored as `[game] folder` and `folder_subfolders` in
+`recharged.ini`; a relative folder counts from the settings file, like the
+disc.
 
 ## Graphics
 

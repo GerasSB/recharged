@@ -141,7 +141,7 @@ playing with unsaved changes. Everything is also stored in `recharged.ini`
 beside the program ([settings](SETTINGS.md)).
 
 Its **game images** table lists the Mario Strikers Charged images in your game
-folders, with their region, revision, game ID, format and size and the small
+folder, with their region, revision, game ID, format and size and the small
 banner the game uses for its save, read from your own image. Click the one to
 play; images of versions this build cannot run yet are listed with the reason
 ([game images](SETTINGS.md#game-images)).

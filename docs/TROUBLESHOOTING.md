@@ -10,7 +10,7 @@ end of the [Steam Deck guide](STEAM_DECK.md#troubleshooting).
 
 Recharged runs **Mario Strikers Charged for the USA (game ID `R4QE01`,
 revision 1) and for Europe (`R4QP01`, revisions 1 and 2)**. The launcher's
-**Game** page shows the ID and revision of every image in your game folders;
+**Game** page shows the ID and revision of every image in your game folder;
 images of versions this build cannot run are listed with the reason but cannot
 be chosen.
 
@@ -26,9 +26,9 @@ be chosen.
   download, a failing drive). Copy or convert it again.
 - The image must stay where you chose it: Recharged reads it every time you
   play. If it moves or its drive is not connected, the launcher says so and
-  offers **Locate...**, a copy of the same release from your game folders, or
+  offers **Locate...**, a copy of the same release from your game folder, or
   another image; it never switches to another image by itself.
-- A game folder shows *Not available* while its drive or memory card is not
+- A game folder on a drive or memory card shows *Not found* while it is not
   connected. Its images come back when it is.
 
 ## The first start takes a while

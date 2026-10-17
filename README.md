@@ -89,7 +89,7 @@ See the **[feature list](docs/FEATURES.md)** and the
 Recharged needs your own, legally obtained copy of the game as an `.iso` or
 `.rvz` disc image, which it reads directly from where you keep it. No game
 files are included, and this project cannot help you obtain them. The launcher
-lists the images in your game folders, checks each one and tells you which
+lists the images in your game folder, checks each one and tells you which
 versions it runs; renaming a file does not change its version.
 
 ## Questions
