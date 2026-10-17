@@ -74,9 +74,10 @@ Press **P** for a screenshot.
   own speed: matches still simulate at their fixed 50 Hz and every frame is
   drawn from the game's own blend of its last two steps, so the extra frames
   are real motion, not interpolation added by the port.
-- V-sync, a performance overlay (FPS, CPU and GPU load) in any corner, master
-  volume and mute; music, effects and voice levels stay in the game's own
-  options.
+- V-sync and a performance overlay (FPS, CPU and GPU load) in any corner.
+- Master volume, mute and **sound levels** (Audio): music, sound effects,
+  voices, the crowd, menus and HUD, cutscenes and movies each from 0 to 100 %,
+  on top of the game's own music, effect and voice options.
 - **Screenshots** with the P key.
 
 ## Optional tweaks

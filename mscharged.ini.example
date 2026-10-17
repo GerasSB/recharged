@@ -52,11 +52,20 @@ fps_overlay_corner = top-right
 monitor = 0
 
 [audio]
-# Host speaker volume (0-100) and mute. Music, effects and voice levels are in
-# the game's own Options menu.
+# Host speaker volume (0-100) and mute.
 master_volume = 100
+# Sound levels (0-100) of each kind of the game's sounds: music, sound
+# effects, character voices, the crowd, menu and on-screen display sounds,
+# cutscenes (captain introductions, goal celebrations, Mega Strikes) and
+# movies. The music, sound effect and voice settings in the game's own Options
+# menu still apply on top.
 music_volume = 100
 effects_volume = 100
+voice_volume = 100
+crowd_volume = 100
+menu_volume = 100
+cutscene_volume = 100
+movie_volume = 100
 mute = false
 
 [controls]

@@ -199,6 +199,7 @@ std::string DescribeLaunch(const ResolvedLaunch& launch)
         + launch.settings.aspect + " (" + SettingSourceName(launch.aspect_source) + "); frame rate: "
         + launch.settings.frame_rate + " (" + SettingSourceName(launch.frame_rate_source) + "); tweaks: "
         + DescribeGameTweaks(launch.settings.GameTweakMask()) + " (" + SettingSourceName(launch.tweaks_source)
-        + "); performance mode: " + (launch.settings.performance_mode ? "on" : "off");
+        + "); performance mode: " + (launch.settings.performance_mode ? "on" : "off")
+        + "; sound levels: " + DescribeSoundVolumes(launch.settings.sound_volumes);
 }
 }

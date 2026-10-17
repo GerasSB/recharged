@@ -2,8 +2,8 @@
 
 Everything the launcher sets is saved in `mscharged.ini` beside the program;
 [`mscharged.ini.example`](../mscharged.ini.example) explains every key. This
-page covers the settings that need more than a label: graphics, Wii Remotes,
-saves, updates and command-line options. For installing, see the
+page covers the settings that need more than a label: graphics, audio, Wii
+Remotes, saves, updates and command-line options. For installing, see the
 [install guide](INSTALL.md); for the full list of features and controls, the
 [feature list](FEATURES.md).
 
@@ -73,6 +73,28 @@ restores your antialiasing preference when turned off.
 your choice, also in fullscreen. GPU and CPU are total system usage, including
 other apps; drivers that hide the GPU counters show `N/A`. LAT stays `N/A`
 while there is no online play.
+
+## Audio
+
+**Master volume** and **Mute** (Audio → Output) set the game's whole output.
+**Sound levels** (Audio, `[audio] music_volume` to `movie_volume`) set each kind
+of sound from 0 to 100 % of the level the game gives it, for example to turn
+the music down for a recording while voices and effects stay:
+
+| Level | Sounds |
+| --- | --- |
+| Music | Menu and match music |
+| Sound effects | Kicks, tackles, items, the electric fence, stadium and weather sounds |
+| Voices | The characters' voice lines, also in the menus |
+| Crowd | The stadium crowd's cheering and chants |
+| Menus & HUD | Menu clicks and prompts, the studio logo's jingle, the sounds of the match's on-screen display |
+| Cutscenes | Captain introductions, goal celebrations, Mega Strikes and the scenes after a match, with their own music and voices |
+| Movies | The intro movie, the stadium previews and the credits |
+
+They apply when the game starts. The music, sound effect and voice settings
+in the game's own *Options* menu still apply on top and stay saved with your
+game; cutscenes and movies have no setting there. The log's `Sound levels:`
+line lists the levels in use.
 
 ## Wii Remotes
 

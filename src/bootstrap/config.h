@@ -4,6 +4,7 @@
 #include "bootstrap/game_tweaks.h"
 #include "bootstrap/gamepad_actions.h"
 #include "bootstrap/key_actions.h"
+#include "bootstrap/sound_groups.h"
 
 #include <array>
 #include <filesystem>
@@ -48,8 +49,9 @@ struct Settings
     // multiples of it. Viewport and projection stay the game's own.
     std::string resolution = "window";
     int master_volume = 100;
-    int music_volume = 100;
-    int effects_volume = 100;
+    // [audio] <group>_volume: each group of the game's sounds (kSoundGroups
+    // order), 0-100 % of the levels the game sets itself.
+    SoundVolumes sound_volumes = DefaultSoundVolumes();
     bool mute = false;
     // controls.player1-4: keyboard, remote1-remote4 (Wii Remote in that
     // DolphinBar slot), remote-<Bluetooth address> (a Wii Remote paired over

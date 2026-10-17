@@ -92,8 +92,8 @@ connected Remote and its battery.
 ## No sound
 
 The game plays through your system's default audio device. Check
-**Audio → Mute** and **Master volume** in the launcher, and the game's own
-music, effects and voice levels in its *Options* menu.
+**Audio → Mute**, **Master volume** and the **Sound levels** in the launcher,
+and the game's own music, effects and voice levels in its *Options* menu.
 
 ## Resetting the settings
 

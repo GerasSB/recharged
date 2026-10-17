@@ -1884,8 +1884,9 @@ private:
         const auto choice = ChooseLanguage(Release(), s.language, pc_languages_);
         const std::string language = choice.automatic ? "Automatic (" + std::string(choice.language->label) + ")"
                                                       : std::string(choice.language->label);
-        return {language + " text", s.mute ? "Audio muted" : "Volume " + std::to_string(s.master_volume) + "%",
-                color::info};
+        std::string audio = s.mute ? "Audio muted" : "Volume " + std::to_string(s.master_volume) + "%";
+        if (!s.mute && s.sound_volumes != DefaultSoundVolumes()) audio += "  -  Custom sound levels";
+        return {language + " text", audio, color::info};
     }
 
     void SummaryCard(const char* id, const char* title, Icon icon, float width, int page, const Summary& summary)
@@ -2796,7 +2797,8 @@ private:
 
     void AudioPage()
     {
-        PageHeader("Audio", "Output volume for the game. Music, sound effect and voice levels are part of the game's own Options menu.");
+        PageHeader("Audio", "The game's volume and the level of each kind of sound. The music, sound effect and "
+                            "voice settings in the game's own Options menu still apply.");
         BeginCard("##output", "Output", "Plays through your system's default audio device.", Icon::Audio);
         if (BeginRows("##audio_rows"))
         {
@@ -2806,6 +2808,33 @@ private:
             ImGui::EndDisabled();
             Row("Mute", "Silences the game without changing the volume.");
             if (Toggle("##mute", &draft_.mute)) dirty_ = true;
+            EndRows();
+        }
+        EndCard();
+
+        // [audio] <group>_volume: applied by the game module when the game starts.
+        BeginCard("##sound_levels", "Sound levels",
+                  "Each kind of sound as a share of the level the game gives it. Applies when the game starts.",
+                  Icon::Sliders);
+        if (BeginRows("##sound_level_rows"))
+        {
+            ImGui::BeginDisabled(draft_.mute);
+            for (std::size_t n = 0; n < kSoundGroups.size(); ++n)
+            {
+                Row(kSoundGroups[n].name, kSoundGroups[n].description);
+                ImGui::PushID(kSoundGroups[n].key);
+                if (PercentSlider("##level", &draft_.sound_volumes[n], ImGui::GetContentRegionAvail().x)) dirty_ = true;
+                ImGui::PopID();
+            }
+            ImGui::EndDisabled();
+            Row("Reset levels", "Every kind of sound back to 100%, the game's own mix.");
+            const auto defaults = DefaultSoundVolumes();
+            if (SecondaryButton("sound_levels_reset", "Reset levels", {ImGui::GetContentRegionAvail().x, Dp(40)},
+                                draft_.sound_volumes != defaults, Icon::Refresh))
+            {
+                draft_.sound_volumes = defaults;
+                dirty_ = true;
+            }
             EndRows();
         }
         EndCard();

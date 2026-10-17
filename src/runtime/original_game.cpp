@@ -620,6 +620,21 @@ int mscharged::RunOriginalGame(int argc, char** argv,
             mscharged::platform::SessionLogLine(line.c_str());
             std::fprintf(stderr,"%s\n",line.c_str());
         }
+        // [audio] sound levels: like the master volume a host setting,
+        // whatever the tweak set; the game module's hooks apply them.
+        {
+            const auto& volumes=launch.settings.sound_volumes;
+            auto* configureSoundVolumes=reinterpret_cast<void(*)(const int*,int)>(
+                mscharged::platform::FindNativeModuleSymbol(module,"charged_configure_sound_volumes"));
+            if(configureSoundVolumes)
+                configureSoundVolumes(volumes.data(),int(volumes.size()));
+            const auto described=mscharged::DescribeSoundVolumes(volumes);
+            const std::string line="Sound levels: "+described
+                +(described!="original" && !configureSoundVolumes
+                    ? " (not applied: this build's game module has no sound levels)" : "");
+            mscharged::platform::SessionLogLine(line);
+            std::fprintf(stderr,"%s\n",line.c_str());
+        }
         // display.frame_rate: above the original, Aurora
         // presents each frame as the game swaps and paces the next; VI retraces
         // keep their real rate for everything that counts them.
