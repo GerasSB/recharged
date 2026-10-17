@@ -807,25 +807,45 @@ bool SegmentedIcons(const char* id, int* selected, std::initializer_list<Segment
 bool PercentSlider(const char* id, int* value, float width)
 {
     ImGui::PushID(id);
+    const auto& fonts = CurrentFonts();
     const ImVec2 pos = ImGui::GetCursorScreenPos();
     const float height = ImGui::GetFrameHeight();
-    auto* draw = ImGui::GetWindowDrawList();
-    const float fraction = std::clamp(float(*value) / 100.0f, 0.0f, 1.0f);
-    draw->AddRectFilled(pos, {pos.x + width, pos.y + height}, Col(color::field), Dp(10));
-    if (fraction > 0.0f)
-        FillGradient(draw, pos, {pos.x + std::max(Dp(20), width * fraction), pos.y + height},
-                     Col(Mix(color::accent_dark, color::accent, 0.55f)), Col(Mix(color::accent_dark, color::accent, 0.9f)),
-                     Dp(10), true);
+    // A slim track with a round knob, and the value beside it. ImGui's slider
+    // keeps the input (mouse, keys, gamepad) but draws nothing itself.
+    const float label_width = TextSize(fonts.body, "100%").x + Dp(16);
+    const float track_width = std::max(Dp(60), width - label_width);
+    const float knob = Dp(16);
     ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4{0, 0, 0, 0});
-    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4{1, 1, 1, 0.04f});
-    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4{1, 1, 1, 0.06f});
-    ImGui::PushStyleColor(ImGuiCol_SliderGrab, ImVec4{1, 1, 1, 0.92f});
-    ImGui::PushStyleColor(ImGuiCol_SliderGrabActive, ImVec4{1, 1, 1, 1});
-    ImGui::PushStyleVar(ImGuiStyleVar_GrabMinSize, Dp(6));
-    ImGui::SetNextItemWidth(width);
-    const bool changed = ImGui::SliderInt("##slider", value, 0, 100, "%d%%", ImGuiSliderFlags_AlwaysClamp);
+    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4{0, 0, 0, 0});
+    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4{0, 0, 0, 0});
+    ImGui::PushStyleColor(ImGuiCol_SliderGrab, ImVec4{0, 0, 0, 0});
+    ImGui::PushStyleColor(ImGuiCol_SliderGrabActive, ImVec4{0, 0, 0, 0});
+    ImGui::PushStyleVar(ImGuiStyleVar_GrabMinSize, knob);
+    ImGui::SetNextItemWidth(track_width);
+    const bool changed = ImGui::SliderInt("##slider", value, 0, 100, "", ImGuiSliderFlags_AlwaysClamp);
     ImGui::PopStyleVar();
     ImGui::PopStyleColor(5);
+    const bool active = ImGui::IsItemActive();
+    const float lift = Animate(ImGui::GetID("##lift"), active || ImGui::IsItemHovered(), 14.0f);
+
+    // ImGui centres its grab between 2 px of padding at each end; the knob follows it.
+    auto* draw = ImGui::GetWindowDrawList();
+    const float alpha = ImGui::GetStyle().Alpha; // dimmed while disabled (Mute)
+    const float left = pos.x + 2.0f + knob * 0.5f, right = pos.x + track_width - 2.0f - knob * 0.5f;
+    const float x = left + (right - left) * std::clamp(float(*value) / 100.0f, 0.0f, 1.0f);
+    const float y = pos.y + height * 0.5f, half = Dp(2);
+    draw->AddRectFilled({left, y - half}, {right, y + half}, Col(color::text, 0.12f * alpha), half);
+    if (x > left + 0.5f)
+        FillGradient(draw, {left, y - half}, {x, y + half}, Col(Mix(color::accent_dark, color::accent, 0.6f), alpha),
+                     Col(color::accent, alpha), half, true);
+    const float radius = knob * 0.5f * (1.0f + 0.12f * lift);
+    if (lift > 0.01f) draw->AddCircleFilled({x, y}, radius + Dp(5), Col(color::accent, 0.16f * lift * alpha));
+    draw->AddCircleFilled({x, y + Dp(1)}, radius, Col(ImVec4{0, 0, 0, 1}, 0.35f * alpha));
+    draw->AddCircleFilled({x, y}, radius, Col(active ? color::accent_hi : color::text, alpha));
+
+    const std::string text = std::to_string(*value) + "%";
+    const ImVec2 size = TextSize(fonts.body, text.c_str());
+    DrawLabel(draw, fonts.body, {pos.x + width - size.x, y - size.y * 0.5f}, Col(color::text, 0.85f * alpha), text.c_str());
     ImGui::PopID();
     return changed;
 }
