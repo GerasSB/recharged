@@ -9,8 +9,9 @@ every release of the game.
 FEScene::LoadPackage hands each front-end scene file, as read from the disc,
 to the port (src/platform/recharged_logo_hook.cpp). A scene that draws the
 logo comes back rewritten: copies of the game's own animated R and E letters
-in front of its "charged" letters, the word moved to stay on the logo's
-backdrop and the lightning around it extended to the new letters. Every
+in front of its "charged" letters, the longer word drawn at 90 % so that it
+fits the logo's black backdrop, and the lightning around it extended to the
+new letters. Every
 other scene is left as it is. Like the listed bug fixes the change is always
 on, outside the tweak mask; the host's RECHARGED_ORIGINAL_LOGO=1 keeps the
 original logo. The hook exists only in the native game module.

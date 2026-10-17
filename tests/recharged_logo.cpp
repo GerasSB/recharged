@@ -325,12 +325,18 @@ void TestRecharge()
     Check(mscharged::platform::RechargeLogo(Bytes(original), out) == 1, "one group recharged");
     const FrontendScene scene = Read(out);
 
-    // R and E in front of C, the word 22/31.5 spacings further right.
+    // R and E in front of C, the word 40/31.5 spacings further right, all at
+    // 90 % through the group's scale.
     const auto& charged = InstanceNamed(scene, "charged");
     std::vector<std::string> order;
     for (const auto child : charged.children) order.push_back(InstanceAt(scene, child).name);
     Check(order == std::vector<std::string>{"Re_R", "Re_E", "C", "h", "a", "r", "g", "e", "d"}, "letter order");
-    const float spacing = (87.0f + 102.0f) / 6.0f, shift = 22.0f / 31.5f * spacing;
+    const float spacing = (87.0f + 102.0f) / 6.0f, shift = 40.0f / 31.5f * spacing, scale = 0.9f;
+    Check((charged.overload_flags & 0x5) == 0x5, "group position and scale");
+    Near(charged.attributes.position[0], -62, "group x");
+    Near(charged.attributes.position[1], -128, "group y");
+    Near(charged.attributes.scale[0], scale, "group x scale");
+    Near(charged.attributes.scale[1], scale, "group y scale");
     for (int i = 0; i < 7; ++i)
     {
         const auto& letter = InstanceAt(scene, charged.children[2 + i]);
@@ -339,10 +345,10 @@ void TestRecharge()
     }
     const auto& r = InstanceNamed(scene, "Re_R");
     const auto& e = InstanceNamed(scene, "Re_E");
-    Near(r.attributes.position[0], -102 + shift - 68.0f / 31.5f * spacing, "x of R");
+    Near(r.attributes.position[0], -102 + shift - 58.0f / 31.5f * spacing, "x of R");
     Near(r.attributes.position[1], 16 - 6.0f / 31.5f * spacing, "y of R");
-    Near(e.attributes.position[0], -102 + shift - 28.0f / 31.5f * spacing, "x of E");
-    Near(e.attributes.position[1], 16, "y of E");
+    Near(e.attributes.position[0], -102 + shift - 26.0f / 31.5f * spacing, "x of E");
+    Near(e.attributes.position[1], 16 - 2.0f / 31.5f * spacing, "y of E");
 
     // Each new letter has its own component (slide time) with the letter's
     // image, animated half a loop ahead of the original.
@@ -363,24 +369,33 @@ void TestRecharge()
         Check(pulses.size() == 1 && pulses[0]->type == 3 && pulses[0]->keys.size() == 3, "letter pulse");
     }
 
-    // The lightning moved with the letters; its copy shows the hook at R.
+    // Where a point of the group's word lands in the slide.
+    const auto wordX = [&](float x) { return -62 + scale * x; };
+    const auto wordY = [&](float y) { return -128 + scale * y; };
+
+    // The lightning follows the letters, at their scale; its copy shows the hook at R.
     const auto& logoSlide = *std::find_if(scene.slides.begin(), scene.slides.end(), [](const auto& s) { return s.name == "UK"; });
     std::vector<std::string> siblings;
     for (const auto child : logoSlide.children) siblings.push_back(InstanceAt(scene, child).name);
     Check(siblings == std::vector<std::string>{"lightning", "Re_lightning", "charged", "MSC_charged_back"}, "slide order");
     const auto& lightning = InstanceNamed(scene, "lightning");
     const auto& hook = InstanceNamed(scene, "Re_lightning");
-    const float hookMove = (-68.0f / 31.5f * spacing - 18) - (-16);
-    Near(lightning.attributes.position[0], -35 + shift, "lightning x");
-    Near(hook.attributes.position[0], -35 + shift + hookMove, "hook x");
+    const float hookMove = scale * ((-58.0f / 31.5f * spacing - 18) - (-16));
+    Near(lightning.attributes.position[0], wordX(-35 + 62 + shift), "lightning x");
+    Near(lightning.attributes.position[1], wordY(-77 + 128), "lightning y");
+    Near(hook.attributes.position[0], wordX(-35 + 62 + shift) + hookMove, "hook x");
     for (const auto* bolts : {&lightning, &hook})
     {
+        Near(bolts->attributes.scale[0], scale, "bolts x scale");
+        Near(bolts->attributes.scale[1], scale, "bolts y scale");
         const auto bobs = AnimationsOf(scene, logoSlide, bolts->offset);
         Check(bobs.size() == 1 && bobs[0]->keys.size() == 3, "bolts bob");
-        const float x = bolts->attributes.position[0];
+        const float x = bolts->attributes.position[0], y = bolts->attributes.position[1];
         for (std::size_t n = 0; n < 3; ++n) Near(bobs[0]->keys[n].channels[0][0], x, "bob key x");
         Near(bobs[0]->keys[0].channels[0][1], x, "bob control x");
-        Near(bobs[0]->keys[1].channels[1][0], -70, "bob key y");
+        // The bob it shares with the letters keeps its size.
+        Near(bobs[0]->keys[0].channels[1][0], y, "bob rest y");
+        Near(bobs[0]->keys[1].channels[1][0], y + 7, "bob top y");
         Near(bobs[0]->keys[2].channels[0][1], -1, "last key control");
     }
     Check(*hook.library != *lightning.library && LibraryAt(scene, *hook.library).name == "Re_lightning", "hook component");
@@ -405,30 +420,34 @@ void TestRecharge()
         Near(jitters[0]->keys[1].channels[0][0], 5.22f * width, "jitter x");
         Near(jitters[0]->keys[1].channels[1][0], 2.68f, "jitter y");
     }
-    // Texel for texel: a column of the texture lands where it did, moved
-    // with the letters (the hook by its own offset).
+    // Texel for texel: a column of the texture lands where it did relative
+    // to the word, at the word's scale (the hook moved on to R).
     const auto column = [&](const mscharged::resources::FrontendInstance& bolts, float u) {
         const auto& slide = SlideAt(scene, LibraryAt(scene, *bolts.library).slides[0]);
         const auto& bolt = InstanceAt(scene, slide.children[0]);
         const float corner = (u - bolt.attributes.uv[0]) / bolt.attributes.uv[2] * 100 - 50;
-        return bolts.attributes.position[0] + bolt.attributes.position[0]
-            + (corner - bolt.attributes.pivot[0]) * bolt.attributes.scale[0];
+        return bolts.attributes.position[0]
+            + bolts.attributes.scale[0] * (bolt.attributes.position[0] + (corner - bolt.attributes.pivot[0]) * bolt.attributes.scale[0]);
     };
     const auto original_column = [](float u) { return -35 + -40 + (u * 100 - 50 + 8) * 5.12f; };
-    for (const float u : {0.3f, 0.5f, 0.9f}) Near(column(lightning, u), original_column(u) + shift, "bolt column");
-    for (const float u : {0.0f, 0.1f, 0.2f}) Near(column(hook, u), original_column(u) + shift + hookMove, "hook column");
+    for (const float u : {0.3f, 0.5f, 0.9f})
+        Near(column(lightning, u), wordX(original_column(u) + 62 + shift), "bolt column");
+    for (const float u : {0.0f, 0.1f, 0.2f})
+        Near(column(hook, u), wordX(original_column(u) + 62 + shift) + hookMove, "hook column");
 
     // The plate covers the new word: from R's left edge to D's right edge.
     const auto& plate = InstanceNamed(scene, "MSC_charged_back");
-    const float oldLeft = -62 - 102 - 16, oldRight = -62 + 87 + 27;
-    const float newLeft = -62 - 102 + shift - 68.0f / 31.5f * spacing - 18, newRight = oldRight + shift;
-    const float s = (newRight - newLeft) / (oldRight - oldLeft);
-    Near(plate.attributes.position[0], newLeft + s * (-31 - oldLeft), "plate x");
-    Near(plate.attributes.scale[0], 2.56f * s, "plate width");
+    const float oldLeft = -102 - 16, oldRight = 87 + 27;
+    const float newLeft = -102 + shift - 58.0f / 31.5f * spacing - 18, newRight = oldRight + shift;
+    const float stretch = scale * (newRight - newLeft) / (oldRight - oldLeft);
+    Near(plate.attributes.position[0], wordX(newLeft) + stretch * (-31 - (-62 + oldLeft)), "plate x");
+    Near(plate.attributes.position[1], wordY(-130 + 128), "plate y");
+    Near(plate.attributes.scale[0], 2.56f * stretch, "plate width");
+    Near(plate.attributes.scale[1], 0.64f * scale, "plate height");
     const auto grows = AnimationsOf(scene, logoSlide, plate.offset);
     Check(grows.size() == 1, "plate animation");
-    Near(grows[0]->keys[1].channels[0][0], 5.12f * s, "plate grown width");
-    Near(grows[0]->keys[1].channels[1][0], 1.28f, "plate grown height");
+    Near(grows[0]->keys[1].channels[0][0], 5.12f * stretch, "plate grown width");
+    Near(grows[0]->keys[1].channels[1][0], 1.28f * scale, "plate grown height");
 
     // Every new component is in the library.
     for (const char* name : {"Re_R", "Re_E", "Re_lightning"})

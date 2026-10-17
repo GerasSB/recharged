@@ -65,15 +65,20 @@ std::uint32_t LibrarySize(std::uint32_t type)
 
 // The layout of RECHARGED, measured on the title screen's letters (64x64
 // texels at one unit per texel, 31.5 units apart on average) and applied in
-// units of each group's own spacing. R and E keep the word's slope: its
-// letters climb about 0.12 units per unit to the right. R is followed with no
-// overlap, as r is by g; E overlaps C by about as much as e overlaps d.
+// units of each group's own spacing. R and E keep the word's slope (its
+// letters climb about 0.12 units per unit to the right) and its rhythm: R is
+// as far from E as the letters of CHARGED are apart on average, and E
+// overlaps C as C overlaps h.
 constexpr float kTitleSpacing = 31.5f;
-constexpr float kRx = -68.0f / kTitleSpacing, kRy = -6.0f / kTitleSpacing;
-constexpr float kEx = -28.0f / kTitleSpacing, kEy = 0.0f;
-// The word moves right so that R stays on the logo's backdrop, under the S
-// of STRIKERS.
-constexpr float kShift = 22.0f / kTitleSpacing;
+constexpr float kRx = -58.0f / kTitleSpacing, kRy = -6.0f / kTitleSpacing;
+constexpr float kEx = -26.0f / kTitleSpacing, kEy = -2.0f / kTitleSpacing;
+// The logo's black backdrop narrows towards the bottom of the word on the
+// left, and the tail of STRIKERS' S comes down over its right end. Nine
+// letters fit between them, all on the black, at 90 % of their size (letters,
+// gaps and the lightning around them alike), the word moved right by this
+// much (before that scale).
+constexpr float kShift = 40.0f / kTitleSpacing;
+constexpr float kWordScale = 0.9f;
 // How far the letters' glyphs reach beyond their centres (texels).
 constexpr float kCLeft = -16.0f, kRLeft = -18.0f, kDRight = 27.0f;
 // R and E start half a loop into their scale animations, so they do not
@@ -335,31 +340,59 @@ HostVector<std::uint32_t> AnimationsOf(const Scene& scene, std::uint32_t slide, 
     return found;
 }
 
-// Applies `change` to the x channel of a vector animation's key points and
-// their control points (the last key's controls are unused).
-template<class Change> void ChangeKeysX(Scene& scene, std::uint32_t animation, Change change)
+// Applies `change` to one channel (0 x, 1 y) of a vector animation's key
+// points and their control points (the last key's controls are unused).
+template<class Change> void ChangeKeys(Scene& scene, std::uint32_t animation, std::uint32_t axis, Change change)
 {
     const auto keys = scene.Ring(scene.Pointer(animation + kAnimationKeys), kVectorKeyLinks);
     for (std::size_t n = 0; n < keys.size(); ++n)
         for (std::uint32_t part = 0; part < (n + 1 < keys.size() ? 12u : 4u); part += 4)
-            scene.SetFloat(keys[n] + part, change(scene.Float(keys[n] + part)));
+        {
+            const std::uint32_t at = keys[n] + 16 * axis + part;
+            scene.SetFloat(at, change(scene.Float(at)));
+        }
 }
 
-// Maps an instance of a slide along x: position x -> to + s (x - from), and
-// x scale times s, its slide's animations of them included.
-void MapX(Scene& scene, std::uint32_t slide, std::uint32_t instance, float from, float to, float s)
+// An instance's own position or scale (`offset` in its attributes), which it
+// then draws with: its library's until now, when it had none.
+std::uint32_t Own(Scene& scene, std::uint32_t instance, std::uint32_t flag, std::uint32_t offset)
 {
-    const std::uint32_t attributes = instance + kInstanceAttributes;
-    const auto position = [=](float x) { return to + s * (x - from); };
-    scene.SetFloat(attributes + kPositionX, position(scene.Float(attributes + kPositionX)));
-    scene.SetFloat(attributes + kScaleX, scene.Float(attributes + kScaleX) * s);
-    for (const std::uint32_t animation : AnimationsOf(scene, slide, instance))
+    const std::uint32_t flags = scene.Word(instance + kInstanceFlags);
+    const std::uint32_t attribute = instance + kInstanceAttributes + offset;
+    if (!(flags & flag))
     {
-        if (scene.Half(animation + kAnimationCast) != kVectorCast) continue;
-        const std::uint32_t type = scene.Word(animation + kAnimationType);
-        if (type == kPositionAnimation) ChangeKeysX(scene, animation, position);
-        if (type == kScaleAnimation) ChangeKeysX(scene, animation, [s](float x) { return x * s; });
+        const std::uint32_t library = scene.Pointer(instance + kInstanceLibrary);
+        Require(library != kNull, "FEN instance library");
+        for (std::uint32_t i = 0; i < 12; i += 4)
+            scene.SetFloat(attribute + i, scene.Float(library + kLibraryAttributes + offset + i));
+        scene.SetWord(instance + kInstanceFlags, flags | flag);
     }
+    return attribute;
+}
+
+// Moves an instance of a slide along an axis (0 x, 1 y): position p becomes
+// change(p), in its slide's position animations too.
+template<class Change>
+void Move(Scene& scene, std::uint32_t slide, std::uint32_t instance, std::uint32_t axis, Change change)
+{
+    const std::uint32_t position = Own(scene, instance, kOverloadPosition, kPositionX) + 4 * axis;
+    scene.SetFloat(position, change(scene.Float(position)));
+    for (const std::uint32_t animation : AnimationsOf(scene, slide, instance))
+        if (scene.Half(animation + kAnimationCast) == kVectorCast
+            && scene.Word(animation + kAnimationType) == kPositionAnimation)
+            ChangeKeys(scene, animation, axis, change);
+}
+
+// Scales an instance of a slide along an axis, in its slide's scale
+// animations too.
+void Scale(Scene& scene, std::uint32_t slide, std::uint32_t instance, std::uint32_t axis, float factor)
+{
+    const std::uint32_t scale = Own(scene, instance, kOverloadScale, kScaleX) + 4 * axis;
+    scene.SetFloat(scale, scene.Float(scale) * factor);
+    for (const std::uint32_t animation : AnimationsOf(scene, slide, instance))
+        if (scene.Half(animation + kAnimationCast) == kVectorCast
+            && scene.Word(animation + kAnimationType) == kScaleAnimation)
+            ChangeKeys(scene, animation, axis, [factor](float value) { return value * factor; });
 }
 
 // A copy of an instance of a slide, with its animations there and (for a
@@ -414,7 +447,7 @@ void CropImages(Scene& scene, std::uint32_t library, float from, float to)
             for (const std::uint32_t animation : AnimationsOf(scene, slide, image))
                 if (scene.Half(animation + kAnimationCast) == kVectorCast
                     && scene.Word(animation + kAnimationType) == kScaleAnimation)
-                    ChangeKeysX(scene, animation, [width](float x) { return x * width; });
+                    ChangeKeys(scene, animation, 0, [width](float x) { return x * width; });
         }
 }
 
@@ -472,29 +505,53 @@ bool RechargeGroup(Scene& scene, std::uint32_t slide, std::uint32_t group)
     // overlap C as C overlaps h.
     scene.InsertAfter(letters[6], e);
     scene.InsertAfter(letters[6], r);
+    // The group draws the word smaller, about its own position (which bobs).
+    Scale(scene, slide, group, 0, kWordScale);
+    Scale(scene, slide, group, 1, kWordScale);
 
-    // The word in its slide: it starts at R instead of C, and ends `shift`
+    // What surrounds the word in its slide follows it: its place relative to
+    // the group scaled, moved right with the letters. The bob it shares with
+    // the group stays as it is.
+    const float groupX = scene.Float(Own(scene, group, kOverloadPosition, kPositionX));
+    const float groupY = scene.Float(Own(scene, group, kOverloadPosition, kPositionX) + 4);
+    const auto follow = [&](std::uint32_t instance, float move) {
+        const std::uint32_t position = Own(scene, instance, kOverloadPosition, kPositionX);
+        const float px = scene.Float(position), py = scene.Float(position + 4);
+        const float dx = groupX + kWordScale * (px - groupX + move) - px, dy = groupY + kWordScale * (py - groupY) - py;
+        Move(scene, slide, instance, 0, [dx](float value) { return value + dx; });
+        Move(scene, slide, instance, 1, [dy](float value) { return value + dy; });
+    };
+    // The word in the group: it starts at R instead of C, and ends `shift`
     // further right.
-    const float groupX = scene.Float(group + kInstanceAttributes + kPositionX);
-    const float oldLeft = groupX + cx + kCLeft, oldRight = groupX + x(6) - shift + kDRight;
-    const float newLeft = groupX + cx + shift + kRx * spacing + kRLeft, newRight = oldRight + shift;
+    const float oldLeft = cx + kCLeft, oldRight = x(6) - shift + kDRight;
+    const float newLeft = cx + shift + kRx * spacing + kRLeft, newRight = oldRight + shift;
     for (const std::uint32_t sibling : siblings)
     {
         const std::uint32_t type = scene.Word(sibling + kInstanceType);
         if (type == kComponentInstance && scene.NameIs(sibling + kInstanceName, "lightning"))
         {
-            // The bolts keep their shape and move with the letters; a copy of
+            // The bolts keep their shape and follow the letters; a copy of
             // their hook in front of C moves on to frame R.
-            MapX(scene, slide, sibling, 0.0f, shift, 1.0f);
+            follow(sibling, shift);
+            Scale(scene, slide, sibling, 0, kWordScale);
+            Scale(scene, slide, sibling, 1, kWordScale);
             const std::uint32_t hook = CopySibling(scene, slide, sibling, "Re_lightning");
-            MapX(scene, slide, hook, 0.0f, newLeft - (oldLeft + shift), 1.0f);
+            const float hookMove = kWordScale * (newLeft - (oldLeft + shift));
+            Move(scene, slide, hook, 0, [hookMove](float value) { return value + hookMove; });
             CropImages(scene, scene.Pointer(sibling + kInstanceLibrary), kBoltHook, 1.0f);
             CropImages(scene, scene.Pointer(hook + kInstanceLibrary), 0.0f, kBoltHook);
         }
         else if (type == kImageInstance && scene.NameIs(sibling + kInstanceName, "MSC_charged_back"))
         {
             // The main menu's dark plate behind the word: as wide as the new word.
-            MapX(scene, slide, sibling, oldLeft, newLeft, (newRight - newLeft) / (oldRight - oldLeft));
+            const float from = groupX + oldLeft, to = groupX + kWordScale * newLeft;
+            const float stretch = kWordScale * (newRight - newLeft) / (oldRight - oldLeft);
+            const float py = scene.Float(Own(scene, sibling, kOverloadPosition, kPositionX) + 4);
+            const float dy = groupY + kWordScale * (py - groupY) - py;
+            Move(scene, slide, sibling, 0, [=](float value) { return to + stretch * (value - from); });
+            Move(scene, slide, sibling, 1, [dy](float value) { return value + dy; });
+            Scale(scene, slide, sibling, 0, stretch);
+            Scale(scene, slide, sibling, 1, kWordScale);
         }
     }
     return true;
