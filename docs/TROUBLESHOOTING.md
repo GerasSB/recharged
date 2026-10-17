@@ -51,11 +51,16 @@ Security* (*Open Anyway*), or run in Terminal:
 xattr -dr com.apple.quarantine <unpacked folder>
 ```
 
+While the folder still carries that quarantine mark, macOS starts
+`Recharged.app` from a temporary read-only copy, where it cannot see its
+modules, settings and saves. Recharged then offers to remove the mark from its
+folder and start again; choose *Allow and restart*, or run the command above.
+
 ## macOS: controllers do nothing
 
 macOS only lets an app read gamepads and Wii Remotes after you allow **Input
-Monitoring** for it, in *System Settings → Privacy & Security* (for the app
-you start it from, such as Terminal, if you use one). Quit and restart the
+Monitoring** for it, in *System Settings → Privacy & Security*: for
+Recharged, or for Terminal if you start `./recharged` there. Quit and restart the
 game afterwards, then unplug and reconnect the controller: one that was
 already connected stays silent until it is opened again.
 

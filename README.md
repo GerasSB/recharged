@@ -53,7 +53,7 @@ Get the package for your system from the
 </table>
 
 1. Unpack the package into a folder of its own.
-2. Start `recharged` (`recharged.exe` on Windows).
+2. Start `recharged` (`recharged.exe` on Windows, `Recharged.app` on macOS).
 3. In the launcher, choose your disc image and press **Play**.
 
 The **[install guide](docs/INSTALL.md)** covers the first-start prompts of

@@ -34,8 +34,8 @@ system libraries.
 ## 2. Unpack
 
 Unpack it into a folder of its own that you can write to, for example
-`Games/recharged` in your home folder. Keep all files together: the program,
-its two modules and the `assets` folder. Settings, saves and logs are stored
+`Games/recharged` in your home folder. Keep all files together: the program
+(`Recharged.app` on macOS), its two modules and the `assets` folder. Settings, saves and logs are stored
 in this folder too, so it can be anywhere but should stay in one place.
 
 **Coming from an older version?** It called the program `mscharged`. Unpack
@@ -45,14 +45,18 @@ shortcut (on the Steam Deck: *Target*) at `recharged`.
 
 ## 3. Start
 
-Run **`recharged.exe`** (Windows) or **`recharged`** (Linux, macOS). The
-builds are not signed, so the system asks once:
+Run **`recharged.exe`** (Windows), **`Recharged.app`** (macOS) or
+**`recharged`** (Linux). The builds are not signed, so the system asks once:
 
 - **Windows:** if SmartScreen warns, choose *More info → Run anyway*.
-- **macOS:** allow the app under *System Settings → Privacy & Security*, or
-  run `xattr -dr com.apple.quarantine <unpacked folder>` in Terminal. Gamepads
-  and Wii Remotes also need the **Input Monitoring** permission
+- **macOS:** before the first start, run
+  `xattr -dr com.apple.quarantine <unpacked folder>` in Terminal, or allow the
+  app under *System Settings → Privacy & Security* (*Open Anyway*). If macOS
+  then starts it from a temporary copy, Recharged offers to do the `xattr`
+  step itself and start again. Gamepads and Wii Remotes also need the
+  **Input Monitoring** permission
   ([details](TROUBLESHOOTING.md#macos-controllers-do-nothing)).
+  The `recharged` file beside the app starts it from Terminal.
 - **Linux:** if the file will not start, mark it executable
   (`chmod +x recharged`).
 

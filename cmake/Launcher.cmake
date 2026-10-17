@@ -50,6 +50,33 @@ target_link_libraries(mscharged PRIVATE charged_host charged_launcher_ui charged
     charged_wiimote_scan charged_session_log charged_updates)
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/PipelineCatalog.cmake")
 mscharged_stage_pipeline_catalog(mscharged)
+if(APPLE)
+    target_sources(mscharged PRIVATE src/platform/macos_app.cpp)
+    target_link_libraries(mscharged PRIVATE "-framework CoreFoundation")
+    # Recharged.app beside the program, so Finder starts it without Terminal
+    # (#61). It holds only a copy of the program, Info.plist and the icon;
+    # SDL_FILESYSTEM_BASE_DIR_TYPE=parent keeps everything else beside it.
+    if(CMAKE_OSX_DEPLOYMENT_TARGET)
+        set(MSCHARGED_APP_MINIMUM_SYSTEM
+            "\n    <key>LSMinimumSystemVersion</key>\n    <string>${CMAKE_OSX_DEPLOYMENT_TARGET}</string>")
+    endif()
+    configure_file(cmake/Info.plist.in generated/mscharged/Info.plist @ONLY)
+    find_program(MSCHARGED_CODESIGN codesign REQUIRED)
+    set(app_bundle "$<TARGET_FILE_DIR:mscharged>/Recharged.app")
+    add_custom_command(TARGET mscharged POST_BUILD
+        COMMAND "${CMAKE_COMMAND}" -E rm -rf "${app_bundle}"
+        COMMAND "${CMAKE_COMMAND}" -E make_directory "${app_bundle}/Contents/MacOS" "${app_bundle}/Contents/Resources"
+        COMMAND "${CMAKE_COMMAND}" -E copy "$<TARGET_FILE:mscharged>" "${app_bundle}/Contents/MacOS/recharged"
+        COMMAND "${CMAKE_COMMAND}" -E copy "${CMAKE_CURRENT_BINARY_DIR}/generated/mscharged/Info.plist"
+                "${app_bundle}/Contents/Info.plist"
+        COMMAND "${CMAKE_COMMAND}" -E copy "${CMAKE_CURRENT_SOURCE_DIR}/assets/launcher/icon.icns"
+                "${app_bundle}/Contents/Resources/recharged.icns"
+        # Signed (ad hoc) as a whole, so the signature also covers Info.plist.
+        COMMAND "${MSCHARGED_CODESIGN}" --force --sign - "${app_bundle}"
+        VERBATIM)
+    set_property(TARGET mscharged APPEND PROPERTY LINK_DEPENDS
+        "${CMAKE_CURRENT_SOURCE_DIR}/assets/launcher/icon.icns" "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Info.plist.in")
+endif()
 if(WIN32)
     enable_language(RC)
     configure_file(cmake/app_icon.rc.in generated/mscharged/app_icon.rc @ONLY)

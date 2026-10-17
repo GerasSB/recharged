@@ -221,7 +221,8 @@ on macOS). Closing that window or selecting text in it does not stop or slow
 the game; it closes when the game ends (on Windows it stays open after an
 error until you press a key). Started from cmd or PowerShell, `recharged.exe`
 also prints to that console, whose prompt returns at once
-(`start /wait recharged.exe` waits for the game).
+(`start /wait recharged.exe` waits for the game). On macOS the `recharged`
+file beside the app runs it in Terminal with the output there.
 
 **Advanced → Diagnostics & analytics → Performance stats**
 (`[advanced] frame_logging`) records frame times: each session writes a

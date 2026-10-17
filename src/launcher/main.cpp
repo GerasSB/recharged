@@ -25,6 +25,9 @@
 #include "platform/pc_languages.h"
 #include "platform/console_verbosity.h"
 #include "platform/log_window.h"
+#ifdef __APPLE__
+#include "platform/macos_app.h"
+#endif
 #include "platform/app_icon.h"
 #include "platform/path.h"
 #include "platform/save_import.h"
@@ -4282,6 +4285,9 @@ int main(int argc, char** argv)
     mscharged::platform::ConnectStandardStreams();
     Options options;
     SetAppName();
+#ifdef __APPLE__
+    if (int code = 0; mscharged::platform::LeaveAppTranslocation(code)) return code;
+#endif
     try
     {
     for (int i = 1; i < argc; ++i)
