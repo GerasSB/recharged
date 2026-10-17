@@ -49,6 +49,6 @@ body:
     attributes:
       label: Log
       description: |
-        Drag `logs/mscharged.log` from the program folder here (copy it right after the problem; the next start replaces it). On Windows, add `mscharged-crash.dmp` too if there is one. The log can contain your user name in file paths.
+        Drag `logs/recharged.log` from the program folder here (copy it right after the problem; the next start replaces it). On Windows, add `recharged-crash.dmp` too if there is one. The log can contain your user name in file paths.
     validations:
       required: true

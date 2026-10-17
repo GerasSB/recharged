@@ -21,7 +21,7 @@ recorded in one stadium also covers that effect under every other stadium's fog.
 
 A configuration missing from the resource still compiles when it is first
 drawn, and is prepared from the next launch on. The frame waits for that
-compile, so the session log (`logs/mscharged.log`) records it, with the
+compile, so the session log (`logs/recharged.log`) records it, with the
 configuration itself (zlib, base64) for a configuration new on that PC:
 
 ```text
@@ -40,7 +40,7 @@ its key):
 
 ```sh
 python3 tools/pipeline_catalog.py --catalog assets/graphics/pipelines.json \
-    --import path/to/pipeline_cache.db path/to/mscharged.log
+    --import path/to/pipeline_cache.db path/to/recharged.log
 ```
 
 Regenerate the standalone resource with Python 3.10 or later:

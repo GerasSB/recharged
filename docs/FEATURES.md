@@ -1,8 +1,8 @@
 # Features
 
-What the native port of Mario Strikers Charged offers. The game itself
-is the original: its modes, rules, physics, timing and presentation come from
-the reconstructed source, unchanged.
+What Recharged, the native PC port of Mario Strikers Charged, offers. The game
+itself is the original: its modes, rules, physics, timing and presentation
+come from the reconstructed source, unchanged.
 
 ## The game
 
@@ -13,7 +13,7 @@ the reconstructed source, unchanged.
 - **Up to four players** on one machine, in any mix of keyboard & mouse,
   gamepads and Wii Remotes.
 - **Saves** like on the Wii: progress, unlocks, trophies and options are
-  stored in the port's own data folder.
+  stored in Recharged's own data folder.
 - **The USA and European releases.** The European version, *Mario Strikers
   Charged Football*, runs in its 60 Hz mode and keeps its own saves; its first
   revision plays with the code of the second.
@@ -73,7 +73,7 @@ Press **P** for a screenshot.
   display's refresh rate or unlimited (Display → Frame rate). The game keeps its
   own speed: matches still simulate at their fixed 50 Hz and every frame is
   drawn from the game's own blend of its last two steps, so the extra frames
-  are real motion, not interpolation added by the port.
+  are real motion, not interpolation added by Recharged.
 - V-sync and a performance overlay (FPS, CPU and GPU load) in any corner.
 - Master volume, mute and **sound levels** (Audio): music, sound effects,
   voices, the crowd, menus and HUD, cutscenes and movies each from 0 to 100 %,
@@ -91,7 +91,7 @@ and the NK ("No Kritter") bug is gone: a Boo deke into his own goalie, a
 teleport into a goal or a Chain Chomp hit during a deke no longer lets later
 shots pass through the goalies
 ([#38](https://github.com/yannicksuter/mscharged-port/issues/38)).
-The launcher's **Gameplay** page (or `[gameplay]` in `mscharged.ini`) turns them on:
+The launcher's **Gameplay** page (or `[gameplay]` in `recharged.ini`) turns them on:
 
 - **Skip intro**: start at the main menu, without the notice screens, studio
   logo, intro movie and title screen.
@@ -131,10 +131,10 @@ The launcher's **Gameplay** page (or `[gameplay]` in `mscharged.ini`) turns them
 A start window that checks your disc, explains what is missing, and keeps every
 setting in one place: players and controllers, keyboard keys, gamepad
 profiles, display, audio, gameplay tweaks and advanced options. It asks before
-playing with unsaved changes. Everything is also stored in `mscharged.ini`
+playing with unsaved changes. Everything is also stored in `recharged.ini`
 beside the program ([settings](SETTINGS.md)).
 
-It also **updates the port**: when a newer release is out it shows the release
+It also **updates Recharged**: when a newer release is out it shows the release
 notes and asks, then installs it in place and restarts; only the program's own
 files are replaced. **Release / Test** on the Play page switches between
 official releases and test builds of changes not yet released, and back,
@@ -144,9 +144,9 @@ asking before it installs anything ([updates](SETTINGS.md#updates)).
 
 - **The Japanese and Korean versions.** Their decompilation is still being
   completed.
-- **Online play.** Nintendo Wi-Fi Connection has shut down, so for now the
-  port behaves like a Wii without internet. The netcode is being reworked to
-  make online play functional again, and options for matchmaking and lobbies
-  are being explored.
+- **Online play.** Nintendo Wi-Fi Connection has shut down, so for now
+  Recharged behaves like a Wii without internet. The netcode is being reworked
+  to make online play functional again, and options for matchmaking and
+  lobbies are being explored.
 - **Mods.** A modding framework is in the works; until then, the optional
   tweaks above change the game.

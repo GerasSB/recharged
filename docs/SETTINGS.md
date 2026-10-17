@@ -1,7 +1,7 @@
 # Settings
 
-Everything the launcher sets is saved in `mscharged.ini` beside the program;
-[`mscharged.ini.example`](../mscharged.ini.example) explains every key. This
+Everything the launcher sets is saved in `recharged.ini` beside the program;
+[`recharged.ini.example`](../recharged.ini.example) explains every key. This
 page covers the settings that need more than a label: graphics, audio, Wii
 Remotes, saves, updates and command-line options. For installing, see the
 [install guide](INSTALL.md); for the full list of features and controls, the
@@ -13,10 +13,10 @@ Everything stays in the program folder:
 
 | Path | Contents |
 | --- | --- |
-| `mscharged.ini` | Your settings |
+| `recharged.ini` | Your settings (older versions: `mscharged.ini`, copied at the first start) |
 | `data/nand/` | The game's Wii saves (or the folder set under *Game → Save data*) |
 | `data/pipeline_cache.db` | Compiled shaders for your graphics card |
-| `logs/mscharged.log` | The log of the last run |
+| `logs/recharged.log` | The log of the last run |
 | `screenshots/` | Screenshots taken with **P**, in the folder the game was started from |
 
 Updates replace only the program's own files; these stay. If the program
@@ -29,9 +29,9 @@ instead.
 **Advanced → Graphics API** chooses Vulkan or DirectX 12 for the next start
 (`[display] backend = vulkan` or `d3d12`; `auto` means Vulkan). If the chosen
 API fails, the game reports an error instead of silently switching. Keep the
-shader compiler DLLs from the Windows package beside `mscharged.exe`.
+shader compiler DLLs from the Windows package beside `recharged.exe`.
 
-**Preparing graphics.** Before the game starts, the port builds the game's
+**Preparing graphics.** Before the game starts, Recharged builds the game's
 drawing and effect pipelines for your graphics card: the ones listed in the
 package's `assets/graphics/initial_pipeline_cache.db`, recorded from runs
 through every stadium and captain, plus any others the game has used on this
@@ -57,7 +57,7 @@ log's `Frame rate:` line shows how frames are paced.
 **Picture.** *Sharp* (default) and *clean* fill the window with the game's
 picture; *soft* keeps the look of the Wii's TV signal, with its empty border.
 The 3D scene renders at the window's resolution by default, or at the Wii's
-640 x 448 or 2x-4x of it (`[display] resolution`, only in `mscharged.ini`).
+640 x 448 or 2x-4x of it (`[display] resolution`, only in `recharged.ini`).
 Antialiasing (4x) is on by default. The layout is 16:9 by default, or 4:3;
 resizing keeps it and fills unused space with bars.
 
@@ -129,14 +129,14 @@ Controls page says so and copies these commands. Run them once, then
 reconnect the bar or Remote:
 
 ```sh
-sudo tee /etc/udev/rules.d/60-mscharged-wiimote.rules >/dev/null <<'EOF'
+sudo tee /etc/udev/rules.d/60-recharged-wiimote.rules >/dev/null <<'EOF'
 KERNEL=="hidraw*", SUBSYSTEM=="hidraw", KERNELS=="*057E:0306*", TAG+="uaccess"
 KERNEL=="hidraw*", SUBSYSTEM=="hidraw", KERNELS=="*057E:0330*", TAG+="uaccess"
 EOF
 sudo udevadm control --reload-rules && sudo udevadm trigger --subsystem-match=hidraw
 ```
 
-For diagnosis, **Advanced → Verbose console** (or `MSCHARGED_WIIMOTE_DEBUG=1`)
+For diagnosis, **Advanced → Verbose console** (or `RECHARGED_WIIMOTE_DEBUG=1`)
 logs every step of the Remote setup, including the devices the launcher sees
 and how each Remote answers.
 
@@ -184,11 +184,11 @@ release that contains it.
 
 ## Command-line options
 
-The launcher is optional: starting `mscharged` with a disc image goes straight
-into the game, with the settings from `mscharged.ini`:
+The launcher is optional: starting `recharged` with a disc image goes straight
+into the game, with the settings from `recharged.ini`:
 
 ```sh
-./mscharged --disc "/path/to/Mario Strikers Charged.rvz"
+./recharged --disc "/path/to/Mario Strikers Charged.rvz"
 ```
 
 These options override the INI for one run, without saving:
@@ -204,11 +204,11 @@ These options override the INI for one run, without saving:
 | `--config FILE` | Use another INI file |
 | `--launcher` | Open the launcher even with `--disc` |
 
-`mscharged --help` lists them all.
+`recharged --help` lists them all.
 
 ## Logs and frame recordings
 
-Each run writes `logs/mscharged.log` beside the program: settings, devices,
+Each run writes `logs/recharged.log` beside the program: settings, devices,
 graphics adapter, warnings and errors. Attach it to an
 [issue](https://github.com/yannicksuter/mscharged-port/issues) when reporting a
 problem; it can contain your user name in paths. **Advanced → Log detail** and
@@ -217,7 +217,7 @@ problem; it can contain your user name in paths. **Advanced → Log detail** and
 **Advanced → Diagnostics & analytics → Performance stats**
 (`[advanced] frame_logging`) records frame times: each session writes a
 `frame-times_<timestamp>_<process>.csv` in the `logs` folder beside the program
-(next to `mscharged.log`), with one row per game frame (frame time, game-thread
+(next to `recharged.log`), with one row per game frame (frame time, game-thread
 and process CPU, presents, draws, pipeline creations), and a `.csv.summary.txt`
 with the distribution and longest frames on exit. Each row also names the arena
 being played, and the summary starts with the version and settings, then
