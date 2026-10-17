@@ -1,7 +1,7 @@
 #pragma once
 
 // Sound levels: the volume of each group of the game's sounds, [audio] in
-// mscharged.ini, 0-100 % (issue #59). A group's level scales the levels the
+// recharged.ini, 0-100 % (issue #59). A group's level scales the levels the
 // game itself sets (the music, sound effect and voice settings of its Options
 // menu and the levels of its own mixes) and comes before the master volume.
 // The game module receives them (charged_configure_sound_volumes) before

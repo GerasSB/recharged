@@ -62,7 +62,7 @@ unsigned long sOriginalFrameCount;
 // the host for such a disc, whatever the enabled tweaks.
 bool sRev1Data;
 
-// Sound levels ([audio] in mscharged.ini, a host setting outside the tweak
+// Sound levels ([audio] in recharged.ini, a host setting outside the tweak
 // mask, issue #59), in the order of mscharged::SoundGroup: the decibels added
 // to each group's sounds, and the movies' gain.
 enum
