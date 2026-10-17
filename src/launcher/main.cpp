@@ -70,11 +70,15 @@ namespace
 // Window title of the game and the launcher: the port's name and build.
 std::string GameTitle()
 {
-    std::string title = std::string("MSCharged Port ") + mscharged::build::version;
+    std::string title = std::string("Recharged ") + mscharged::build::version;
     if (std::string_view(mscharged::build::channel) == "test")
         title += " - test build of PR #" + std::to_string(mscharged::build::pull_request);
     return title;
 }
+
+// The name desktops show for the program (task switcher, audio mixer). SDL
+// forgets it at SDL_Quit, so the game sets it again after the launcher.
+void SetAppName() { SDL_SetAppMetadata("Recharged", mscharged::build::version, nullptr); }
 
 // The running build: where it comes from (MSCHARGED_BUILD_* in CMakeLists.txt)
 // and the package it was made for. The installed package's manifest refines
@@ -943,11 +947,13 @@ private:
     }
 
     // A release's title without what the headline already says: CI names
-    // releases "Mario Strikers Charged Native Port <version>" (build.yml).
+    // releases "Recharged <version>" (build.yml), before the rename (#64)
+    // "Mario Strikers Charged Native Port <version>".
     static std::string ReleaseSubtitle(std::string title, const PortVersion& version)
     {
         const std::string number = VersionNumber(version);
-        for (const std::string& part : {"v" + number, number, std::string("Mario Strikers Charged Native Port")})
+        for (const std::string& part : {"Recharged v" + number, "Recharged " + number, "v" + number, number,
+                                        std::string("Mario Strikers Charged Native Port")})
             if (const auto at = title.find(part); at != std::string::npos) title.erase(at, part.size());
         const auto separator = [](char c) { return c == ' ' || c == '-' || c == ':' || c == '|'; };
         while (!title.empty() && separator(title.front())) title.erase(title.begin());
@@ -1584,17 +1590,17 @@ private:
         draw->AddLine({width - 1, 0}, {width - 1, height}, Col(color::border, 0.7f), 1.0f);
         const float pad = Dp(24);
         float y = Dp(30);
-        DrawTracked(draw, fonts.caption, {pad, y}, Col(color::muted), "MARIO STRIKERS", Dp(2.4f));
+        DrawTracked(draw, fonts.caption, {pad, y}, Col(color::muted), "NATIVE PC PORT", Dp(2.4f));
         y += FontSize(fonts.caption) + Dp(2);
-        // "CHARGED" with a soft glow and a vertical lime-to-green gradient.
+        // "RECHARGED" with a soft glow and a vertical lime-to-green gradient.
         for (int i = 3; i >= 1; --i)
-            DrawLabel(draw, fonts.title, {pad, y + Dp(float(i) * 0.7f)}, Col(color::accent, 0.08f * float(i)), "CHARGED");
+            DrawLabel(draw, fonts.title, {pad, y + Dp(float(i) * 0.7f)}, Col(color::accent, 0.08f * float(i)), "RECHARGED");
         const int start = draw->VtxBuffer.Size;
-        DrawLabel(draw, fonts.title, {pad, y}, IM_COL32_WHITE, "CHARGED");
+        DrawLabel(draw, fonts.title, {pad, y}, IM_COL32_WHITE, "RECHARGED");
         ImGui::ShadeVertsLinearColorGradientKeepAlpha(draw, start, draw->VtxBuffer.Size, {pad, y},
                                                      {pad, y + FontSize(fonts.title)}, Col(color::accent_hi), Col(color::accent));
         y += FontSize(fonts.title) + Dp(4);
-        DrawLabel(draw, fonts.caption, {pad, y}, Col(color::dim), "Native PC port");
+        DrawLabel(draw, fonts.caption, {pad, y}, Col(color::dim), "Mario Strikers Charged");
         y += FontSize(fonts.caption) + Dp(28);
 
         ImGui::SetCursorPos({Dp(12), y});
@@ -1709,12 +1715,12 @@ private:
         float y = origin.y + std::max(Dp(34), hero * 0.20f);
         DrawTracked(draw, fonts.caption, {origin.x + pad, y}, Col(color::accent, 0.95f), "NATIVE PC PORT", Dp(2.6f));
         y += FontSize(fonts.caption) + Dp(10);
-        DrawTracked(draw, fonts.overline, {origin.x + pad, y}, IM_COL32_WHITE, "MARIO STRIKERS", Dp(3.0f));
+        DrawTracked(draw, fonts.overline, {origin.x + pad, y}, IM_COL32_WHITE, "MARIO STRIKERS CHARGED", Dp(3.0f));
         y += FontSize(fonts.overline) - Dp(4);
         for (int i = 4; i >= 1; --i)
-            DrawLabel(draw, fonts.hero, {origin.x + pad, y + Dp(float(i))}, Col(color::accent, 0.07f * float(i)), "CHARGED");
+            DrawLabel(draw, fonts.hero, {origin.x + pad, y + Dp(float(i))}, Col(color::accent, 0.07f * float(i)), "RECHARGED");
         const int start = draw->VtxBuffer.Size;
-        DrawLabel(draw, fonts.hero, {origin.x + pad, y}, IM_COL32_WHITE, "CHARGED");
+        DrawLabel(draw, fonts.hero, {origin.x + pad, y}, IM_COL32_WHITE, "RECHARGED");
         ImGui::ShadeVertsLinearColorGradientKeepAlpha(draw, start, draw->VtxBuffer.Size, {origin.x, y},
                                                      {origin.x, y + FontSize(fonts.hero)}, Col(color::accent_hi),
                                                      Col(color::accent));
@@ -2020,7 +2026,7 @@ private:
             if (check_.info) TextWrappedColored(fonts.body, color::muted, UnplayableReason(*check_.info).c_str());
             ImGui::Dummy({0, Dp(4)});
             const std::string runs = "This build runs " + PlayableReleasesText()
-                + ". The other versions follow as the port supports them.";
+                + ". The other versions follow as Recharged supports them.";
             TextWrappedColored(fonts.body, color::text, runs.c_str());
             ImGui::Dummy({0, Dp(10)});
             if (PrimaryButton("region_ok", "OK", Dp(120, 42), true) || CancelPressed()
@@ -4063,7 +4069,7 @@ private:
 
     void AboutPage()
     {
-        PageHeader("About", "Mario Strikers Charged - native PC port.");
+        PageHeader("About", "Recharged - native PC port of Mario Strikers Charged.");
         BeginCard("##build", "This build", nullptr, Icon::Info);
         if (BeginRows("##build_rows"))
         {
@@ -4104,8 +4110,8 @@ private:
 
         BeginCard("##project", "Mario Strikers Charged Decompilation Project", nullptr, Icon::Disc);
         TextWrappedColored(CurrentFonts().body, color::text,
-            "This port compiles the reconstructed C/C++ source of Mario Strikers Charged to native code. "
-            "The original game logic runs unchanged; the port provides the platform underneath it: graphics, audio, "
+            "Recharged compiles the reconstructed C/C++ source of Mario Strikers Charged to native code. "
+            "The original game logic runs unchanged; Recharged provides the platform underneath it: graphics, audio, "
             "input, files and timing.");
         ImGui::Dummy({0, Dp(2)});
         TextWrappedColored(CurrentFonts().caption, color::muted,
@@ -4153,7 +4159,7 @@ private:
 
         BeginCard("##licenses", "Credits & licenses", nullptr, Icon::Check);
         TextWrappedColored(CurrentFonts().caption, color::muted,
-            "Original port code, tools and documentation: CC0 1.0. Header artwork: SteamGridDB hero 8926 by Jiquita. "
+            "Recharged's original code, tools and documentation: CC0 1.0. Header artwork: SteamGridDB hero 8926 by Jiquita. "
             "Font: Roboto (Apache 2.0). Built with SDL3 (zlib), Dear ImGui (MIT), Aurora (MIT), Dawn (BSD), "
             "nod and its Rust dependencies, and other libraries listed in LICENSES. Each keeps its own license.");
         EndCard();
@@ -4243,6 +4249,7 @@ private:
 int main(int argc, char** argv)
 {
     Options options;
+    SetAppName();
     try
     {
     for (int i = 1; i < argc; ++i)
@@ -4251,7 +4258,7 @@ int main(int argc, char** argv)
         const std::string arg = argv[i];
         if (arg == "--version")
         {
-            std::cout << "mscharged " << mscharged::build::version << " (" << MSCHARGED_BUILD_CONFIG;
+            std::cout << "Recharged " << mscharged::build::version << " (" << MSCHARGED_BUILD_CONFIG;
 #ifdef MSCHARGED_HAS_ORIGINAL_FRONTEND
             std::cout << "; original frontend runtime)\n";
 #else
@@ -4552,6 +4559,7 @@ int main(int argc, char** argv)
                 + error + "). Please start it again yourself.");
             return 1;
         }
+        SetAppName();
 #ifdef MSCHARGED_HAS_ORIGINAL_FRONTEND
         if (frontend_launch) return RunOriginalGame(argc, argv, &*frontend_launch, true,
             OriginalMainScene::FrontendSequence, GameTitle().c_str());

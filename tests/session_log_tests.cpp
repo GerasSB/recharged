@@ -65,7 +65,7 @@ int main(int, char** argv)
         int status = Child(directory, "normal", argv[0]);
         Require(WIFEXITED(status) && WEXITSTATUS(status) == 0, "Normal run did not exit 0");
         auto text = Read(log);
-        Require(text.find("=== Mario Strikers Charged native port test ===") != std::string::npos, "No log header");
+        Require(text.find("=== Recharged test ===") != std::string::npos, "No log header");
         Require(text.find("stdout before normal") != std::string::npos
                     && text.find("stderr before normal") != std::string::npos,
                 "Console output missing from the log");

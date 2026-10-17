@@ -13,7 +13,7 @@ namespace
 {
 void PrintVersion()
 {
-    std::cout << "mscharged-port " << mscharged::build::version
+    std::cout << "Recharged " << mscharged::build::version
               << " (" << MSCHARGED_BUILD_CONFIG << "; development bootstrap)\n";
 }
 

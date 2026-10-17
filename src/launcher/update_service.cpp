@@ -23,7 +23,7 @@ platform::HttpRequest GitHubRequest(const std::string& url, const BuildIdentity&
 {
     platform::HttpRequest request;
     request.url = url;
-    request.user_agent = "mscharged/" + build.version;
+    request.user_agent = "Recharged/" + build.version;
     request.headers = {"Accept: application/vnd.github+json", "X-GitHub-Api-Version: 2022-11-28"};
     request.cancel = cancel;
     return request;

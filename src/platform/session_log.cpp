@@ -228,7 +228,7 @@ std::string Line(const char* format, ...)
 
 void Header(const char* version, int argc, char** argv)
 {
-    std::string text = Line("=== Mario Strikers Charged native port %s ===\n", version);
+    std::string text = Line("=== Recharged %s ===\n", version);
     const std::time_t now = std::time(nullptr);
     char stamp[64] = "";
     if (const std::tm* local = std::localtime(&now)) std::strftime(stamp, sizeof stamp, "%Y-%m-%d %H:%M:%S %z", local);
@@ -361,13 +361,13 @@ bool OwnConsole()
 void CrashDialog(const char* headline)
 {
     if (!OwnConsole()) return;
-    std::wstring text = L"Mario Strikers Charged ";
+    std::wstring text = L"Recharged ";
     wchar_t wide[512];
     MultiByteToWideChar(CP_UTF8, 0, headline, -1, wide, 512);
     text += wide;
     text += L"\n\nA report was saved to:\n" + g_log.path.wstring()
         + L"\n\nPlease attach mscharged.log (and mscharged-crash.dmp, if present) to your bug report.";
-    MessageBoxW(nullptr, text.c_str(), L"Mario Strikers Charged", MB_ICONERROR | MB_OK | MB_SETFOREGROUND);
+    MessageBoxW(nullptr, text.c_str(), L"Recharged", MB_ICONERROR | MB_OK | MB_SETFOREGROUND);
 }
 
 const char* ExceptionName(DWORD code)
@@ -686,7 +686,7 @@ void ReportFatalError(const std::string& message)
     std::wstring text = L"The game stopped with an error:\n\n" + wide;
     if (g_log.file >= 0)
         text += L"\n\nDetails are in:\n" + g_log.path.wstring() + L"\n\nPlease attach that file to your bug report.";
-    MessageBoxW(nullptr, text.c_str(), L"Mario Strikers Charged", MB_ICONERROR | MB_OK | MB_SETFOREGROUND);
+    MessageBoxW(nullptr, text.c_str(), L"Recharged", MB_ICONERROR | MB_OK | MB_SETFOREGROUND);
 #endif
 }
 } // namespace mscharged::platform

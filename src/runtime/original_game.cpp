@@ -343,7 +343,7 @@ int mscharged::RunOriginalGame(int argc, char** argv,
         const auto dataPath = dataDirectory.string();
         AuroraConfig config{};
         // Window title: the port's name and build, then the diagnostic scene.
-        const std::string appTitle=title ? title : "MSCharged Port";
+        const std::string appTitle=title ? title : "Recharged";
         const std::string windowTitle=optionsScene ? appTitle+" | Options diagnostic" : appTitle;
         config.appName=windowTitle.c_str();
         config.userPath=config.cachePath=dataPath.c_str();
