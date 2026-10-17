@@ -252,7 +252,7 @@ if(APPLE)
     target_link_options(mscharged_original_game_module_template PRIVATE
         LINKER:-undefined,dynamic_lookup LINKER:-dead_strip LINKER:-no_fixup_chains)
 elseif(WIN32)
-    # The DLL imports host services from mscharged.exe (see
+    # The DLL imports host services from recharged.exe (see
     # mscharged_import_original_windows_host); unfinished functions stay
     # unresolved until called, like the ELF/Mach-O modules.
     target_link_options(mscharged_original_game_module_template PRIVATE -Wl,--gc-sections)
@@ -370,7 +370,7 @@ function(mscharged_link_original_game target)
                 LINKER:-unexported_symbol,___OSShutdownToSBY)
         endif()
     elseif(WIN32)
-        # Host services for the game DLLs: mscharged.exe exports its symbols and
+        # Host services for the game DLLs: recharged.exe exports its symbols and
         # its import library is what the modules link against.
         # The game keeps addresses in 32-bit unsigned long carriers on LLP64
         # (64-bit on Linux and macOS). Game memory stays below 2 GB: the Wii
@@ -413,18 +413,18 @@ if(TARGET mscharged)
     mscharged_link_original_game(mscharged)
 endif()
 
-# Windows: a game DLL resolves host services through mscharged.exe's import
+# Windows: a game DLL resolves host services through recharged.exe's import
 # library, so it links after the executable (the reverse of the ELF order).
 function(mscharged_import_original_windows_host module)
     if(NOT WIN32 OR NOT TARGET mscharged)
         return()
     endif()
     add_dependencies(${module} mscharged)
-    # CMake writes the executable's import library (libmscharged.dll.a); a
+    # CMake writes the executable's import library (librecharged.dll.a); a
     # linker option rather than a file input, as that link produces it.
     # Below 2 GB like the executable (see mscharged_link_original_game).
     # Only one game module is loaded at a time, so they share one base.
-    target_link_options(${module} PRIVATE "-L${CMAKE_BINARY_DIR}" -lmscharged
+    target_link_options(${module} PRIVATE "-L${CMAKE_BINARY_DIR}" "-l$<TARGET_FILE_BASE_NAME:mscharged>"
         -Wl,-Xlink=-force:unresolved -Wl,--image-base,0x20000000 -Wl,-Xlink=-highentropyva:no)
 endfunction()
 

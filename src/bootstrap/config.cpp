@@ -345,7 +345,7 @@ std::string Read(const std::filesystem::path& path)
     std::ifstream input(path, std::ios::binary);
     if (!input)
         throw std::runtime_error("Cannot read " + PathUtf8(path)
-            + ". Copy mscharged.ini.example to mscharged.ini and set [game] disc.");
+            + ". Copy recharged.ini.example to recharged.ini and set [game] disc.");
     if (std::filesystem::file_size(path) > 1024 * 1024)
         throw std::runtime_error("Configuration file is unexpectedly large: " + PathUtf8(path));
     std::ostringstream result;

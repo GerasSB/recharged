@@ -10,7 +10,7 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_G
     set(MSCHARGED_GCC_NO_SANE_NEW_DELETE -fno-assume-sane-operators-new-delete)
 endif()
 if(WIN32 AND MINGW)
-    # COFF weak definitions cannot be exported from mscharged.exe to the game
+    # COFF weak definitions cannot be exported from recharged.exe to the game
     # DLLs (OSReport and friends would bind to address 0). Plain definitions,
     # as the SDK and decomp headers already use for MSVC.
     add_compile_definitions(DECL_WEAK=)

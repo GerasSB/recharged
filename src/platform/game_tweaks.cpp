@@ -1,4 +1,4 @@
-// Opt-in game tweaks ([gameplay] in mscharged.ini), inside the original game
+// Opt-in game tweaks ([gameplay] in recharged.ini), inside the original game
 // module. The hooks of patches/mscharged-decomp-tweaks call these functions;
 // each returns the original behaviour unless the player enabled its tweak.
 // The host passes the enabled set once, before original main starts, and for

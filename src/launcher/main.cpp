@@ -114,9 +114,9 @@ BuildIdentity CurrentBuild()
 
 // The program, as tools/package_build.py ships it.
 #ifdef _WIN32
-constexpr const char* kExecutableName = "mscharged.exe";
+constexpr const char* kExecutableName = "recharged.exe";
 #else
-constexpr const char* kExecutableName = "mscharged";
+constexpr const char* kExecutableName = "recharged";
 #endif
 
 // Seconds since 1970 as local date and time.
@@ -166,7 +166,7 @@ static_assert(std::size(page_names) == PageCount && std::size(page_ids) == PageC
 // The udev rule from docs/SETTINGS.md (Wii Remotes): lets the logged-in user
 // open Wii Remotes, paired over Bluetooth or behind a DolphinBar.
 constexpr const char* kWiimoteUdevCommands =
-    "sudo tee /etc/udev/rules.d/60-mscharged-wiimote.rules >/dev/null <<'EOF'\n"
+    "sudo tee /etc/udev/rules.d/60-recharged-wiimote.rules >/dev/null <<'EOF'\n"
     "KERNEL==\"hidraw*\", SUBSYSTEM==\"hidraw\", KERNELS==\"*057E:0306*\", TAG+=\"uaccess\"\n"
     "KERNEL==\"hidraw*\", SUBSYSTEM==\"hidraw\", KERNELS==\"*057E:0330*\", TAG+=\"uaccess\"\n"
     "EOF\n"
@@ -3343,7 +3343,7 @@ private:
     }
 
     // Gamepad profiles: the built-in Default and named button layouts kept in
-    // mscharged.ini, each made for one kind of controller; each gamepad plays
+    // recharged.ini, each made for one kind of controller; each gamepad plays
     // with the one chosen for it.
     void OpenGamepadView(std::size_t slot)
     {
@@ -4269,7 +4269,7 @@ int main(int argc, char** argv)
         }
         if (arg == "--help")
         {
-            std::cout << "Usage: mscharged [launch settings] [--launcher] [--version]\n" << LaunchOptionsHelp <<
+            std::cout << "Usage: recharged [launch settings] [--launcher] [--version]\n" << LaunchOptionsHelp <<
                          "Supplying --disc/--disk starts the original game runtime directly when included in this build.\n"
                          "Use --launcher to open settings; launcher checks and explicit runtime modes keep their selected mode.\n"
                          "Development checks: --smoke-test | --screenshot FILE [--page play|game|display|audio|controls|advanced|about]\n";
@@ -4395,7 +4395,7 @@ int main(int argc, char** argv)
         else { std::cerr << "Unknown or incomplete argument: " << arg << ". Use --help.\n"; return 2; }
     }
     } catch (const std::exception& error) { std::cerr << error.what() << '\n'; return 2; }
-    // logs/mscharged.log for player runs (not the development smoke/screenshot checks).
+    // logs/recharged.log for player runs (not the development smoke/screenshot checks).
     if (!options.smoke_test && options.screenshot.empty())
     {
         mscharged::platform::StartSessionLog(mscharged::build::version, argc, argv);

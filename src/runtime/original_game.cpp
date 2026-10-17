@@ -368,7 +368,7 @@ int mscharged::RunOriginalGame(int argc, char** argv,
         // remotes, including DolphinBar mode 4 and its IR sensor bar; SDL's
         // own Wii HID driver must not open the same devices.
         SDL_SetHintWithPriority(SDL_HINT_JOYSTICK_HIDAPI_WII,"0",SDL_HINT_DEFAULT);
-        // Startup milestones and display settings for logs/mscharged.log.
+        // Startup milestones and display settings for logs/recharged.log.
         const auto& shown=launch.settings;
         mscharged::platform::SessionLogLine("Display settings: "+std::string(shown.fullscreen?"fullscreen":"windowed")
             +" "+std::to_string(windowWidth)+"x"+std::to_string(windowHeight)+", aspect "+shown.aspect

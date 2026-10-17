@@ -366,7 +366,7 @@ void CrashDialog(const char* headline)
     MultiByteToWideChar(CP_UTF8, 0, headline, -1, wide, 512);
     text += wide;
     text += L"\n\nA report was saved to:\n" + g_log.path.wstring()
-        + L"\n\nPlease attach mscharged.log (and mscharged-crash.dmp, if present) to your bug report.";
+        + L"\n\nPlease attach recharged.log (and recharged-crash.dmp, if present) to your bug report.";
     MessageBoxW(nullptr, text.c_str(), L"Recharged", MB_ICONERROR | MB_OK | MB_SETFOREGROUND);
 }
 
@@ -528,7 +528,7 @@ fs::path ChooseDirectory()
             return directory;
         }
     }
-    if (char* pref = SDL_GetPrefPath("mscharged", "mscharged"))
+    if (char* pref = SDL_GetPrefPath("recharged", "recharged"))
     {
         const fs::path directory = PathFromUtf8(pref) / "logs";
         SDL_free(pref);
@@ -546,9 +546,9 @@ void StartSessionLog(const char* version, int argc, char** argv)
     if (directory.empty()) return;
     std::error_code error;
     fs::create_directories(directory, error);
-    g_log.path = directory / "mscharged.log";
-    g_log.dump = directory / "mscharged-crash.dmp";
-    if (fs::exists(g_log.path, error)) fs::rename(g_log.path, directory / "mscharged.previous.log", error);
+    g_log.path = directory / "recharged.log";
+    g_log.dump = directory / "recharged-crash.dmp";
+    if (fs::exists(g_log.path, error)) fs::rename(g_log.path, directory / "recharged.previous.log", error);
     fs::remove(g_log.dump, error);
 #ifdef _WIN32
     g_log.file = _wopen(g_log.path.c_str(), _O_WRONLY | _O_CREAT | _O_TRUNC | _O_BINARY, 0644);

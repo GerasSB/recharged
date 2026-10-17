@@ -53,6 +53,8 @@ function(mscharged_add_original_frontend_diagnostic target version suffix)
     string(TOUPPER "${suffix}" _suffix)
     get_target_property(_sources mscharged_original_game_module_template SOURCES)
     add_library(${target} MODULE ${_sources})
+    # The shipped file: recharged_game_us/_eu beside the program.
+    set_target_properties(${target} PROPERTIES OUTPUT_NAME recharged_game_${suffix})
     add_dependencies(${target} verify_prepared)
     mscharged_add_original_shutdown_records(${target})
     foreach(_property IN ITEMS
