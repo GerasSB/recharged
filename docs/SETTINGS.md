@@ -94,7 +94,7 @@ log's `Frame rate:` line shows how frames are paced.
 **Picture.** *Sharp* (default) and *clean* fill the window with the game's
 picture; *soft* keeps the look of the Wii's TV signal, with its empty border.
 The 3D scene renders at the window's resolution by default, or at the Wii's
-640 x 448 or 2x-4x of it (`[display] resolution`, only in `recharged.ini`).
+640 x 448 or 2x-4x of it (Display → 3D resolution, `[display] resolution`).
 Antialiasing (4x) is on by default. The layout is 16:9 by default, or 4:3;
 resizing keeps it and fills unused space with bars.
 
