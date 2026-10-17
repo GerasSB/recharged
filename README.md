@@ -1,7 +1,7 @@
 # Recharged — a native PC port of Mario Strikers Charged
 
-[![Latest release](https://img.shields.io/github/v/release/yannicksuter/mscharged-port?label=latest%20release)](https://github.com/yannicksuter/mscharged-port/releases/latest)
-[![Downloads](https://img.shields.io/github/downloads/yannicksuter/mscharged-port/total?label=downloads)](https://github.com/yannicksuter/mscharged-port/releases)
+[![Latest release](https://img.shields.io/github/v/release/previouslevelgames/recharged?label=latest%20release)](https://github.com/previouslevelgames/recharged/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/previouslevelgames/recharged/total?label=downloads)](https://github.com/previouslevelgames/recharged/releases)
 [![License CC0 1.0](https://img.shields.io/badge/license-CC0%201.0-lightgrey)](LICENSE)
 
 Play **Mario Strikers Charged** natively on Windows, Linux, macOS and Steam
@@ -24,16 +24,16 @@ graphics, sound, controllers, disc access and saves.
 ## Download
 
 Get the package for your system from the
-[**latest release**](https://github.com/yannicksuter/mscharged-port/releases/latest):
+[**latest release**](https://github.com/previouslevelgames/recharged/releases/latest):
 
 <table>
 <tr>
 <td align="center" width="20%">
-<a href="https://github.com/yannicksuter/mscharged-port/releases/latest"><img alt="Windows" src="https://img.shields.io/badge/Windows-10%20%2F%2011%20%C2%B7%20x64-0078D4?logo=windows&logoColor=white"></a><br>
+<a href="https://github.com/previouslevelgames/recharged/releases/latest"><img alt="Windows" src="https://img.shields.io/badge/Windows-10%20%2F%2011%20%C2%B7%20x64-0078D4?logo=windows&logoColor=white"></a><br>
 <code>windows-x86_64.zip</code>
 </td>
 <td align="center" width="20%">
-<a href="https://github.com/yannicksuter/mscharged-port/releases/latest"><img alt="Linux" src="https://img.shields.io/badge/Linux-x86__64%20%C2%B7%20Vulkan-FCC624?logo=linux&logoColor=black"></a><br>
+<a href="https://github.com/previouslevelgames/recharged/releases/latest"><img alt="Linux" src="https://img.shields.io/badge/Linux-x86__64%20%C2%B7%20Vulkan-FCC624?logo=linux&logoColor=black"></a><br>
 <code>linux-x86_64.tar.gz</code>
 </td>
 <td align="center" width="20%">
@@ -42,11 +42,11 @@ Get the package for your system from the
 <a href="docs/STEAM_DECK.md">Steam Deck guide</a>
 </td>
 <td align="center" width="20%">
-<a href="https://github.com/yannicksuter/mscharged-port/releases/latest"><img alt="macOS Apple Silicon" src="https://img.shields.io/badge/macOS-Apple%20Silicon-0A84FF?logo=apple&logoColor=white"></a><br>
+<a href="https://github.com/previouslevelgames/recharged/releases/latest"><img alt="macOS Apple Silicon" src="https://img.shields.io/badge/macOS-Apple%20Silicon-0A84FF?logo=apple&logoColor=white"></a><br>
 <code>macos-arm64.tar.gz</code>
 </td>
 <td align="center" width="20%">
-<a href="https://github.com/yannicksuter/mscharged-port/releases/latest"><img alt="macOS Intel" src="https://img.shields.io/badge/macOS-Intel%20%C2%B7%2015%2B-0A84FF?logo=apple&logoColor=white"></a><br>
+<a href="https://github.com/previouslevelgames/recharged/releases/latest"><img alt="macOS Intel" src="https://img.shields.io/badge/macOS-Intel%20%C2%B7%2015%2B-0A84FF?logo=apple&logoColor=white"></a><br>
 <code>macos-x86_64.tar.gz</code>
 </td>
 </tr>
@@ -116,7 +116,7 @@ are supported. For the Japanese and Korean versions we are still working on
 the decompilation and on fixing all remaining differences.
 
 **Something does not work.** See [troubleshooting](docs/TROUBLESHOOTING.md).
-To report a problem, open an [issue](https://github.com/yannicksuter/mscharged-port/issues)
+To report a problem, open an [issue](https://github.com/previouslevelgames/recharged/issues)
 and attach `logs/recharged.log` from the program folder.
 
 ## Documentation

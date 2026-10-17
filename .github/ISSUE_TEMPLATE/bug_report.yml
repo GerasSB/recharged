@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for reporting! Please check [troubleshooting](https://github.com/yannicksuter/mscharged-port/blob/stable/docs/TROUBLESHOOTING.md) first; many problems have a quick answer there.
+        Thanks for reporting! Please check [troubleshooting](https://github.com/previouslevelgames/recharged/blob/stable/docs/TROUBLESHOOTING.md) first; many problems have a quick answer there.
   - type: input
     id: version
     attributes:

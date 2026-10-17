@@ -40,7 +40,7 @@ under Rosetta; Intel Macs build the same way.
 With your disc image ready, from the folder that should contain the checkout:
 
 ```sh
-git clone --no-recurse-submodules https://github.com/yannicksuter/mscharged-port.git && cd mscharged-port
+git clone --no-recurse-submodules https://github.com/previouslevelgames/recharged.git && cd recharged
 python3 tools/setup_dependencies.py && CMAKE_BUILD_PARALLEL_LEVEL=3 cmake --workflow --preset release --fresh
 ./build/release/recharged
 ```

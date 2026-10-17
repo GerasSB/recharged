@@ -32,7 +32,7 @@ set(MSCHARGED_PORT_VERSION "${PROJECT_VERSION}")
 # as a prerelease while the pull request is open.
 set(MSCHARGED_BUILD_CHANNEL dev CACHE STRING "Where the build comes from: release, test or dev")
 set_property(CACHE MSCHARGED_BUILD_CHANNEL PROPERTY STRINGS release test dev)
-set(MSCHARGED_BUILD_REPOSITORY yannicksuter/mscharged-port CACHE STRING
+set(MSCHARGED_BUILD_REPOSITORY previouslevelgames/recharged CACHE STRING
     "GitHub repository (owner/name) whose releases and test builds update this build")
 set(MSCHARGED_BUILD_PULL_REQUEST 0 CACHE STRING "Pull request of a test build")
 set(MSCHARGED_BUILD_RUN 0 CACHE STRING "CI run that made the build (0: none)")

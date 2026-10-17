@@ -210,7 +210,7 @@ These options override the INI for one run, without saving:
 
 Each run writes `logs/recharged.log` beside the program: settings, devices,
 graphics adapter, warnings and errors. Attach it to an
-[issue](https://github.com/yannicksuter/mscharged-port/issues) when reporting a
+[issue](https://github.com/previouslevelgames/recharged/issues) when reporting a
 problem; it can contain your user name in paths. **Advanced → Log detail** and
 **Verbose console** add more detail.
 

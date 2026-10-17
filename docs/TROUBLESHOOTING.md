@@ -1,7 +1,7 @@
 # Troubleshooting
 
 Solutions to the problems that come up most. If yours is not here, open an
-[issue](https://github.com/yannicksuter/mscharged-port/issues) and attach
+[issue](https://github.com/previouslevelgames/recharged/issues) and attach
 `logs/recharged.log` from the program folder (see
 [reporting a problem](#reporting-a-problem)). Steam Deck specifics are at the
 end of the [Steam Deck guide](STEAM_DECK.md#troubleshooting).
@@ -103,7 +103,7 @@ folder. Saves are separate and stay.
 
 ## Reporting a problem
 
-Open an [issue](https://github.com/yannicksuter/mscharged-port/issues) with:
+Open an [issue](https://github.com/previouslevelgames/recharged/issues) with:
 
 - the version (launcher **About** page, or the first line of the log),
 - your system and graphics card,

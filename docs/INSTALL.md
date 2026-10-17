@@ -12,7 +12,7 @@ instead.
 
 ## 1. Download
 
-Open the [latest release](https://github.com/yannicksuter/mscharged-port/releases/latest)
+Open the [latest release](https://github.com/previouslevelgames/recharged/releases/latest)
 and download the package for your system:
 
 | System | Package |
@@ -83,4 +83,4 @@ Cmd+Q on a Mac): the game shuts down like a Wii does.
 
 See [troubleshooting](TROUBLESHOOTING.md). Each run writes
 `logs/recharged.log` beside the program; attach it to an
-[issue](https://github.com/yannicksuter/mscharged-port/issues) if you need help.
+[issue](https://github.com/previouslevelgames/recharged/issues) if you need help.

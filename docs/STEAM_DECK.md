@@ -7,7 +7,7 @@ library in Gaming Mode.
 **Quick version** for people who have added non-Steam games before:
 
 1. Download `recharged-<version>-steamdeck-x86_64.tar.gz` from the
-   [latest release](https://github.com/yannicksuter/mscharged-port/releases/latest)
+   [latest release](https://github.com/previouslevelgames/recharged/releases/latest)
    and extract it to `~/Games/recharged`.
 2. *Games → Add a Non-Steam Game to My Library*, add `recharged`, leave
    *Compatibility* off.
@@ -35,7 +35,7 @@ STEAM + X shows the on-screen keyboard.
 ## 3. Download and extract
 
 In the Deck's browser open the
-[latest release](https://github.com/yannicksuter/mscharged-port/releases/latest)
+[latest release](https://github.com/previouslevelgames/recharged/releases/latest)
 and download the file ending in **`steamdeck-x86_64.tar.gz`**. The Deck needs
 this package, not the `linux-x86_64` one: it is made for SteamOS's system
 libraries.
@@ -154,6 +154,6 @@ From now on, start the game from your library and press **Play**.
 | Cannot click in the launcher | Hold STEAM and use the right trackpad as a mouse; STEAM + R2 clicks |
 | Disc is rejected | It must be the USA version (R4QE01, revision 1) or the European one (R4QP01, revision 1 or 2) |
 | Steam returns straight to Play | *Is executable*, *Target* and *Start In* (step 5) |
-| Stalls or crashes | Attach `logs/recharged.log` from the game folder to an [issue](https://github.com/yannicksuter/mscharged-port/issues) |
+| Stalls or crashes | Attach `logs/recharged.log` from the game folder to an [issue](https://github.com/previouslevelgames/recharged/issues) |
 
 More in the general [troubleshooting](TROUBLESHOOTING.md) page.

@@ -6,7 +6,7 @@ please check it first.
 
 ## Bug reports
 
-Open an [issue](https://github.com/yannicksuter/mscharged-port/issues/new/choose)
+Open an [issue](https://github.com/previouslevelgames/recharged/issues/new/choose)
 with:
 
 - **The version**: the launcher's **About** page shows it, as does the first
