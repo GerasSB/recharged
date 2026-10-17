@@ -2878,6 +2878,9 @@ private:
             }
             else if (current && !row.missing) row.image.probe.error = check_.error;
             if (current) row.image.size = check_.size;
+            // A missing image keeps the size it had when it was last seen.
+            if (const auto* entry = image_cache_.Last(row.image.path); !row.image.size && entry)
+                row.image.size = entry->size;
             rows.push_back(std::move(row));
         }
         for (const auto* image : ArrangeImages(library_, library_sort_, library_descending_))
@@ -2982,49 +2985,41 @@ private:
         EndCard();
     }
 
-    enum ImageColumn { ColumnChosen, ColumnGame, ColumnRegion, ColumnRevision, ColumnId, ColumnFormat, ColumnSize,
-                       ColumnOpen };
+    enum ImageColumn { ColumnChosen, ColumnGame, ColumnVersion, ColumnFile, ColumnOpen };
 
     void ImageTable()
     {
         const auto& fonts = CurrentFonts();
-        // Narrow windows move the region, ID and format under the title.
+        // Narrow windows give the banner less room and move the file's size
+        // and format under its name.
         const bool narrow = ImGui::GetContentRegionAvail().x < Dp(660);
-        ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, Dp(6, 0));
+        ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, Dp(7, 0));
         ImGui::PushStyleColor(ImGuiCol_TableHeaderBg, ImVec4{0, 0, 0, 0});
-        ImGui::PushStyleColor(ImGuiCol_HeaderHovered, Mix(color::card, color::text, 0.05f));
-        ImGui::PushStyleColor(ImGuiCol_HeaderActive, Mix(color::card, color::text, 0.09f));
-        if (ImGui::BeginTable("##images_table", narrow ? 5 : 8,
-                              ImGuiTableFlags_Sortable | ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_PadOuterX
-                                  | ImGuiTableFlags_NoClip))
+        // Rows draw their own rounded highlight.
+        ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4{0, 0, 0, 0});
+        ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImVec4{0, 0, 0, 0});
+        if (ImGui::BeginTable("##images_table", narrow ? 4 : 5,
+                              ImGuiTableFlags_Sortable | ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_NoClip))
         {
             const auto fixed = ImGuiTableColumnFlags_WidthFixed;
-            ImGui::TableSetupColumn("##chosen", fixed | ImGuiTableColumnFlags_NoSort, Dp(24), ColumnChosen);
-            ImGui::TableSetupColumn("Game", ImGuiTableColumnFlags_WidthStretch, 0.0f, ColumnGame);
-            if (!narrow) ImGui::TableSetupColumn("Region", fixed | ImGuiTableColumnFlags_DefaultSort, Dp(82), ColumnRegion);
-            // Narrow: the revision column orders by release (region, then revision).
-            ImGui::TableSetupColumn("Rev.", fixed | (narrow ? ImGuiTableColumnFlags_DefaultSort : 0), Dp(42),
-                                    ColumnRevision);
+            ImGui::TableSetupColumn("##chosen", fixed | ImGuiTableColumnFlags_NoSort, Dp(22), ColumnChosen);
+            ImGui::TableSetupColumn("GAME", ImGuiTableColumnFlags_WidthStretch, 0.0f, ColumnGame);
+            ImGui::TableSetupColumn("VERSION", fixed | ImGuiTableColumnFlags_DefaultSort, Dp(112), ColumnVersion);
             if (!narrow)
-            {
-                ImGui::TableSetupColumn("Game ID", fixed, Dp(62), ColumnId);
-                ImGui::TableSetupColumn("Format", fixed, Dp(58), ColumnFormat);
-            }
-            ImGui::TableSetupColumn("Size", fixed | ImGuiTableColumnFlags_PreferSortDescending, Dp(60), ColumnSize);
-            ImGui::TableSetupColumn("##open", fixed | ImGuiTableColumnFlags_NoSort, Dp(34), ColumnOpen);
+                ImGui::TableSetupColumn("FILE", fixed | ImGuiTableColumnFlags_PreferSortDescending, Dp(66), ColumnFile);
+            ImGui::TableSetupColumn("##open", fixed | ImGuiTableColumnFlags_NoSort, Dp(32), ColumnOpen);
             if (auto* specs = ImGui::TableGetSortSpecs(); specs && specs->SpecsCount > 0)
             {
                 const auto& spec = specs->Specs[0];
-                library_sort_ = spec.ColumnUserID == ColumnGame     ? LibrarySort::Name
-                              : spec.ColumnUserID == ColumnFormat ? LibrarySort::Format
-                              : spec.ColumnUserID == ColumnSize   ? LibrarySort::Size
-                                                                  : LibrarySort::Release;
+                library_sort_ = spec.ColumnUserID == ColumnGame   ? LibrarySort::Name
+                              : spec.ColumnUserID == ColumnFile ? LibrarySort::Size
+                                                                : LibrarySort::Release;
                 library_descending_ = spec.SortDirection == ImGuiSortDirection_Descending;
                 specs->SpecsDirty = false;
             }
-            ImGui::TableNextRow(ImGuiTableRowFlags_Headers, Dp(26));
+            ImGui::TableNextRow(ImGuiTableRowFlags_Headers, Dp(24));
             ImGui::PushFont(fonts.caption);
-            ImGui::PushStyleColor(ImGuiCol_Text, color::muted);
+            ImGui::PushStyleColor(ImGuiCol_Text, color::dim);
             for (int column = 0; column < ImGui::TableGetColumnCount(); ++column)
             {
                 ImGui::TableSetColumnIndex(column);
@@ -3032,6 +3027,12 @@ private:
             }
             ImGui::PopStyleColor();
             ImGui::PopFont();
+            if (const ImGuiTable* table = ImGui::GetCurrentTable())
+            {
+                const float y = ImGui::GetItemRectMax().y + Dp(3);
+                ImGui::GetWindowDrawList()->AddRectFilled({table->WorkRect.Min.x, y}, {table->WorkRect.Max.x, y + Dp(1)},
+                                                          Col(color::border));
+            }
             for (const auto& row : ImageRows()) ImageTableRow(row, narrow);
             ImGui::EndTable();
         }
@@ -3050,8 +3051,9 @@ private:
         const bool can_choose = playable && !row.chosen && config_ok_ && !options_.launch.disc;
         const std::string path = PathUtf8(image.path), name = PathUtf8(image.path.filename());
 
-        // What the row says beyond its columns: why it cannot be played, or a remark.
-        std::string note;
+        // What the row says beyond its details: why it cannot be played (in
+        // short; the tooltip has the full reason), or a remark.
+        std::string note, reason;
         ImVec4 note_tint = color::dim;
         if (row.chosen && options_.launch.disc)
         {
@@ -3065,10 +3067,20 @@ private:
                                          : "Missing: it was moved, renamed or deleted. Click to locate it.";
             note_tint = color::warning;
         }
-        else if (state == ImageState::Unsupported) { note = UnplayableReason(info); note_tint = color::warning; }
+        else if (state == ImageState::Unsupported)
+        {
+            const auto* release = FindRelease(info);
+            bool known_id = false;
+            for (std::size_t n = 0; n < ReleaseCount(); ++n) known_id = known_id || info.game_id == ReleaseAt(n).game_id;
+            note = release ? "Not supported by this build yet." : known_id ? "This revision is not supported yet."
+                                                                           : "Not supported yet.";
+            reason = UnplayableReason(info, release) + "\nThis build runs " + PlayableReleasesText() + ".";
+            note_tint = color::warning;
+        }
         else if (state == ImageState::Unreadable && !image.probe.error.empty())
         {
-            note = "Cannot be read: " + image.probe.error;
+            note = "Cannot be read: damaged or incomplete file.";
+            reason = image.probe.error;
             note_tint = color::danger;
         }
         else if (const auto* release = charged ? FindRelease(info) : nullptr; release && !ReleaseNote(*release).empty())
@@ -3076,11 +3088,13 @@ private:
         if (row.outside && note.empty()) note = "Not in your game folders.";
 
         const float label = FontSize(fonts.label), caption = FontSize(fonts.caption);
-        const float height = Dp(16) + label + Dp(3) + caption + (note.empty() ? 0.0f : Dp(3) + caption);
+        const ImVec2 banner = narrow ? Dp(96, 32) : Dp(128, 43);
+        const float text_block = label + Dp(4) + caption + (note.empty() ? 0.0f : Dp(4) + caption);
+        const float height = std::max(banner.y, text_block) + Dp(18);
+        // Rows that cannot be played step back a little.
+        const float fade = playable || row.chosen ? 1.0f : 0.6f;
         ImGui::PushID(path.c_str());
         ImGui::TableNextRow(ImGuiTableRowFlags_None, height);
-        if (row.chosen)
-            ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, Col(row.missing ? color::warning : color::accent, 0.10f));
 
         // The whole row is one button: it chooses the image (or locates a missing one).
         ImGui::TableSetColumnIndex(ColumnChosen);
@@ -3089,6 +3103,7 @@ private:
                                                ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap,
                                                {0, height});
         const bool hovered = ImGui::IsItemHovered();
+        const float hover = Animate(ImGui::GetID("##hover"), hovered && (can_choose || row.missing), 14.0f);
         if (clicked)
         {
             if (row.missing && !options_.launch.disc) Locate();
@@ -3099,14 +3114,33 @@ private:
             std::string tip = path;
             if (row.chosen && !row.missing) tip += "\nPlay starts this image.";
             else if (can_choose) tip += "\nClick to play this image.";
-            else if (!note.empty() && (row.missing || state != ImageState::Playable)) tip += "\n" + note;
+            else if (!reason.empty()) tip += "\n" + reason;
+            else if (!note.empty() && row.missing) tip += "\n" + note;
             ImGui::SetTooltip("%s", tip.c_str());
         }
         auto* draw = ImGui::GetWindowDrawList();
-        const float top = cell.y + Dp(8);
+        const ImGuiTable* table = ImGui::GetCurrentTable();
+        const float left = table ? table->WorkRect.Min.x : cell.x;
+        const float right = table ? table->WorkRect.Max.x : cell.x + ImGui::GetContentRegionAvail().x;
+        // A rounded highlight for the chosen row and the one under the mouse,
+        // thin separators elsewhere.
+        const ImVec2 box_min{left, cell.y + Dp(3)}, box_max{right, cell.y + height - Dp(3)};
+        if (row.chosen)
+        {
+            const ImVec4 tint = row.missing ? color::warning : color::accent;
+            draw->AddRectFilled(box_min, box_max, Col(tint, 0.08f + 0.04f * hover), Dp(12));
+            draw->AddRect(box_min, box_max, Col(tint, 0.45f), Dp(12), 0, Dp(1.2f));
+        }
+        else
+        {
+            if (hover > 0.0f) draw->AddRectFilled(box_min, box_max, Col(color::text, 0.05f * hover), Dp(12));
+            draw->AddRectFilled({left + Dp(12), cell.y + height - Dp(1)}, {right - Dp(12), cell.y + height},
+                                Col(color::border, 0.6f));
+        }
+        const float middle = cell.y + height * 0.5f;
         // A radio button: filled for the chosen image, empty for others it could be.
         {
-            const ImVec2 center{cell.x + Dp(10), cell.y + height * 0.5f};
+            const ImVec2 center{cell.x + Dp(10), middle};
             const float radius = Dp(8);
             if (row.chosen)
             {
@@ -3116,79 +3150,55 @@ private:
                 draw->AddCircleFilled(center, radius * 0.45f, Col(tint));
             }
             else
-                draw->AddCircle(center, radius, Col(playable ? (hovered ? color::text : color::muted) : color::dim,
+                draw->AddCircle(center, radius, Col(playable ? Mix(color::muted, color::text, hover) : color::dim,
                                                     playable ? 1.0f : 0.35f),
                                 0, Dp(1.4f));
         }
 
-        // Game: banner and title. The file name and the note below them run
-        // under the other columns, which only use the first line.
-        float text_x = 0.0f;
+        // Game: banner, title, file name and the note.
         ImGui::TableSetColumnIndex(ColumnGame);
-        {
-            const ImVec2 at = ImGui::GetCursorScreenPos();
-            const float width = ImGui::GetContentRegionAvail().x;
-            const ImVec2 banner{Dp(66), Dp(22)};
-            const ImVec2 banner_min{at.x, top + Dp(2)};
-            DrawBanner(draw, banner_min, {banner_min.x + banner.x, banner_min.y + banner.y}, charged ? info.game_id : "",
-                       row.missing || state == ImageState::Unreadable ? 0.45f : 1.0f);
-            text_x = at.x + banner.x + Dp(12);
-            DrawClipped(draw, fonts.label, {text_x, top}, std::max(Dp(60), at.x + width - text_x),
-                        row.missing ? color::muted : color::text, charged ? ImageTitle(image) : name);
-        }
-        // Region, revision, game ID, format and size, level with the title.
-        const auto column_text = [&](int column, const std::string& text, float indent = 0.0f) {
-            ImGui::TableSetColumnIndex(column);
-            const ImVec2 at = ImGui::GetCursorScreenPos();
-            DrawClipped(draw, fonts.caption, {at.x + indent, top + Dp(2)}, ImGui::GetContentRegionAvail().x - indent,
-                        row.missing ? color::muted : color::text, text);
-        };
-        // Columns by position: narrow tables leave out region, ID and format.
-        const int revision_column = narrow ? 2 : ColumnRevision, size_column = narrow ? 3 : ColumnSize;
-        const int open_column = narrow ? 4 : ColumnOpen;
+        const float game_x = ImGui::GetCursorScreenPos().x;
+        const float game_w = ImGui::GetContentRegionAvail().x;
+        const ImVec2 banner_min{game_x, middle - banner.y * 0.5f};
+        DrawBanner(draw, banner_min, {banner_min.x + banner.x, banner_min.y + banner.y}, charged ? info.game_id : "",
+                   row.missing ? 0.35f : fade);
+        const float text_x = game_x + banner.x + Dp(14), text_w = std::max(Dp(60), game_x + game_w - text_x);
+        float y = middle - text_block * 0.5f;
+        DrawClipped(draw, fonts.label, {text_x, y}, text_w, Mix(color::muted, color::text, row.missing ? 0.0f : fade),
+                    charged ? ImageTitle(image) : name);
+        y += label + Dp(4);
+        std::string file = charged ? name : PathUtf8(image.path.parent_path());
+        if (narrow && charged && image.size)
+            file = FileSizeText(image.size) + "  \xC2\xB7  " + info.format + "  \xC2\xB7  " + file;
+        if (charged) DrawClipped(draw, fonts.caption, {text_x, y}, text_w, color::dim, file);
+        else DrawPath(draw, fonts.caption, {text_x, y}, text_w, color::dim, file);
+        y += caption + Dp(4);
+        if (!note.empty()) DrawClipped(draw, fonts.caption, {text_x, y}, text_w, note_tint, note);
+
+        // Version: region, then revision and game ID. File: size, then format.
+        const float detail_top = middle - (caption + Dp(4) + caption) * 0.5f;
+        const ImVec4 strong = Mix(color::muted, color::text, row.missing ? 0.0f : fade);
         if (charged)
         {
-            if (!narrow)
-            {
-                ImGui::TableSetColumnIndex(ColumnRegion);
-                DrawRegionFlag(draw, {ImGui::GetCursorScreenPos().x, top + Dp(3.5f)}, Dp(11),
-                               RegionLetter(info.game_id));
-                column_text(ColumnRegion, DiscRegionName(info.game_id), Dp(22));
-            }
-            column_text(revision_column, std::to_string(unsigned(info.revision)));
-            if (!narrow)
-            {
-                column_text(ColumnId, info.game_id);
-                column_text(ColumnFormat, info.format);
-            }
+            ImGui::TableSetColumnIndex(ColumnVersion);
+            const float x = ImGui::GetCursorScreenPos().x, w = ImGui::GetContentRegionAvail().x;
+            DrawRegionFlag(draw, {x, detail_top + Dp(1.5f)}, Dp(11), RegionLetter(info.game_id));
+            DrawClipped(draw, fonts.caption, {x + Dp(22), detail_top}, w - Dp(22), strong, DiscRegionName(info.game_id));
+            DrawClipped(draw, fonts.caption, {x, detail_top + caption + Dp(4)}, w, color::dim,
+                        "Rev. " + std::to_string(unsigned(info.revision)) + "  \xC2\xB7  " + info.game_id);
         }
-        if (image.size) column_text(size_column, FileSizeText(image.size));
-        ImGui::TableSetColumnIndex(open_column);
+        if (!narrow)
         {
-            const float text_w = std::max(Dp(60), ImGui::GetCursorScreenPos().x - Dp(8) - text_x);
-            std::string line = name;
-            float indent = 0.0f;
-            if (narrow && charged)
-            {
-                DrawRegionFlag(draw, {text_x, top + label + Dp(4.5f)}, Dp(10), RegionLetter(info.game_id));
-                indent = Dp(20);
-                line = std::string(DiscRegionName(info.game_id)) + "  \xC2\xB7  " + info.game_id + "  \xC2\xB7  "
-                    + info.format + "  \xC2\xB7  " + name;
-            }
-            // An unreadable image's title is its file name already: show its folder.
-            if (charged)
-                DrawClipped(draw, fonts.caption, {text_x + indent, top + label + Dp(3)}, text_w - indent, color::dim,
-                            line);
-            else
-                DrawPath(draw, fonts.caption, {text_x, top + label + Dp(3)}, text_w, color::dim,
-                         PathUtf8(image.path.parent_path()));
-            if (!note.empty())
-                DrawClipped(draw, fonts.caption, {text_x, top + label + Dp(6) + caption}, text_w, note_tint, note);
+            ImGui::TableSetColumnIndex(ColumnFile);
+            const float x = ImGui::GetCursorScreenPos().x, w = ImGui::GetContentRegionAvail().x;
+            if (image.size) DrawClipped(draw, fonts.caption, {x, detail_top}, w, strong, FileSizeText(image.size));
+            if (charged) DrawClipped(draw, fonts.caption, {x, detail_top + caption + Dp(4)}, w, color::dim, info.format);
         }
         // Open the image's folder.
         if (!row.missing)
         {
-            ImGui::SetCursorScreenPos({ImGui::GetCursorScreenPos().x, cell.y + (height - Dp(32)) * 0.5f});
+            ImGui::TableSetColumnIndex(narrow ? 3 : ColumnOpen);
+            ImGui::SetCursorScreenPos({ImGui::GetCursorScreenPos().x, middle - Dp(16)});
             if (GhostButton("open", "", Dp(32, 32), true, Icon::Folder)) OpenPath(image.path.parent_path());
             if (ImGui::IsItemHovered()) ImGui::SetTooltip("Open the folder with this image.");
         }
