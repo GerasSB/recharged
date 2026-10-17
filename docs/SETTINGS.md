@@ -177,6 +177,24 @@ Bluetooth Remote, `gamepad1`-`gamepad4`, `off`). Players fill in order.
 Controllers missing when the game starts are left out, and keyboard & mouse is
 player 1 when nobody is left. The page also shows each Remote's battery level.
 
+**Keys and gamepad profiles.** The sliders button beside a player opens its
+keys (`[keyboard]`) or its gamepad profile (`[gamepad_profileN]`). Each action
+takes up to two keys; the middle and side mouse buttons (`Mouse Middle`,
+`Mouse 4`, `Mouse 5`) can take a key's place, while left and right click stay
+A and B. A gamepad profile also sets, for both sticks:
+
+- **Inner dead zone** (`inner_deadzone`, 0-30 %, default 15): the stick rests
+  until it is tilted this far. Raise it if a worn stick drifts.
+- **Outer dead zone** (`outer_deadzone`, 70-100 %, default 71): from this tilt
+  on the stick is pushed all the way. The defaults play like a Nunchuk on the
+  Wii; the game's own Nunchuk dead zone is already included, so these are the
+  only ones you feel.
+- **Trigger press point** (`trigger_press`, 10-90 %, default 50): a trigger
+  bound to a button presses it past this much of its travel.
+
+The profile page shows both sticks and triggers live with these settings.
+The built-in Default always uses the defaults; changing it makes your own copy.
+
 **Linux permissions.** If a Remote is connected but cannot be opened, the
 Controls page says so and copies these commands. Run them once, then
 reconnect the bar or Remote:

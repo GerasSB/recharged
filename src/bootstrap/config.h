@@ -87,11 +87,17 @@ struct Settings
         // The controllers it is made for: xbox (Xbox and PlayStation, whose
         // buttons sit in the same places), nintendo or gamecube.
         std::string controller = "xbox";
+        // inner_deadzone, outer_deadzone (both sticks) and trigger_press, in
+        // percent of travel (see gamepad_actions.h).
+        int inner_deadzone = kDefaultInnerDeadzone;
+        int outer_deadzone = kDefaultOuterDeadzone;
+        int trigger_press = kDefaultTriggerPress;
         // Spelled out: charged_host is C++17.
         bool operator==(const PadProfile& other) const
         {
             return name == other.name && inputs == other.inputs && swap_sticks == other.swap_sticks
-                && controller == other.controller;
+                && controller == other.controller && inner_deadzone == other.inner_deadzone
+                && outer_deadzone == other.outer_deadzone && trigger_press == other.trigger_press;
         }
         bool operator!=(const PadProfile& other) const { return !(*this == other); }
     };
@@ -112,7 +118,6 @@ struct Settings
     int PadProfileIndex(std::size_t slot) const;
     const PadProfile& PadProfileOf(std::size_t slot) const;
     static const PadProfile& DefaultPadProfile();
-    int deadzone = 15;
     // controls.rumble: the Wii's rumble setting (Wii Remotes and gamepads);
     // controls.rumble_strength (0-100 %) scales gamepad motors only, as a
     // Wii Remote's motor is either on or off.

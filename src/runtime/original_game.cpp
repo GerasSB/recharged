@@ -553,7 +553,8 @@ int mscharged::RunOriginalGame(int argc, char** argv,
         for (std::size_t pad = 0; pad < desktop.gamepad_profiles.size(); ++pad) {
             const auto& profile = launch.settings.PadProfileOf(pad);
             desktop.gamepad_profiles[pad] = {mscharged::platform::ParseGamepadBindings(profile.inputs),
-                                             profile.swap_sticks, launch.settings.PadProfileIndex(pad) < 0};
+                                             profile.swap_sticks, launch.settings.PadProfileIndex(pad) < 0,
+                                             profile.inner_deadzone, profile.outer_deadzone, profile.trigger_press};
         }
         mscharged::platform::WpadSDLSettings wpad{static_cast<std::uint8_t>(launch.settings.sensor_bar=="top"?1:0),
             static_cast<std::uint8_t>(launch.settings.ir_sensitivity),true,launch.settings.rumble};
@@ -567,6 +568,15 @@ int mscharged::RunOriginalGame(int argc, char** argv,
                 +std::to_string(s.ir_sensitivity)+", speaker "+(s.speaker_volume ? std::to_string(s.speaker_volume)+"%" : "off")
                 +", rumble "+(s.rumble ? "on (gamepads "+std::to_string(s.rumble_strength)+"%)" : "off");
             mscharged::platform::SessionLogLine(line);
+            for (const auto& device : s.players) {
+                if (device.rfind("gamepad", 0) != 0) continue;
+                const std::size_t pad = std::size_t(device.back() - '1');
+                const auto& profile = s.PadProfileOf(pad);
+                mscharged::platform::SessionLogLine("Gamepad " + std::to_string(pad + 1) + ": profile " + profile.name
+                    + ", stick dead zones " + std::to_string(profile.inner_deadzone) + "-"
+                    + std::to_string(profile.outer_deadzone) + "%, trigger press point "
+                    + std::to_string(profile.trigger_press) + "%");
+            }
         }
 #if defined(MSCHARGED_HAS_ORIGINAL_GAME_AUDIO_INITIALIZE)
         if(sourceAudio)
