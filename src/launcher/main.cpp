@@ -39,6 +39,7 @@
 #include "platform/gamepad_bindings.h"
 #include "platform/gyro_pointer.h"
 #include "platform/key_bindings.h"
+#include "platform/launcher_reopen.h"
 #include "platform/wiimote_bluetooth.h"
 #include "platform/wiimote_hid.h"
 #ifdef MSCHARGED_HAS_GAME_STARTUP
@@ -5702,6 +5703,8 @@ private:
                     if (ImGui::Selectable(names[i], draft_.ui_scale == values[i])) { draft_.ui_scale = values[i]; dirty_ = true; }
                 ImGui::EndCombo();
             }
+            Row("Reopen after the game", "Opens the launcher again when you close the game.");
+            if (Toggle("##reopen_after_game", &draft_.reopen_after_game)) dirty_ = true;
             EndRows();
         }
         EndCard();
@@ -6368,12 +6371,13 @@ int main(int argc, char** argv)
         }
         std::optional<ResolvedLaunch> frontend_launch;
         int result;
-        fs::path restart;
+        fs::path restart, reopen;
         {
             Launcher launcher;
             result = launcher.Run(std::move(options));
             frontend_launch = launcher.FrontendLaunch();
             if (launcher.RestartRequested()) restart = launcher.RestartExecutable();
+            else if (frontend_launch && frontend_launch->settings.reopen_after_game) reopen = launcher.RestartExecutable();
         } // Destroy the launcher/ImGui/SDL session before Aurora initializes.
         if (!restart.empty())
         {
@@ -6387,6 +6391,8 @@ int main(int argc, char** argv)
         }
         SetAppName();
 #ifdef MSCHARGED_HAS_ORIGINAL_FRONTEND
+        // [launcher] reopen_after_game: closing the game starts this launcher again.
+        if (!reopen.empty()) mscharged::platform::ArmLauncherReopen(reopen, argc, argv);
         if (frontend_launch) return RunOriginalGame(argc, argv, &*frontend_launch, true,
             OriginalMainScene::FrontendSequence, GameTitle().c_str());
 #endif

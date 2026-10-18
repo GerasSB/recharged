@@ -44,6 +44,7 @@
 #include "platform/console.h"
 #include "platform/log_window.h"
 #include "platform/session_log.h"
+#include "platform/launcher_reopen.h"
 #include "platform/discord_presence.h"
 #include "platform/game_presence.h"
 #include "platform/presence_snapshot.h"
@@ -472,7 +473,9 @@ int mscharged::RunOriginalGame(int argc, char** argv,
         }
         if(!graphicsPrepared) {
             aurora_shutdown();
-            mscharged::platform::SessionLogLine("=== Session ended during graphics preparation ===");
+            // [launcher] reopen_after_game: the launcher comes back instead (POSIX: in this process).
+            if(!mscharged::platform::ReopenLauncher("closed during graphics preparation, reopening the launcher"))
+                mscharged::platform::SessionLogLine("=== Session ended during graphics preparation ===");
             return 0;
         }
         bool retainedWindowClose=false;
@@ -878,8 +881,11 @@ int mscharged::RunOriginalGame(int argc, char** argv,
                 mscharged::runtime::FrameTimingLog::FinishForProcessExit();
                 mscharged::runtime::LogGraphicsPipelineStats();
                 // The power-off path ends with TerminateProcessNow: hand the last lines to the log and console.
-                mscharged::platform::SessionLogLine("=== Session ended (original power off) ===");
-                mscharged::platform::FlushSessionLog();
+                // [launcher] reopen_after_game starts the launcher first (POSIX: in this process).
+                if(!mscharged::platform::ReopenLauncher("original power off, reopening the launcher")) {
+                    mscharged::platform::SessionLogLine("=== Session ended (original power off) ===");
+                    mscharged::platform::FlushSessionLog();
+                }
             };
             mscharged::platform::ConfigureNativeSTMPowerRemoval(removal);
             // The actual source entry/audio predicates and terminal policy now

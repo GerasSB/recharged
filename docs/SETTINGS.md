@@ -274,6 +274,12 @@ activity privacy setting hides it too. Builds that do not come from the
 project's releases and test builds have no Discord application and show no
 status, unless `[discord] application_id` names one.
 
+## The launcher
+
+**Reopen after the game** (Advanced → Interface, `[launcher] reopen_after_game`,
+off by default) opens the launcher again when you close the game. A game that
+stops with an error message closes as before.
+
 ## Updates
 
 At each start the launcher asks GitHub whether a newer build exists (one

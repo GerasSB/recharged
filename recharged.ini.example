@@ -256,6 +256,8 @@ log_window = false
 ui_scale = auto
 # Look for a newer build on GitHub each time the launcher starts.
 check_updates = true
+# Open the launcher again when you close a game started from it.
+reopen_after_game = false
 # Which builds to update to: release (official releases), test (also test
 # builds of open pull requests) or auto (releases, or test builds for a test build).
 update_channel = auto

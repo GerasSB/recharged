@@ -158,6 +158,9 @@ struct Settings
     std::string ui_scale = "auto";    // launcher.ui_scale: auto or a percentage (75 to 200)
     // launcher.check_updates: look for a newer build each time the launcher starts.
     bool check_updates = true;
+    // launcher.reopen_after_game: open the launcher again when a game started
+    // from it closes normally.
+    bool reopen_after_game = false;
     // launcher.update_channel: release (official releases), test (also test
     // builds of pull requests) or auto (where this build comes from).
     std::string update_channel = "auto";
