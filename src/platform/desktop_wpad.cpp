@@ -21,13 +21,16 @@
 
 namespace {
 using Clock = std::chrono::steady_clock;
-constexpr auto ReportPeriod = std::chrono::milliseconds(10);
-// A keyboard shake is one flick: +2.5 g then -2.5 g along X for six reports
+// 200 reports a second, about a real Wii Remote's rate: KPAD counts in steps
+// of 1/200 s (button repeat, trusting the pointer's distance), and its pointer
+// play radius turns uneven steps into jumps.
+constexpr auto ReportPeriod = std::chrono::milliseconds(5);
+// A keyboard shake is one flick: +2.5 g then -2.5 g along X for twelve reports
 // each (60 ms at the report period), then rest. The original cAIPad smooths the
 // accelerometer history and compares five-sample deltas with 1.33 g (Remote)
 // and 2.5 g (Nunchuk); the flick clears both, within the sensors' 10-bit
 // ranges. The game decides what a shake does.
-constexpr int ShakeHalfReports = 6;
+constexpr int ShakeHalfReports = 12;
 constexpr float ShakeG = 2.5f;
 constexpr float kGravityMs2 = 9.80665f;
 enum Shake { RemoteShake, NunchukShake, ShakeCount };
