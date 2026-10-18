@@ -734,6 +734,7 @@ private:
     // Release leaves the test builds; Test asks which one when several are open.
     void SelectUpdateChannel(UpdateChannel channel)
     {
+        BeginSwitch();
         const bool test = channel == UpdateChannel::Test;
         SaveUpdateChoice(test ? "test" : "release", test ? draft_.test_build : 0);
         CheckForUpdates(test ? UpdatePrompt::Switch : UpdatePrompt::Any, channel);
@@ -743,8 +744,35 @@ private:
     // with its notes when it is not the running build.
     void SelectTestBuild(int pull_request)
     {
+        BeginSwitch();
         SaveUpdateChoice("test", pull_request);
         CheckForUpdates(UpdatePrompt::Any, UpdateChannel::Test);
+    }
+
+    // A switch (Release / Test, or a test build from the menu) holds only
+    // when something gets installed: Later in the update dialog, or closing
+    // the menu without a choice, brings the previous choice back, since
+    // nothing changed. Without anything to install (no test builds, no
+    // network) the new choice stays.
+    void BeginSwitch()
+    {
+        if (!switch_from_) switch_from_ = UpdateChoice{draft_.update_channel, draft_.test_build};
+    }
+
+    void CancelSwitch()
+    {
+        if (!switch_from_) return;
+        const UpdateChoice previous = *switch_from_;
+        switch_from_.reset();
+        SaveUpdateChoice(previous.channel, previous.test_build);
+        CheckForUpdates(UpdatePrompt::None, UpdateChannelSetting());
+    }
+
+    // Later (or Escape / B) in the update dialog.
+    void DismissUpdateDialog()
+    {
+        ImGui::CloseCurrentPopup();
+        CancelSwitch();
     }
 
     // On the test channel, test builds are published but none is followed
@@ -1059,8 +1087,13 @@ private:
         ImGui::PopStyleVar(2);
         if (!open)
         {
-            if (test_menu_open_) test_menu_closed_ = ImGui::GetTime();
-            test_menu_open_ = false;
+            if (test_menu_open_)
+            {
+                test_menu_closed_ = ImGui::GetTime();
+                // Closed without a choice: a switch to Test that waited for one is undone.
+                if (!test_menu_chose_) CancelSwitch();
+            }
+            test_menu_open_ = test_menu_chose_ = false;
             return;
         }
         test_menu_open_ = true;
@@ -1127,6 +1160,7 @@ private:
         if (choice)
         {
             ImGui::CloseCurrentPopup();
+            test_menu_chose_ = true;
             SelectTestBuild(choice);
         }
         else if (CancelPressed()) ImGui::CloseCurrentPopup();
@@ -1536,7 +1570,7 @@ private:
             const float action_width = action ? PrimaryWidth(action, Icon::Download) : 0.0f;
             align_right(later_width + (action ? Dp(10) + action_width : 0.0f));
             if (GhostButton("update_later", later, {later_width, height}) || CancelPressed())
-                ImGui::CloseCurrentPopup();
+                DismissUpdateDialog();
             if (action)
             {
                 ImGui::SameLine(0, Dp(10));
@@ -2008,6 +2042,8 @@ private:
                 }
                 else if (update_prompt_ == UpdatePrompt::Switch && ChooseTestBuild())
                     test_menu_ = true;
+                // Nothing to install or choose: the switch stands.
+                if (!update_dialog_ && !test_menu_) switch_from_.reset();
                 update_prompt_ = UpdatePrompt::None;
             }
             if (update_.state == UpdateService::State::Available && update_capture_dialog_)
@@ -5779,9 +5815,17 @@ private:
     bool update_dialog_ = false, update_capture_dialog_ = false, update_capture_install_ = false, restart_ = false;
     bool update_preview_ = false;
     UpdatePrompt update_prompt_ = UpdatePrompt::None;
-    // The Test menu: open it next frame; whether it was open, and when it closed.
-    bool test_menu_ = false, test_menu_open_ = false;
+    // The Test menu: open it next frame; whether it was open, closed with a
+    // choice, and when it closed.
+    bool test_menu_ = false, test_menu_open_ = false, test_menu_chose_ = false;
     double test_menu_closed_ = -1.0;
+    // The update choice before a switch that is not settled yet (BeginSwitch).
+    struct UpdateChoice
+    {
+        std::string channel;
+        int test_build = 0;
+    };
+    std::optional<UpdateChoice> switch_from_;
     std::string notes_source_;
     std::vector<NoteBlock> notes_;
 };
