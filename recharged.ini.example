@@ -143,7 +143,9 @@ shake_nunchuk = Q
 # gamepad inputs per action, separated by |: a, b, x, y (bottom, right, left,
 # top face button), start, back, guide, leftshoulder, rightshoulder,
 # leftstick, rightstick, dpup, dpdown, dpleft, dpright, lefttrigger,
-# righttrigger, or none for no button. Actions left out keep the Default
+# righttrigger, a stick pushed one way (leftstick_up, leftstick_down,
+# leftstick_left, leftstick_right, rightstick_up ... rightstick_right; past
+# half its travel), or none for no button. Actions left out keep the Default
 # (Xbox) input. swap_sticks = true
 # moves the Nunchuk stick to the right stick and the pointer to the left.
 # inner_deadzone (0-30 %) and outer_deadzone (70-100 %): both sticks rest up to

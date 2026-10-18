@@ -664,6 +664,71 @@ void NunchukCycle() {
     mscharged::platform::ShutdownDesktopWpad();
     WPADShutdown();
 }
+// Stick directions as buttons (issue #14): the right stick presses the D-pad.
+void StickDirectionCycle() {
+    using namespace mscharged::platform;
+    Check(ParseGamepadBinding("dpup | rightstick_up") ==
+              GamepadBinding{SDL_GAMEPAD_BUTTON_DPAD_UP, kGamepadStickBase + RightStickUp}
+              && ParseGamepadInput("leftstick_left") == kGamepadStickBase + LeftStickLeft
+              && ParseGamepadInput("rightstick") == SDL_GAMEPAD_BUTTON_RIGHT_STICK
+              && FormatGamepadBinding(ParseGamepadBinding("dpright|rightstick_right")) == "dpright | rightstick_right",
+          "Stick direction names did not parse or format");
+    std::array<std::string, mscharged::GamepadActionCount> texts{};
+    texts[mscharged::GamepadActionUp] = "dpup | rightstick_up";
+    texts[mscharged::GamepadActionDown] = "dpdown | rightstick_down";
+    texts[mscharged::GamepadActionLeft] = "dpleft | rightstick_left";
+    texts[mscharged::GamepadActionRight] = "dpright | rightstick_right";
+    connects = samples = extension_count = 0;
+    ConfigureWpadSDL({0,3,false,false});
+    DesktopWpadSettings settings{};
+    settings.gamepads = settings.gamepad_players = true;
+    settings.gamepad_channels = {1, -1, -1, -1};
+    settings.gamepad_profiles[0] = GamepadProfile{ParseGamepadBindings(texts)};
+    GenericPad pad;
+    InitializeDesktopWpad(window, settings);
+    WPADInit();
+    for (int n = 0; n != 4; ++n) WPADSetConnectCallback(n, Connect);
+    Event(SDL_EVENT_WINDOW_FOCUS_GAINED);
+    WPADDeviceType type{};
+    Until([&] { return WPADProbe(1, &type) == WPAD_ERR_OK && type == WPAD_DEV_FREESTYLE; },
+          "Stick-direction gamepad did not connect as player 2");
+    Check(WPADSetDataFormat(1, WPAD_FMT_FS_BTN_ACC_DPD) == WPAD_ERR_OK, "Freestyle format was rejected");
+    const auto report = [] {
+        WPADFSStatus status{};
+        WPADRead(1, reinterpret_cast<WPADStatus*>(&status));
+        return status;
+    };
+    const auto stick = [&](float x, float y) {
+        SDL_SetJoystickVirtualAxis(pad.joystick, SDL_GAMEPAD_AXIS_RIGHTX, Sint16(std::lround(x * 32767)));
+        SDL_SetJoystickVirtualAxis(pad.joystick, SDL_GAMEPAD_AXIS_RIGHTY, Sint16(std::lround(y * 32767)));
+    };
+    const auto settle = [] { for (int n = 0; n < 10; ++n) { Service(); SDL_Delay(2); } };
+    stick(0, -1);
+    Until([&] { return report().button == WPAD_BUTTON_UP; }, "Right stick up did not press D-pad up");
+    stick(0, -0.45f);
+    settle();
+    Check(report().button == WPAD_BUTTON_UP, "Up was let go above 40 % of the stick's travel");
+    stick(0, -0.35f);
+    Until([&] { return report().button == 0; }, "Up stayed pressed below 40 % of the stick's travel");
+    stick(0, -0.45f);
+    settle();
+    Check(report().button == 0, "Up was pressed below half the stick's travel");
+    stick(0.8f, -0.8f);
+    Until([&] { return report().button == (WPAD_BUTTON_UP | WPAD_BUTTON_RIGHT); },
+          "Right stick up-right did not press up and right");
+    stick(-1, 0);
+    Until([&] { return report().button == WPAD_BUTTON_LEFT; }, "Right stick left did not press D-pad left");
+    stick(0, 1);
+    Until([&] { return report().button == WPAD_BUTTON_DOWN; }, "Right stick down did not press D-pad down");
+    stick(0, 0);
+    Until([&] { return report().button == 0; }, "The resting stick kept a D-pad direction");
+    SDL_SetJoystickVirtualButton(pad.joystick, SDL_GAMEPAD_BUTTON_DPAD_UP, true);
+    Until([&] { return report().button == WPAD_BUTTON_UP; }, "The D-pad stopped pressing up beside the stick");
+    SDL_SetJoystickVirtualButton(pad.joystick, SDL_GAMEPAD_BUTTON_DPAD_UP, false);
+    Until([&] { return report().button == 0; }, "D-pad release kept a button");
+    ShutdownDesktopWpad();
+    WPADShutdown();
+}
 // The gyro pointer's own sums (issue #14): readings 10 ms apart, SDL's axes.
 void GyroPointerChecks() {
     using namespace mscharged::platform;
@@ -863,12 +928,13 @@ int main() {
         ControllerFamilyCycle();
         MousePlayerCycle();
         MouseKeysCycle();
+        StickDirectionCycle();
         GyroPointerChecks();
         GyroPadCycle(true);
         GyroPadCycle(false);
         SDL_DestroyWindow(window); window = nullptr;
         SDL_Quit();
-        std::printf("Raw keyboard-first WPAD profile: %u checks; selected keyboard, keyboard Nunchuk, fixed players, custom keys, gamepad players, custom gamepad layouts, stick dead zones and trigger press points, controller-family defaults, mouse beside a controller, mouse buttons as keys, the gyro pointer and retained generic profile pass. No original FE lifecycle/game acceptance.\n", checks);
+        std::printf("Raw keyboard-first WPAD profile: %u checks; selected keyboard, keyboard Nunchuk, fixed players, custom keys, gamepad players, custom gamepad layouts, stick dead zones and trigger press points, controller-family defaults, mouse beside a controller, mouse buttons as keys, stick directions as buttons, the gyro pointer and retained generic profile pass. No original FE lifecycle/game acceptance.\n", checks);
         return 0;
     } catch (const std::exception& e) {
         try { mscharged::platform::ShutdownDesktopWpad(); } catch (...) {}

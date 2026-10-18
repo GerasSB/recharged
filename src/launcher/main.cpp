@@ -2129,6 +2129,7 @@ private:
         gamepad_ = nullptr;
         gamepad_names_.clear();
         trigger_held_.clear();
+        stick_held_.clear();
         int count = 0;
         auto* ids = SDL_GetGamepads(&count);
         for (int n = 0; ids && n < count; ++n)
@@ -3871,6 +3872,14 @@ private:
         };
         if (input == platform::kGamepadTriggerBase + SDL_GAMEPAD_AXIS_LEFT_TRIGGER) return pick("LT", "L2", "ZL", "L");
         if (input == platform::kGamepadTriggerBase + SDL_GAMEPAD_AXIS_RIGHT_TRIGGER) return pick("RT", "R2", "ZR", "R");
+        if (platform::IsGamepadStickDirection(input))
+        {
+            static const char* const ways[] = {" up", " down", " left", " right"};
+            const int direction = input - platform::kGamepadStickBase;
+            return (direction >= platform::RightStickUp ? pick("Right stick", "Right stick", "Right stick", "C-stick")
+                                                        : std::string("Left stick"))
+                + ways[direction % 4];
+        }
         if (input < 0 || input >= SDL_GAMEPAD_BUTTON_COUNT) return "Not set";
         const auto button = SDL_GamepadButton(input);
         if (button <= SDL_GAMEPAD_BUTTON_NORTH)
@@ -4755,10 +4764,26 @@ private:
         return chosen;
     }
 
-    // Gamepad presses while an input waits for one: a button, or a trigger
-    // pressed past half its travel. Escape stops waiting.
+    // Gamepad presses while an input waits for one: a button, a trigger
+    // pressed past half its travel or a stick pushed one way past half its
+    // travel. Escape stops waiting.
     void GamepadCaptureEvent(const SDL_Event& event)
     {
+        if (event.type == SDL_EVENT_GAMEPAD_AXIS_MOTION && event.gaxis.axis <= SDL_GAMEPAD_AXIS_RIGHTY)
+            if (SDL_Gamepad* pad = SDL_GetGamepadFromID(event.gaxis.which))
+            {
+                const int first = event.gaxis.axis >= SDL_GAMEPAD_AXIS_RIGHTX ? platform::RightStickUp
+                                                                              : platform::LeftStickUp;
+                auto& held = stick_held_[event.gaxis.which];
+                for (int direction = first; direction < first + 4; ++direction)
+                {
+                    const auto input = platform::kGamepadStickBase + direction;
+                    const bool pressed = platform::GamepadStickDirectionHeld(pad, input, held[direction]);
+                    if (pressed && !held[direction] && pad_capture_action_ >= 0) CaptureGamepadInput(input);
+                    held[direction] = pressed;
+                    TrackPadInput(event.gaxis.which, input, pressed);
+                }
+            }
         if (event.type == SDL_EVENT_GAMEPAD_AXIS_MOTION && (event.gaxis.axis == SDL_GAMEPAD_AXIS_LEFT_TRIGGER
                                                             || event.gaxis.axis == SDL_GAMEPAD_AXIS_RIGHT_TRIGGER))
         {
@@ -5048,7 +5073,7 @@ private:
                         }
                         if (ImGui::IsItemHovered() && !waiting)
                             ImGui::SetTooltip(input != platform::kGamepadNone
-                                                  ? "Select, then press the new button on the controller"
+                                                  ? "Select, then press the new button or push a stick on the controller"
                                                   : slot == 0 ? "No button presses this. Select, then press one."
                                                               : "Add a second button");
                         ImGui::PopID();
@@ -5129,6 +5154,24 @@ private:
                         target->gyro_speed = speed;
                         dirty_ = true;
                     }
+                // The stick the gyro frees can press the D-pad.
+                const int free_stick = swap ? platform::LeftStickUp : platform::RightStickUp;
+                bool stick_dpad = true;
+                for (int n = 0; n < 4; ++n)
+                {
+                    const auto& binding = bindings[GamepadActionUp + std::size_t(n)];
+                    const auto input = platform::kGamepadStickBase + free_stick + n;
+                    stick_dpad = stick_dpad && (binding[0] == input || binding[1] == input);
+                }
+                const std::string stick_dpad_label = std::string(swap ? "Left" : "Right") + " stick as D-pad";
+                Row(stick_dpad_label.c_str(), "Push it to press the D-pad: in a match, a deke with the ball and a "
+                    "slide tackle without it.");
+                if (Toggle("##stick_dpad", &stick_dpad))
+                    if (auto* target = editable())
+                    {
+                        SetStickDpad(*target, free_stick, stick_dpad);
+                        dirty_ = true;
+                    }
             }
             EndRows();
         }
@@ -5138,6 +5181,26 @@ private:
             GyroPreview(profile, bindings);
         }
         rows(GamepadActionC, GamepadActionRecenterPointer);
+        // A stick's directions bound to buttons while it also moves the
+        // Nunchuk stick or the pointer do both at once.
+        const auto stick_bound = [&](int first) {
+            for (const auto& binding : bindings)
+                for (const auto input : binding)
+                    if (input >= platform::kGamepadStickBase + first && input < platform::kGamepadStickBase + first + 4)
+                        return true;
+            return false;
+        };
+        const int nunchuk_stick = swap ? platform::RightStickUp : platform::LeftStickUp;
+        const int pointer_stick = swap ? platform::LeftStickUp : platform::RightStickUp;
+        std::string stick_note;
+        if (stick_bound(nunchuk_stick))
+            stick_note = std::string(swap ? "The right" : "The left")
+                + " stick moves the Nunchuk stick and presses buttons too: pushing it does both.";
+        else if (!gyro && stick_bound(pointer_stick))
+            stick_note = std::string(swap ? "The left" : "The right")
+                + " stick moves the pointer and presses buttons too: pushing it does both. "
+                  "With the gyro pointer on, it only presses the buttons.";
+        if (!stick_note.empty()) TextWrappedColored(CurrentFonts().caption, color::warning, stick_note.c_str());
         EndCard();
 
         // Dead zones and trigger press point (issue #62), tried live on the
@@ -5197,6 +5260,32 @@ private:
         // A click anywhere else stops waiting for a press.
         if (pad_capture_action_ >= 0 && !clicked && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
             pad_capture_action_ = pad_capture_slot_ = -1;
+    }
+
+    // Adds a stick's four directions to the D-pad's inputs, after the D-pad's
+    // own (a direction bound elsewhere moves here), or takes them away again;
+    // a D-pad action left without input gets its default back.
+    void SetStickDpad(Settings::PadProfile& profile, int first_direction, bool on)
+    {
+        const auto before = platform::ParseGamepadBindings(profile.inputs);
+        const auto defaults = platform::ParseGamepadBindings(platform::DefaultGamepadInputs(PageFamily()));
+        auto bindings = before;
+        for (int n = 0; n < 4; ++n)
+        {
+            const auto input = platform::kGamepadStickBase + first_direction + n;
+            for (auto& binding : bindings)
+            {
+                if (binding[1] == input) binding[1] = platform::kGamepadNone;
+                if (binding[0] == input) binding = {binding[1], platform::kGamepadNone};
+            }
+            const std::size_t action = GamepadActionUp + std::size_t(n);
+            auto& dpad = bindings[action];
+            if (on) dpad = dpad[0] != platform::kGamepadNone ? platform::GamepadBinding{dpad[0], input}
+                                                             : platform::GamepadBinding{input, platform::kGamepadNone};
+            else if (dpad[0] == platform::kGamepadNone) dpad = defaults[action];
+        }
+        for (std::size_t action = 0; action < GamepadActionCount; ++action)
+            if (bindings[action] != before[action]) profile.inputs[action] = platform::FormatGamepadBinding(bindings[action]);
     }
 
     // The page's gamepad turning a pointer over a picture-shaped box at the
@@ -5288,6 +5377,7 @@ private:
     // pushed.
     void DeadzonePreview(const Settings::PadProfile& profile)
     {
+        const auto bindings = platform::ParseGamepadBindings(profile.inputs);
         SDL_Gamepad* pad = pad_slot_ < pads_.size() ? pads_[pad_slot_] : nullptr;
         if (!pad)
         {
@@ -5329,8 +5419,14 @@ private:
             if (const float length = std::hypot(x, y); length > 1.0f) { x /= length; y /= length; }
             const ImVec4 dot = pushed <= 0.0f ? color::muted : pushed >= 1.0f ? color::accent_hi : color::accent;
             draw->AddCircleFilled({c.x + x * radius, c.y + y * radius}, Dp(6), Col(dot));
+            bool buttons = false;
+            for (const auto& binding : bindings)
+                for (const auto input : binding)
+                    buttons = buttons
+                        || (platform::IsGamepadStickDirection(input)
+                            && (input - platform::kGamepadStickBase >= platform::RightStickUp) != left_stick);
             const std::string name = std::string(left_stick ? "Left stick" : "Right stick") + ": "
-                + (nunchuk ? "Nunchuk" : "pointer");
+                + (nunchuk ? "Nunchuk" : !profile.gyro_pointer ? "pointer" : buttons ? "buttons" : "not used");
             centred(c.x, origin.y + radius * 2 + Dp(6), fonts.caption, color::muted, name);
             centred(c.x, origin.y + radius * 2 + Dp(22), fonts.caption, pushed > 0 ? color::text : color::dim,
                     std::to_string(int(std::lround(pushed * 100))) + "% pushed");
@@ -5818,8 +5914,10 @@ private:
     std::vector<SDL_Gamepad*> pads_;
     SDL_Gamepad* gamepad_ = nullptr;
     std::vector<std::string> gamepad_names_;
-    // Triggers past half travel per pad, so a held trigger is not a new press.
+    // Triggers past half travel per pad, so a held trigger is not a new press;
+    // the same for stick directions.
     std::map<SDL_JoystickID, std::array<bool, 2>> trigger_held_;
+    std::map<SDL_JoystickID, std::array<bool, platform::GamepadStickDirectionCount>> stick_held_;
     std::set<std::pair<SDL_JoystickID, platform::GamepadInput>> pad_inputs_held_;
     bool pad_capture_release_ = false;
     // Wii Remote / DolphinBar detection for the Controls and Play pages (non-blocking).

@@ -51,6 +51,8 @@ struct Device {
     // and the game's pointer camera's previous state, for edges.
     int channel = -1;
     bool gyro = false, recenter_held = false, pointer_camera = false;
+    // Stick directions bound like buttons, pressed as of this service.
+    std::array<bool, mscharged::platform::GamepadStickDirectionCount> stick_held{};
     Clock::time_point last_service{};
     // This pad's [gamepadN] buttons and sticks.
     mscharged::platform::GamepadProfile profile{mscharged::platform::DefaultGamepadBindings()};
@@ -451,7 +453,21 @@ mscharged::platform::StickTilt PadStick(const Device& pad, bool nunchuk) {
                                                  pad.profile.inner_deadzone, pad.profile.outer_deadzone);
 }
 bool PadHeld(const Device& pad, std::size_t action) {
-    return mscharged::platform::GamepadBindingHeld(pad.input, pad.profile.bindings[action], pad.profile.trigger_press);
+    for (const auto input : pad.profile.bindings[action]) {
+        if (mscharged::platform::IsGamepadStickDirection(input)) {
+            if (pad.stick_held[std::size_t(input - mscharged::platform::kGamepadStickBase)]) return true;
+        } else if (mscharged::platform::GamepadInputHeld(pad.input, input, pad.profile.trigger_press))
+            return true;
+    }
+    return false;
+}
+// Stick directions keep their press until the stick falls back (see
+// GamepadStickDirectionHeld), so a stick resting near the press point does not
+// press again and again. Without focus nothing is pressed.
+void UpdateStickDirections(Device& pad, bool focused) {
+    for (std::size_t n = 0; n < pad.stick_held.size(); ++n)
+        pad.stick_held[n] = focused && mscharged::platform::GamepadStickDirectionHeld(
+            pad.input, mscharged::platform::kGamepadStickBase + int(n), pad.stick_held[n]);
 }
 mscharged::platform::NativeNunchukObservation GamepadNunchuk(Device& pad, bool focused) {
     // The Nunchuk stick (left by default) through the profile's dead zones, in
@@ -712,6 +728,7 @@ void ServiceDesktopWpad() {
         Report(keyboard, buttons, now, state.settings.mouse ? &observation : nullptr, &nunchuk);
     }
     for (auto& pad : state.pads) if (pad) {
+        UpdateStickDirections(*pad, focused);
         std::array<bool, 11> buttons{};
         // WPAD order: A, B, 1, 2, +, -, HOME, up, down, left, right.
         if (focused) for (std::size_t n = 0; n < buttons.size(); ++n)

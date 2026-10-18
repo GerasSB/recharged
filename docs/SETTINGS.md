@@ -193,6 +193,14 @@ A and B. A gamepad profile also sets, for both sticks:
 - **Trigger press point** (`trigger_press`, 10-90 %, default 50): a trigger
   bound to a button presses it past this much of its travel.
 
+**Sticks as buttons**: pushing a stick one way past half its travel can press
+any action, like a button (`rightstick_up`, `leftstick_left` and so on in the
+INI). To bind one, select the action and push the stick. With the gyro
+pointer on, **Right stick as D-pad** puts the free stick on the D-pad: in a
+match the D-pad dekes with the ball and slide-tackles without it. A stick that
+also moves the Nunchuk stick or the pointer does both at once; the profile page
+says so.
+
 **Gyro pointer** (`gyro_pointer`, off by default): a controller with a gyro,
 such as a PlayStation or Switch Pro controller, points by turning it, like a
 Wii Remote, instead of with the stick. **Gyro speed** (`gyro_speed`, 25-300 %,

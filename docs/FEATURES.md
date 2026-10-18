@@ -38,10 +38,11 @@ come from the reconstructed source, unchanged.
   Switch Pro): turn it to point, like a Wii Remote
   ([#14](https://github.com/previouslevelgames/recharged/issues/14)).
   **Gamepad profiles** say which controller button presses each Wii button: a
-  built-in
-  Default that gives each controller family its own layout (Nintendo's A is
-  its right button) plus up to 16 named profiles (up to two buttons per Wii
-  button, or none; sticks can be swapped). A profile also sets the sticks'
+  built-in Default that gives each controller family its own layout
+  (Nintendo's A is its right button) plus up to 16 named profiles (up to two
+  buttons per Wii button, or none; sticks can be swapped, and a stick pushed
+  one way can press a button, such as the right stick as the D-pad for
+  dekes). A profile also sets the sticks'
   inner and outer dead zones and the triggers' press point, tried live on the
   controller in the launcher; the defaults play like a Nunchuk on the Wii
   ([#62](https://github.com/previouslevelgames/recharged/issues/62)). A
