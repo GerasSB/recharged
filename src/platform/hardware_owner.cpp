@@ -118,9 +118,10 @@ void Service() {
     if (!exclusion) return;
     mscharged::platform::ServiceNativeAlarms();
     const auto now = std::chrono::steady_clock::now();
-    // Desktop devices and real remotes are serviced every 10 ms.
+    // Desktop devices and real remotes are serviced every 5 ms, so each
+    // report reaches the game in its own service, 200 a second.
     if ((!state.desktop_cadence && !mscharged::platform::WiimoteHidHasDevices()) || now >= state.next_input) {
-        state.next_input = now + std::chrono::milliseconds(10);
+        state.next_input = now + std::chrono::milliseconds(5);
         SDL_PumpEvents();
         mscharged::platform::ServiceWiimoteHid();
         mscharged::platform::ServiceDesktopWpad();
@@ -232,6 +233,7 @@ void InitializeNativeHardwareInput(SDL_Window* window, WpadSDLSettings settings,
     for (auto it = players.remotes.begin(); it != players.remotes.end();)
         it = it->second < 0 ? players.remotes.erase(it) : std::next(it);
     WiimoteHidSettings hid{settings.dpd_sensitivity};
+    hid.speaker = settings.remote_speaker;
     hid.fixed_players = players.fixed;
     hid.channels = players.remotes;
     const bool remotes_play = !players.fixed || !players.remotes.empty();
