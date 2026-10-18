@@ -105,7 +105,7 @@ jagged edges. **4x MSAA** (`4x`, the default) smooths the edges of 3D shapes.
 **FXAA** (`fxaa`) smooths the finished picture at almost no cost, but softens
 fine detail and text a little. **4x MSAA + FXAA** (`4x_fxaa`) does both.
 **4x SSAA** (`4x_ssaa`) shades each of the 4 samples of a pixel, which also
-smooths the edges inside textures, such as the goal nets; it costs the most.
+smooths the edges inside textures, such as stripes on banners; it costs the most.
 **Off** (`off`) is the lightest. Multisampling always uses 4 samples: the
 graphics layer offers no 2x or 8x.
 

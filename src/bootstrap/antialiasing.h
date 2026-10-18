@@ -27,7 +27,7 @@ inline constexpr std::array kAntialiasingChoices = {
     AntialiasingChoice{"4x_fxaa", "4x MSAA + FXAA",
         "4x MSAA, then FXAA for the edges it leaves, such as those inside textures.", 4, false, true},
     AntialiasingChoice{"4x_ssaa", "4x SSAA",
-        "Shades all 4 samples of each pixel: also smooths edges inside textures, such as the goal nets. "
+        "Shades all 4 samples of each pixel: also smooths edges inside textures, such as stripes on banners. "
         "Costs the most GPU time.",
         4, true, false},
 };
