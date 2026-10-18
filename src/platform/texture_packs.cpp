@@ -162,6 +162,7 @@ std::vector<TexturePack> FindTexturePacks(const fs::path& folder)
          !error && it != end; it.increment(error))
     {
         const auto name = PathUtf8(it->path().filename());
+        if (name.empty() || name[0] == '.') continue;
         std::error_code type_error;
         if (it->is_directory(type_error))
         {
@@ -189,6 +190,30 @@ std::vector<TexturePack> FindTexturePacks(const fs::path& folder)
     }
     std::sort(packs.begin(), packs.end(), [](const TexturePack& a, const TexturePack& b) { return a.name < b.name; });
     return packs;
+}
+
+std::optional<TexturePack> ProbeTexturePack(const fs::path& path)
+{
+    std::error_code error;
+    TexturePack pack;
+    pack.name = PathUtf8(path.filename());
+    pack.path = path;
+    if (fs::is_directory(path, error))
+        pack.textures = FolderImages(path).size();
+    else if (fs::is_regular_file(path, error) && EndsWithNoCase(pack.name, ".zip"))
+    {
+        pack.archive = true;
+        try
+        {
+            pack.textures = ArchiveImages(ZipArchive(path)).size();
+        }
+        catch (const std::exception&)
+        {
+            return std::nullopt;
+        }
+    }
+    if (!pack.textures) return std::nullopt;
+    return pack;
 }
 
 std::vector<TexturePack> OrderTexturePacks(std::vector<TexturePack> packs, const std::vector<std::string>& order)

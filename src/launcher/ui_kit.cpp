@@ -335,6 +335,22 @@ void DrawIcon(ImDrawList* draw, Icon icon, ImVec2 c, float s, ImU32 color)
         draw->AddLine(p(-0.28f, -0.28f), p(0.28f, 0.28f), color, t * 1.3f);
         draw->AddLine(p(0.28f, -0.28f), p(-0.28f, 0.28f), color, t * 1.3f);
         break;
+    case Icon::Archive:
+    {
+        // A zip file: a page with a zipper down its middle.
+        draw->AddRect(p(-0.32f, -0.42f), p(0.32f, 0.42f), color, s * 0.08f, 0, t);
+        for (int i = 0; i < 4; ++i)
+        {
+            const float y = -0.34f + 0.13f * float(i);
+            const float x = i % 2 ? 0.0f : -0.08f;
+            draw->AddRectFilled(p(x, y), p(x + 0.08f, y + 0.07f), color);
+        }
+        draw->AddRect(p(-0.09f, 0.14f), p(0.09f, 0.32f), color, 0.0f, 0, t);
+        break;
+    }
+    case Icon::More:
+        for (int i = -1; i <= 1; ++i) draw->AddCircleFilled(p(0.28f * float(i), 0.0f), s * 0.075f, color);
+        break;
     case Icon::Up:
     case Icon::Down:
     {

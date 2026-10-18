@@ -105,6 +105,16 @@ int main(int argc, char** argv)
     const auto loose = FindTexturePacks(root / "loose");
     Check(loose.size() == 1 && loose[0].name == "loose" && loose[0].textures == 2, "a folder with images is one pack");
 
+    // A dropped item: a pack, or nothing.
+    const auto zip = ProbeTexturePack(root / "packs" / "Zip Pack.zip");
+    Check(zip && zip->archive && zip->textures == 4 && zip->name == "Zip Pack.zip", "probe a zip pack");
+    const auto folder = ProbeTexturePack(root / "packs" / "Folder Pack");
+    Check(folder && !folder->archive && folder->textures == 5, "probe a folder pack");
+    Check(!ProbeTexturePack(root / "packs" / "notes.zip") && !ProbeTexturePack(root / "packs" / "broken.zip")
+              && !ProbeTexturePack(root / "packs" / "Docs") && !ProbeTexturePack(root / "packs" / "missing"),
+          "probe things that are no packs");
+    Check(!Find(packs, ".Hidden Pack"), "a hidden pack (being copied in) is left out");
+
     const auto ordered = OrderTexturePacks(packs, {"Zip Pack.zip", "gone", "Folder Pack"});
     Check(Names(ordered) == std::vector<std::string>{"Zip Pack.zip", "Folder Pack", "Big Pack.zip", "Damaged Data.zip",
                                                      "broken.zip"},

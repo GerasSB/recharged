@@ -194,7 +194,7 @@ lets you choose which one to follow ([updates](SETTINGS.md#updates)).
 
 ## Texture packs
 
-HD texture packs made for Dolphin replace the game's textures, from a folder or
+Texture packs made for Dolphin replace the game's textures, from a folder or
 straight from their `.zip` file, with several packs in an order you choose
 (Gameplay → Mods, [settings](SETTINGS.md#texture-packs)).
 

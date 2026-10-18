@@ -17,8 +17,8 @@ Everything stays in the program folder:
 | `data/nand/` | The game's Wii saves (or the folder set under *Game → Save data*) |
 | `data/pipeline_cache.db` | Compiled shaders for your graphics card |
 | `data/launcher/` | What the launcher found in your game images, and their banners |
-| `texture_packs/` | HD texture packs (or the folder set under *Gameplay → Mods*) |
-| `data/texture_dumps/` | The game's textures, when *Save the game's textures* is on |
+| `texture_packs/` | Texture packs (or the folder set under *Gameplay → Mods*) |
+| `data/texture_dumps/` | The game's textures, when *Dump textures* is on |
 | `logs/recharged.log` | The log of the last run |
 | `screenshots/` | Screenshots taken with **P**, in the folder the game was started from |
 
@@ -275,24 +275,27 @@ supported.
 
 ## Texture packs
 
-HD texture packs replace the game's textures with sharper images; they change
+Texture packs replace the game's textures with sharper images; they change
 only how the game looks. Recharged reads packs made for Dolphin: a pack is a
 folder or a `.zip` file of images named `tex1_<size>_<hash>_<format>.png` (or
 `.dds`), usually in a folder named `R4Q` (all versions) or after one version
-(`R4QE01`, `R4QP01`). Put the pack's folder or `.zip` file in `texture_packs`
-in the program folder (`[mods] texture_folder`), or choose another folder under
-**Gameplay → Mods**; there you also switch packs on and off and choose their
-order: where two packs replace the same texture, the higher one wins. A
-Dolphin `Load/Textures` folder works as the packs folder too.
+(`R4QE01`, `R4QP01`). Drop the pack's folder or `.zip` file onto **Gameplay →
+Mods**, which copies it into `texture_packs` in the program folder (`[mods]
+texture_folder`; you can choose another folder there), or put it there
+yourself. The list there switches packs on and off; drag a pack (or use its
+menu) to change the order: where two packs replace the same texture, the
+higher one wins. A Dolphin `Load/Textures` folder works as the packs folder too.
 
 Images of the pack load in the background while the game runs: a texture can
 show its original look for a moment before its replacement appears. Packs with
 `.dds` images (BC1, BC3 or BC7) load faster and use less graphics memory than
-`.png` ones. The images match the game's textures by their contents, so a few
-textures the port makes itself (Mirror match's away kits, the Super Team)
-keep their own look, and textures with text need images for each language.
+`.png` ones. The images match the game's textures by their contents, so
+textures with text need images for each language. Mirror match's away kits
+recolour the pack's image of the home kit, where it is laid out as the game's
+(a picture drawn anew keeps the game's own away kit); the Super Team keeps its
+own look.
 
-**Save the game's textures** (`[mods] dump_textures`) is for pack makers: each
+**Dump textures** (`[mods] dump_textures`) is for pack makers: each
 texture no pack replaces is saved to `data/texture_dumps` as a `.dds` file
 named as packs need it.
 

@@ -241,7 +241,7 @@ no_hud = false
 fair_ball_contests = true
 
 [mods]
-# HD texture packs made for Dolphin (folders or .zip files with tex1_*.png or
+# Texture packs made for Dolphin (folders or .zip files with tex1_*.png or
 # .dds images) replace the game's textures. They change only how it looks.
 texture_packs = true
 # The folder holding the packs; a relative path counts from this file.

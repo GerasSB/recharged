@@ -28,8 +28,12 @@ struct TexturePack
 // The packs in `folder`: its subfolders and .zip files that hold replacement
 // images, by name. A folder that holds images itself, or is named after the
 // game (R4Q, R4QE01, ...), is one pack. Folders named after another game's ID
-// (a Dolphin Load/Textures folder) are left out.
+// (a Dolphin Load/Textures folder) and hidden entries (".name", such as a
+// pack still being copied in) are left out.
 std::vector<TexturePack> FindTexturePacks(const std::filesystem::path& folder);
+
+// One pack: a folder or .zip file that holds replacement images, or nothing.
+std::optional<TexturePack> ProbeTexturePack(const std::filesystem::path& path);
 
 // `packs` in the player's order: the names in `order` first, the others after
 // them by name.

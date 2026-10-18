@@ -74,6 +74,7 @@ def main():
     raw[30 + len(f"{A}.png") + 10] ^= 0xFF  # inside the entry's data
     damaged.write_bytes(bytes(raw))
     write(packs / "GALE01" / f"{A}.png", "another game's folder")
+    write(packs / ".Hidden Pack" / f"{A}.png", "a pack still being copied in")
     (packs / "Empty Folder").mkdir(parents=True)
     write(packs / "Docs" / "guide.txt", "no images")
 
