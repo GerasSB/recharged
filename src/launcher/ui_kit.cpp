@@ -335,6 +335,14 @@ void DrawIcon(ImDrawList* draw, Icon icon, ImVec2 c, float s, ImU32 color)
         draw->AddLine(p(-0.28f, -0.28f), p(0.28f, 0.28f), color, t * 1.3f);
         draw->AddLine(p(0.28f, -0.28f), p(-0.28f, 0.28f), color, t * 1.3f);
         break;
+    case Icon::Up:
+    case Icon::Down:
+    {
+        const float y = icon == Icon::Up ? 1.0f : -1.0f;
+        const ImVec2 points[] = {p(-0.3f, 0.15f * y), p(0.0f, -0.15f * y), p(0.3f, 0.15f * y)};
+        draw->AddPolyline(points, 3, color, 0, t * 1.3f);
+        break;
+    }
     }
 }
 

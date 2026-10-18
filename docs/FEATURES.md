@@ -192,6 +192,12 @@ official releases and test builds of changes not yet released, and back,
 asking before it installs anything; with several changes in testing, Test
 lets you choose which one to follow ([updates](SETTINGS.md#updates)).
 
+## Texture packs
+
+HD texture packs made for Dolphin replace the game's textures, from a folder or
+straight from their `.zip` file, with several packs in an order you choose
+(Gameplay → Mods, [settings](SETTINGS.md#texture-packs)).
+
 ## Discord status
 
 While the Discord app runs on the same computer, your Discord profile shows the
@@ -207,4 +213,4 @@ and match time ([settings](SETTINGS.md#discord-status)).
   to make online play functional again, and options for matchmaking and
   lobbies are being explored.
 - **Mods.** A modding framework is in the works; until then, the optional
-  tweaks above change the game.
+  tweaks above change the game and texture packs change its look.

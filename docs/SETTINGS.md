@@ -3,7 +3,7 @@
 Everything the launcher sets is saved in `recharged.ini` beside the program;
 [`recharged.ini.example`](../recharged.ini.example) explains every key. This
 page covers the settings that need more than a label: game images, graphics,
-audio, Wii Remotes, saves, updates and command-line options. For installing, see the
+audio, Wii Remotes, saves, texture packs, updates and command-line options. For installing, see the
 [install guide](INSTALL.md); for the full list of features and controls, the
 [feature list](FEATURES.md).
 
@@ -17,6 +17,8 @@ Everything stays in the program folder:
 | `data/nand/` | The game's Wii saves (or the folder set under *Game → Save data*) |
 | `data/pipeline_cache.db` | Compiled shaders for your graphics card |
 | `data/launcher/` | What the launcher found in your game images, and their banners |
+| `texture_packs/` | HD texture packs (or the folder set under *Gameplay → Mods*) |
+| `data/texture_dumps/` | The game's textures, when *Save the game's textures* is on |
 | `logs/recharged.log` | The log of the last run |
 | `screenshots/` | Screenshots taken with **P**, in the folder the game was started from |
 
@@ -270,6 +272,29 @@ launcher finds Dolphin's usual folders by itself; otherwise choose Dolphin's
 user folder or that save folder. The current save is first copied to
 `backups/` in the save folder. Dolphin's encrypted `data.bin` exports are not
 supported.
+
+## Texture packs
+
+HD texture packs replace the game's textures with sharper images; they change
+only how the game looks. Recharged reads packs made for Dolphin: a pack is a
+folder or a `.zip` file of images named `tex1_<size>_<hash>_<format>.png` (or
+`.dds`), usually in a folder named `R4Q` (all versions) or after one version
+(`R4QE01`, `R4QP01`). Put the pack's folder or `.zip` file in `texture_packs`
+in the program folder (`[mods] texture_folder`), or choose another folder under
+**Gameplay → Mods**; there you also switch packs on and off and choose their
+order: where two packs replace the same texture, the higher one wins. A
+Dolphin `Load/Textures` folder works as the packs folder too.
+
+Images of the pack load in the background while the game runs: a texture can
+show its original look for a moment before its replacement appears. Packs with
+`.dds` images (BC1, BC3 or BC7) load faster and use less graphics memory than
+`.png` ones. The images match the game's textures by their contents, so a few
+textures the port makes itself (Mirror match's away kits, the Super Team)
+keep their own look, and textures with text need images for each language.
+
+**Save the game's textures** (`[mods] dump_textures`) is for pack makers: each
+texture no pack replaces is saved to `data/texture_dumps` as a `.dds` file
+named as packs need it.
 
 ## Discord status
 

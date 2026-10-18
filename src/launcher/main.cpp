@@ -35,6 +35,7 @@
 #include "platform/path.h"
 #include "platform/save_import.h"
 #include "platform/shader_cache.h"
+#include "platform/texture_packs.h"
 #include "platform/session_log.h"
 #include "platform/gamepad_bindings.h"
 #include "platform/graphics_cards.h"
@@ -304,7 +305,7 @@ bool SafeGameId(const std::string& id)
 }
 
 enum class NoticeKind { Info, Success, Warning, Error };
-enum class FolderPurpose { SaveFolder, DolphinSave, GameFolder };
+enum class FolderPurpose { SaveFolder, DolphinSave, GameFolder, TextureFolder };
 
 // The save a release keeps: its title and the identity the runtime gives its
 // storage (InitializeNativeFilesystemForDisc in original_game.cpp).
@@ -516,7 +517,8 @@ public:
             ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData(), renderer_);
             const bool update_settled = update_preview_ || (!UpdateBusy() && !(update_capture_install_ && update_.offer));
             if (!options_.screenshot.empty() && frame >= 12
-                && ((!pending_ && !searching_ && !library_scanning_ && !candidate_pending_ && update_settled)
+                && ((!pending_ && !searching_ && !library_scanning_ && !candidate_pending_ && !texture_scanning_
+                     && update_settled)
                     || frame > 600))
             {
                 SDL_SetRenderScale(renderer_, 1.0f, 1.0f);
@@ -2396,6 +2398,7 @@ private:
     {
         if (page_ != PageControls && keyboard_view_) CloseKeyboardView();
         if (page_ != PageControls && gamepad_view_) CloseGamepadView();
+        if (page_ != PageGameplay) texture_page_open_ = false;
         // Bluetooth inquiries can disturb other Bluetooth devices: search only
         // while the Controls page is open (never in development captures).
         bluetooth_search_.SetActive(page_ == PageControls && config_ok_ && draft_.bluetooth_search && !capture_);
@@ -3115,6 +3118,12 @@ private:
         if (folder_purpose_ == FolderPurpose::GameFolder)
         {
             SelectGameFolder(PathFromUtf8(chosen));
+            return;
+        }
+        if (folder_purpose_ == FolderPurpose::TextureFolder)
+        {
+            draft_.texture_folder = SettingsPath(PathFromUtf8(chosen));
+            dirty_ = true;
             return;
         }
         const auto save = mscharged::platform::ResolveDolphinSave(PathFromUtf8(chosen), Release().title_id,
@@ -5726,13 +5735,162 @@ private:
         }
         EndCard();
 
-        BeginCard("##mods", "Mods", "Coming later", Icon::Sliders);
-        TextWrappedColored(CurrentFonts().body, color::text,
-            "Texture packs and script mods will be managed here.");
+        ModsCard();
+    }
+
+    // ------------------------------------------------------- texture packs
+    // The packs in the texture packs folder, read in the background when the
+    // Gameplay page opens, the folder changes or Refresh is chosen.
+    void PollTexturePacks()
+    {
+        if (texture_scanning_ && texture_scan_.wait_for(std::chrono::seconds(0)) == std::future_status::ready)
+        {
+            texture_packs_ = texture_scan_.get();
+            texture_scanning_ = false;
+        }
+        const bool opened = !texture_page_open_;
+        texture_page_open_ = true;
+        const auto folder = ResolveTextureFolder(draft_, file_.path);
+        if (opened || PathUtf8(folder) != texture_scanned_folder_) texture_rescan_ = true;
+        if (texture_rescan_ && !texture_scanning_)
+        {
+            texture_rescan_ = false;
+            texture_scanned_folder_ = PathUtf8(folder);
+            texture_scanning_ = true;
+            texture_scan_ = std::async(std::launch::async, [folder] { return platform::FindTexturePacks(folder); });
+        }
+    }
+
+    // The packs in the player's order (mods.texture_pack_order).
+    std::vector<platform::TexturePack> OrderedTexturePacks() const
+    {
+        return platform::OrderTexturePacks(texture_packs_, platform::SplitPackNames(draft_.texture_pack_order));
+    }
+
+    void MoveTexturePack(std::vector<platform::TexturePack> packs, std::size_t from, std::size_t to)
+    {
+        std::swap(packs[from], packs[to]);
+        std::vector<std::string> names;
+        for (const auto& pack : packs) names.push_back(pack.name);
+        draft_.texture_pack_order = platform::JoinPackNames(names);
+        dirty_ = true;
+    }
+
+    void SetTexturePackOn(const std::string& name, bool on)
+    {
+        auto off = platform::SplitPackNames(draft_.texture_packs_off);
+        off.erase(std::remove(off.begin(), off.end(), name), off.end());
+        if (!on) off.push_back(name);
+        draft_.texture_packs_off = platform::JoinPackNames(off);
+        dirty_ = true;
+    }
+
+    void ModsCard()
+    {
+        const auto& fonts = CurrentFonts();
+        PollTexturePacks();
+        BeginCard("##mods", "Mods", "HD texture packs replace the game's textures with sharper ones. They change only "
+                                    "how the game looks.", Icon::Sliders);
+        bool browsing;
+        { std::lock_guard<std::mutex> lock(folder_dialog_->mutex); browsing = folder_dialog_->active; }
+        const fs::path folder = ResolveTextureFolder(draft_, file_.path).lexically_normal();
+        if (BeginRows("##mods_rows"))
+        {
+            Row("HD texture packs", "Texture packs made for Dolphin: the folders and .zip files in the texture packs "
+                                    "folder.");
+            if (Toggle("##texture_packs", &draft_.texture_packs)) dirty_ = true;
+            ImGui::BeginDisabled(!draft_.texture_packs);
+            const std::string path = PathUtf8(folder);
+            Row("Texture packs folder", path.c_str());
+            const float gap = Dp(10), refresh = ImGui::GetFrameHeight();
+            const float half = (ImGui::GetContentRegionAvail().x - refresh - 2 * gap) * 0.5f;
+            if (SecondaryButton("texture_folder", "Choose...", {half, ImGui::GetFrameHeight()}, !browsing && config_ok_,
+                                Icon::Folder))
+                BrowseFolder(FolderPurpose::TextureFolder, folder);
+            ImGui::SameLine(0, gap);
+            if (SecondaryButton("open_texture_folder", "Open folder", {half, ImGui::GetFrameHeight()}, config_ok_,
+                                Icon::Folder))
+            {
+                std::error_code error;
+                fs::create_directories(folder, error);
+                if (error) Notice("Cannot create " + path + ": " + error.message(), NoticeKind::Error);
+                else OpenPath(folder);
+            }
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("Created when it is missing.");
+            ImGui::SameLine(0, gap);
+            if (GhostButton("refresh_texture_packs", "", {refresh, refresh}, !texture_scanning_, Icon::Refresh))
+                texture_rescan_ = true;
+            if (ImGui::IsItemHovered()) ImGui::SetTooltip("Look for texture packs again.");
+            ImGui::EndDisabled();
+            EndRows();
+        }
+
+        ImGui::BeginDisabled(!draft_.texture_packs);
+        const auto packs = OrderedTexturePacks();
+        if (packs.empty())
+        {
+            ImGui::Dummy({0, Dp(2)});
+            TextWrappedColored(fonts.caption, color::muted, texture_scanning_
+                ? "Looking for texture packs..."
+                : "No texture packs in this folder yet. Put a pack's folder (such as R4Q) or its .zip file in it.");
+        }
+        else
+        {
+            if (packs.size() > 1)
+            {
+                ImGui::Dummy({0, Dp(2)});
+                TextWrappedColored(fonts.caption, color::muted,
+                                   "Where two packs replace the same texture, the higher one in this list wins.");
+            }
+            const auto off = platform::SplitPackNames(draft_.texture_packs_off);
+            if (BeginRows("##texture_pack_rows"))
+            {
+                for (std::size_t n = 0; n < packs.size(); ++n)
+                {
+                    const auto& pack = packs[n];
+                    ImGui::PushID(int(n));
+                    const std::string kind = pack.archive ? "Zip file" : "Folder";
+                    const std::string description = pack.error.empty()
+                        ? kind + ", " + std::to_string(pack.textures) + (pack.textures == 1 ? " texture" : " textures")
+                        : kind + " that cannot be read: " + pack.error;
+                    Row(pack.name.c_str(), description.c_str());
+                    const bool storable = platform::StorablePackName(pack.name);
+                    bool on = pack.error.empty() && std::find(off.begin(), off.end(), pack.name) == off.end();
+                    ImGui::BeginDisabled(!storable || !pack.error.empty());
+                    if (Toggle("##pack_on", &on)) SetTexturePackOn(pack.name, on);
+                    ImGui::EndDisabled();
+                    if (packs.size() > 1)
+                    {
+                        const float size = Dp(32);
+                        ImGui::SameLine(0, Dp(12));
+                        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x - 2 * size - Dp(4));
+                        if (GhostButton("up", "", {size, size}, n > 0 && storable, Icon::Up)) MoveTexturePack(packs, n, n - 1);
+                        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Move up");
+                        ImGui::SameLine(0, Dp(4));
+                        if (GhostButton("down", "", {size, size}, n + 1 < packs.size() && storable, Icon::Down))
+                            MoveTexturePack(packs, n, n + 1);
+                        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Move down");
+                    }
+                    ImGui::PopID();
+                }
+                EndRows();
+            }
+        }
+        ImGui::EndDisabled();
+
+        if (BeginRows("##dump_rows"))
+        {
+            Row("Save the game's textures", "For pack makers: each texture no pack replaces is saved to "
+                                            "data/texture_dumps, named as texture packs need it. Takes disk space and "
+                                            "can make the game stutter.");
+            if (Toggle("##dump_textures", &draft_.dump_textures)) dirty_ = true;
+            EndRows();
+        }
         ImGui::Dummy({0, Dp(2)});
-        TextWrappedColored(CurrentFonts().caption, color::muted,
-            "Tweaks apply when the game starts. For a bug report, try again with them off (or start the game "
-            "with --no-tweaks) to check whether a tweak is involved.");
+        TextWrappedColored(fonts.caption, color::muted,
+            "Tweaks and texture packs apply when the game starts. For a bug report, try again with the tweaks off "
+            "(or start the game with --no-tweaks) and without texture packs to check whether one of them is "
+            "involved.");
         EndCard();
     }
 
@@ -6103,6 +6261,11 @@ private:
     std::shared_ptr<DialogResult> folder_dialog_ = std::make_shared<DialogResult>();
     std::shared_ptr<DialogResult> gamecube_dialog_ = std::make_shared<DialogResult>();
     FolderPurpose folder_purpose_ = FolderPurpose::SaveFolder;
+    // The texture packs folder's packs (Gameplay -> Mods), read in the background.
+    std::future<std::vector<platform::TexturePack>> texture_scan_;
+    std::vector<platform::TexturePack> texture_packs_;
+    std::string texture_scanned_folder_;
+    bool texture_scanning_ = false, texture_rescan_ = false, texture_page_open_ = false;
     fs::path import_source_;
     bool import_prompt_ = false;
     // Update check and installation (#50).
