@@ -509,15 +509,19 @@ mscharged::platform::NativeDpdObservation GamepadPointer(State& state, Device& p
         // middle on the recentre button and whenever the game turns the
         // pointer camera on (menus, the goalie's Mega Strike defence). Turns
         // while the window has no focus are dropped.
+        const bool recenter = focused && PadHeld(pad, mscharged::GamepadActionRecenterPointer);
+        const bool camera = pad.channel >= 0 && WPADIsDpdEnabled(pad.channel);
+        const bool centre = (recenter && !pad.recenter_held) || (camera && !pad.pointer_camera);
         mscharged::platform::GyroTurn turn;
         {
             std::lock_guard lock(state.mutex);
             const auto motion = state.gyro_motion.find(pad.input_id);
-            if (motion != state.gyro_motion.end()) turn = mscharged::platform::TakeGyroTurn(motion->second);
+            if (motion != state.gyro_motion.end()) {
+                turn = mscharged::platform::TakeGyroTurn(motion->second, seconds);
+                if (centre) mscharged::platform::ClearGyroTurn(motion->second);
+            }
         }
-        const bool recenter = focused && PadHeld(pad, mscharged::GamepadActionRecenterPointer);
-        const bool camera = pad.channel >= 0 && WPADIsDpdEnabled(pad.channel);
-        if ((recenter && !pad.recenter_held) || (camera && !pad.pointer_camera)) pad.pointer_x = pad.pointer_y = 0.5f;
+        if (centre) pad.pointer_x = pad.pointer_y = 0.5f;
         else if (focused)
             mscharged::platform::MoveGyroPointer(pad.pointer_x, pad.pointer_y, turn, pad.profile.gyro_speed,
                                                  state.picture_aspect);

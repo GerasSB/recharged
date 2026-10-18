@@ -5426,14 +5426,17 @@ private:
         }
         const auto& recenter_binding = bindings[GamepadActionRecenterPointer];
         const bool recenter = platform::GamepadBindingHeld(pad, recenter_binding, profile.trigger_press);
-        if (recenter && !gyro_preview_recenter_held_) gyro_preview_x_ = gyro_preview_y_ = 0.5f;
+        const Uint64 now = SDL_GetTicksNS();
+        const float seconds = gyro_preview_ns_ ? float(double(now - gyro_preview_ns_) * 1e-9) : 0.0f;
+        gyro_preview_ns_ = now;
+        const auto turn = platform::TakeGyroTurn(gyro_preview_motion_, seconds);
+        if (recenter && !gyro_preview_recenter_held_) CentreGyroPreview();
+        else platform::MoveGyroPointer(gyro_preview_x_, gyro_preview_y_, turn, profile.gyro_speed, 9.0f / 16.0f);
         gyro_preview_recenter_held_ = recenter;
-        platform::MoveGyroPointer(gyro_preview_x_, gyro_preview_y_, platform::TakeGyroTurn(gyro_preview_motion_),
-                                  profile.gyro_speed, 9.0f / 16.0f);
         ImGui::Dummy(Dp(0, 8));
         const float width = std::min(ImGui::GetContentRegionAvail().x, Dp(320)), height = width * 9.0f / 16.0f;
         const ImVec2 origin = ImGui::GetCursorScreenPos(), end{origin.x + width, origin.y + height};
-        if (ImGui::InvisibleButton("##gyro_preview", {width, height})) gyro_preview_x_ = gyro_preview_y_ = 0.5f;
+        if (ImGui::InvisibleButton("##gyro_preview", {width, height})) CentreGyroPreview();
         if (ImGui::IsItemHovered()) ImGui::SetTooltip("Click to centre the pointer");
         auto* draw = ImGui::GetWindowDrawList();
         draw->AddRectFilled(origin, end, Col(color::field), Dp(8));
@@ -5473,8 +5476,16 @@ private:
         }
         gyro_preview_pad_ = nullptr;
         gyro_preview_motion_ = {};
+        gyro_preview_ns_ = 0;
         gyro_preview_x_ = gyro_preview_y_ = 0.5f;
         gyro_preview_recenter_held_ = false;
+    }
+
+    // Puts the preview's pointer back in the middle.
+    void CentreGyroPreview()
+    {
+        gyro_preview_x_ = gyro_preview_y_ = 0.5f;
+        platform::ClearGyroTurn(gyro_preview_motion_);
     }
 
     // Both sticks and triggers of the page's gamepad, live, with `profile`'s
@@ -6517,6 +6528,7 @@ private:
     // its readings and the preview pointer (0..1 of the box).
     SDL_Gamepad* gyro_preview_pad_ = nullptr;
     platform::GyroMotion gyro_preview_motion_;
+    Uint64 gyro_preview_ns_ = 0;
     float gyro_preview_x_ = 0.5f, gyro_preview_y_ = 0.5f;
     bool gyro_preview_recenter_held_ = false, gyro_preview_drawn_ = false;
     bool wii_known_ = false;
