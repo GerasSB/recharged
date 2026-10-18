@@ -7,6 +7,7 @@
 #include "imgui_impl_sdlrenderer3.h"
 #include "imgui_stdlib.h"
 
+#include "bootstrap/antialiasing.h"
 #include "bootstrap/launch_options.h"
 #include "bootstrap/graphics_backend.h"
 #include "launcher/disc_search.h"
@@ -3704,13 +3705,8 @@ private:
                           ImGui::GetContentRegionAvail().x))
             { draft_.resolution = resolutions[resolution]; dirty_ = true; }
 
-            Row("Antialiasing", "Smooths the jagged edges of 3D shapes (4x multisampling). Costs some GPU time.");
-            bool antialiasing = draft_.antialiasing == "4x";
-            if (Toggle("##antialiasing", &antialiasing))
-            {
-                draft_.antialiasing = antialiasing ? "4x" : "off";
-                dirty_ = true;
-            }
+            Row("Antialiasing", "Smooths jagged edges. The stronger kinds cost more GPU time.");
+            AntialiasingKindChoice();
 
             Row("VSync", "Synchronizes frames with your display to prevent tearing.");
             if (Toggle("##vsync", &draft_.vsync)) dirty_ = true;
@@ -3784,6 +3780,25 @@ private:
                 note += "This display refreshes at " + hz(display) + " Hz.";
         }
         if (!note.empty()) TextWrappedColored(CurrentFonts().caption, color::muted, note.c_str());
+    }
+
+    void AntialiasingKindChoice()
+    {
+        const mscharged::AntialiasingChoice* selected = nullptr;
+        for (const auto& choice : kAntialiasingChoices)
+            if (draft_.antialiasing == choice.value) selected = &choice;
+        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+        if (ImGui::BeginCombo("##antialiasing", selected ? selected->label : draft_.antialiasing.c_str()))
+        {
+            for (const auto& choice : kAntialiasingChoices)
+                if (ImGui::Selectable(choice.label, selected == &choice))
+                { draft_.antialiasing = choice.value; dirty_ = true; }
+            ImGui::EndCombo();
+        }
+        // The chosen kind's note; the launcher reads only known values.
+        for (const auto& choice : kAntialiasingChoices)
+            if (draft_.antialiasing == choice.value)
+                TextWrappedColored(CurrentFonts().caption, color::muted, choice.description);
     }
 
     void FpsCornerChoice()

@@ -44,12 +44,14 @@ aspect = 16:9
 # game's picture drawn straight into the window, without the TV flicker filter
 # and the border) or sharp (clean with square pixels).
 picture = sharp
-# Performance mode (gear menu on the Play button): lighter matches without 4x
+# Performance mode (gear menu on the Play button): lighter matches without
 # antialiasing, the crowd, background NPCs, ambient stadium effects, bloom,
 # heat distortion, depth of field and stadium shadows. The 3D render size,
 # gameplay, hazards and weather effects are unchanged.
 performance_mode = false
-# Antialiasing of the game's 3D edges: off or 4x (more GPU time).
+# Antialiasing: off; fxaa (smooths the finished picture, nearly free); 4x
+# (multisampling, the edges of 3D shapes); 4x_fxaa (both); or 4x_ssaa
+# (supersampling, also the edges inside textures; the most GPU time).
 antialiasing = 4x
 # 3D render size: window (one pixel per window pixel, default), native (the
 # Wii's 640x448) or 2x, 3x, 4x of it. The game's view stays the same.

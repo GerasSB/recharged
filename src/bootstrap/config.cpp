@@ -158,7 +158,7 @@ Settings Decode(const Values& values)
     choice("display.aspect", s.aspect, {"auto", "4:3", "16:9", "16:10", "21:9"});
     choice("display.picture", s.picture, {"soft", "clean", "sharp"});
     boolean("display.performance_mode", s.performance_mode);
-    choice("display.antialiasing", s.antialiasing, {"off", "4x"});
+    choice("display.antialiasing", s.antialiasing, {"off", "fxaa", "4x", "4x_fxaa", "4x_ssaa"});
     choice("display.resolution", s.resolution, {"window", "native", "2x", "3x", "4x"});
     number("audio.master_volume", s.master_volume, 0, 100);
     for (std::size_t n = 0; n < kSoundGroups.size(); ++n)

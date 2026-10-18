@@ -106,3 +106,4 @@
 0110-select-fog-and-array-byte-order-per-draw.patch
 0111-compile-draw-pipelines-in-parallel.patch
 0112-open-discs-by-path.patch
+0114-offer-supersampling-and-fxaa.patch

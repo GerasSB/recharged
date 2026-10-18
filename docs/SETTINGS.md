@@ -95,11 +95,20 @@ log's `Frame rate:` line shows how frames are paced.
 picture; *soft* keeps the look of the Wii's TV signal, with its empty border.
 The 3D scene renders at the window's resolution by default, or at the Wii's
 640 x 448 or 2x-4x of it (Display → 3D resolution, `[display] resolution`).
-Antialiasing (4x) is on by default. The layout is 16:9 by default, or 4:3;
-resizing keeps it and fills unused space with bars.
+The layout is 16:9 by default, or 4:3; resizing keeps it and fills unused
+space with bars.
+
+**Antialiasing** (Display → Antialiasing, `[display] antialiasing`) smooths
+jagged edges. **4x MSAA** (`4x`, the default) smooths the edges of 3D shapes.
+**FXAA** (`fxaa`) smooths the finished picture at almost no cost, but softens
+fine detail and text a little. **4x MSAA + FXAA** (`4x_fxaa`) does both.
+**4x SSAA** (`4x_ssaa`) shades each of the 4 samples of a pixel, which also
+smooths the edges inside textures, such as the goal nets; it costs the most.
+**Off** (`off`) is the lightest. Multisampling always uses 4 samples: the
+graphics layer offers no 2x or 8x.
 
 **Performance mode** (the gear on the **Play** button,
-`[display] performance_mode`) lightens matches for weaker PCs: no 4x
+`[display] performance_mode`) lightens matches for weaker PCs: no
 antialiasing, crowd, background NPCs, ambient stadium effects, bloom, heat
 distortion, depth of field or stadium shadows. Gameplay is untouched: hazards,
 lightning, wind, debris, character and ball shadows stay, and so do the effects

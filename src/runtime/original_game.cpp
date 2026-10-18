@@ -7,6 +7,7 @@
 #include "runtime/original_sh_menu_diagnostic.h"
 #include <aurora/aurora.h>
 #include <aurora/hardware.h>
+#include "bootstrap/antialiasing.h"
 #include "bootstrap/launch_options.h"
 #include "platform/path.h"
 #include "platform/disc.h"
@@ -370,8 +371,11 @@ int mscharged::RunOriginalGame(int argc, char** argv,
         config.logCallback=mscharged::platform::ConsoleLog;
         config.enableBackendValidation=launch.settings.graphics_validation;
         config.vsync=launch.settings.vsync;
-        // display.antialiasing: Aurora multisampling of the original frame.
-        config.msaa=launch.settings.antialiasing=="4x"?4:1;
+        // display.antialiasing: Aurora multisampling of the original frame,
+        // optionally shaded per sample; FXAA is the scanout's (below).
+        const auto& antialiasing=mscharged::FindAntialiasing(launch.settings.antialiasing);
+        config.msaa=antialiasing.samples;
+        config.sampleShading=antialiasing.sample_shading;
         // The native Wii Remote driver (platform/wiimote_hid) owns physical
         // remotes, including DolphinBar mode 4 and its IR sensor bar; SDL's
         // own Wii HID driver must not open the same devices.
@@ -498,11 +502,13 @@ int mscharged::RunOriginalGame(int argc, char** argv,
         mscharged::ConfigureNativeSystemIdleMode(nullptr,0);
         mscharged::platform::ConfigureNativeVideoHardware(eurgb60?VI_TVMODE_EURGB60_INT:VI_TVMODE_NTSC_INT,false);
         if(nativeSend) {
-            // display.picture: host desktop presentation of the original XFB.
+            // display.picture: host desktop presentation of the original XFB,
+            // with display.antialiasing's FXAA.
             mscharged::platform::ConfigureNativeVideoOutputHardware(settings,
                 launch.settings.picture=="sharp" ? mscharged::platform::NativeDesktopPicture::Sharp
                 : launch.settings.picture=="clean" ? mscharged::platform::NativeDesktopPicture::Clean
-                                                   : mscharged::platform::NativeDesktopPicture::Signal);
+                                                   : mscharged::platform::NativeDesktopPicture::Signal,
+                mscharged::FindAntialiasing(launch.settings.antialiasing).fxaa);
             // Arm source-owned recording before original constructors/commands.
             // This mode never uses diagnostic aurora_begin/end_frame.
             aurora_configure_native_gx_hardware();

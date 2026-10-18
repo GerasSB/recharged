@@ -81,8 +81,9 @@ Press **P** for a screenshot and **H** to show or hide the HUD in a match.
   or fixed 2x-4x; menus and the HUD keep their original artwork.
 - Picture styles: **sharp** (default) or clean fill the window with the game's
   picture; soft keeps the console's TV look, with the TV signal's empty border.
-- **4x antialiasing**, on by default (Display → Antialiasing).
-- **Performance mode** (the gear on Play): lighter matches without 4x
+- **Antialiasing**: 4x MSAA by default, or FXAA, 4x MSAA + FXAA, or 4x SSAA,
+  which also smooths the edges inside textures (Display → Antialiasing).
+- **Performance mode** (the gear on Play): lighter matches without
   antialiasing, crowd, background NPCs, ambient effects, bloom or stadium
   shadows. Gameplay, hazards and their effects remain unchanged.
 - **High frame rates**: the console's 60 FPS by default, or 120, 144, your

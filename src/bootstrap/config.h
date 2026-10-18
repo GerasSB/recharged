@@ -53,8 +53,8 @@ struct Settings
     // effects, bloom, heat distortion, depth of field, stadium shadow volumes);
     // the 3D render size stays as chosen.
     bool performance_mode = false;
-    // display.antialiasing: off or 4x (Aurora multisampling of the game's
-    // frame; smooths polygon edges at any 3D resolution).
+    // display.antialiasing: off, fxaa, 4x (multisampling of the game's frame),
+    // 4x_fxaa or 4x_ssaa (supersampling); see kAntialiasingChoices.
     std::string antialiasing = "4x";
     // display.resolution: the game's 3D render size. window renders one pixel
     // per window pixel of the picture; native the Wii's 640x448; 2x-4x fixed
