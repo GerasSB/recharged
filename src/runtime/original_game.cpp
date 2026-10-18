@@ -832,13 +832,12 @@ int mscharged::RunOriginalGame(int argc, char** argv,
         // Disc-message images (the loading message and the DVD error screens):
         // the game module only reserves their arrays and the player's own
         // main.dol fills them, as the port ships no game data. Modules without
-        // this export still embed their images.
+        // this export still embed their images. A modified main.dol (a
+        // Wiimmfi-patched image) is fine: the game never runs it.
         if(auto* discMessages=reinterpret_cast<mscharged::DiscMessageImageStorage>(
-               mscharged::platform::FindNativeModuleSymbol(module,"charged_disc_message_image"))) {
-            mscharged::InstallDiscMessageImages(mscharged::ReadDiscMessageImages(launch.disc_path,*release),discMessages);
-            mscharged::platform::SessionLogLine("Disc messages: "+std::to_string(mscharged::kDiscMessageImageCount)
-                +" images from the disc's main.dol");
-        }
+               mscharged::platform::FindNativeModuleSymbol(module,"charged_disc_message_image")))
+            mscharged::platform::SessionLogLine(mscharged::InstallDiscMessages(
+                mscharged::ReadDiscMessages(launch.disc_path,*release),discMessages));
         auto entry=reinterpret_cast<int(*)()>(mscharged::platform::FindNativeModuleSymbol(module,"charged_original_entry"));
         if(!entry)throw std::runtime_error("Original source main export unavailable");
         mscharged::platform::Trace("Entering actual source main with real Aurora %s/FIFO owner and native PI_VI under temporary MAIN_BOOTSTRAP; flow remains incomplete.\n",
