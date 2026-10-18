@@ -334,6 +334,7 @@ int main()
             && defaults.monitor == 0 && !defaults.graphics_validation
             && defaults.log_level == "info" && !defaults.verbose_console && !defaults.frame_logging && !defaults.log_window
             && defaults.ui_scale == "auto" && defaults.check_updates && defaults.update_channel == "auto"
+            && defaults.test_build == 0
             && !defaults.performance_mode,
             "Host setting defaults");
         const auto host = directory / "host.ini";
@@ -351,6 +352,7 @@ int main()
         hostSettings.ui_scale = "150";
         hostSettings.check_updates = false;
         hostSettings.update_channel = "test";
+        hostSettings.test_build = 72;
         SaveConfig(hostFile, hostSettings);
         const auto hostReloaded = LoadConfig(host).settings;
         Require(hostReloaded.fps_overlay && hostReloaded.fps_overlay_corner == "bottom-left"
@@ -358,7 +360,8 @@ int main()
             && hostReloaded.monitor == 2 && hostReloaded.graphics_validation
             && hostReloaded.log_level == "warning" && hostReloaded.verbose_console && hostReloaded.frame_logging
             && hostReloaded.log_window
-            && hostReloaded.ui_scale == "150" && !hostReloaded.check_updates && hostReloaded.update_channel == "test",
+            && hostReloaded.ui_scale == "150" && !hostReloaded.check_updates && hostReloaded.update_channel == "test"
+                && hostReloaded.test_build == 72,
             "Host settings round trip");
         const auto hostText = LoadConfig(host).contents;
         Require(hostText.find("[advanced]") != std::string::npos && hostText.find("[launcher]") != std::string::npos
@@ -390,7 +393,8 @@ int main()
                                     "[advanced]\nlog_level = verbose\n", "[launcher]\nui_scale = 110\n",
                                     "[advanced]\ngraphics_validation = 2\n", "[advanced]\nverbose_console = yes\n",
                                     "[advanced]\nframe_logging = maybe\n", "[advanced]\nlog_window = on\n", "[launcher]\ncheck_updates = sometimes\n",
-                                    "[launcher]\nupdate_channel = nightly\n"})
+                                    "[launcher]\nupdate_channel = nightly\n", "[launcher]\ntest_build = -1\n",
+                                    "[launcher]\ntest_build = pr72\n"})
         {
             std::ofstream(path) << invalid;
             Reject([&] { LoadConfig(path); });

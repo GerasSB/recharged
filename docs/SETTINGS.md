@@ -264,6 +264,13 @@ whether to install the other channel's build. On a test build, *Release*
 offers the way back to the latest release. A test build moves on to the
 release that contains it.
 
+Several changes can be tested at once, such as the next bug-fix release and a
+bigger feature release. Then **Test** gets a menu (click it again) listing the
+test build of each, newest version first; choose one to read its notes and
+switch to it (`[launcher] test_build`). You keep getting the updates of the
+test build you chose, then its release; the launcher never moves you to
+another one by itself.
+
 ## Command-line options
 
 The launcher is optional: starting `recharged` with a disc image goes straight

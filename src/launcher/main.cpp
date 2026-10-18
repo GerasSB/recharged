@@ -645,18 +645,30 @@ private:
         if (capture_ && !(capture_updates && *capture_updates)) return;
         if (capture_)
         {
-            // "preview-<state>[-dialog]" shows a made-up state offline (UpdateService::Preview).
+            // "preview-<state>[-dialog|-menu]" shows a made-up state offline
+            // (UpdateService::Preview), optionally with the update dialog or
+            // the Test menu open.
             std::string mode = capture_updates;
             if (mode.rfind("preview-", 0) == 0)
             {
                 mode.erase(0, 8);
-                const bool dialog = mode.size() > 7 && mode.compare(mode.size() - 7, 7, "-dialog") == 0;
-                if (dialog) mode.resize(mode.size() - 7);
+                auto suffix = [&mode](const std::string& text) {
+                    const bool found = mode.size() > text.size()
+                        && mode.compare(mode.size() - text.size(), text.size(), text) == 0;
+                    if (found) mode.resize(mode.size() - text.size());
+                    return found;
+                };
+                const bool dialog = suffix("-dialog"), menu = !dialog && suffix("-menu");
                 update_preview_ = updates_->Preview(mode);
                 update_dialog_ = update_preview_ && dialog;
-                // The switch shows the previewed channel (not saved).
+                test_menu_ = update_preview_ && menu;
+                // The switch shows the previewed channel and choice (not saved).
                 if (update_preview_)
-                    draft_.update_channel = updates_->Snapshot().channel == UpdateChannel::Test ? "test" : "release";
+                {
+                    const auto preview = updates_->Snapshot();
+                    draft_.update_channel = preview.channel == UpdateChannel::Test ? "test" : "release";
+                    draft_.test_build = preview.chosen;
+                }
                 return;
             }
             update_capture_dialog_ = mode == "dialog";
@@ -679,13 +691,14 @@ private:
 
     // The update dialog opens by itself when a check finds a build: after the
     // start only for a newer one; after the Release / Test switch or a click on
-    // the status also for the way back to the release.
-    enum class UpdatePrompt { None, Newer, Any };
+    // the status also for the way back to the release. After the switch to
+    // Test with several test builds and none followed, the Test menu opens.
+    enum class UpdatePrompt { None, Newer, Any, Switch };
 
     void CheckForUpdates(UpdatePrompt prompt, UpdateChannel channel)
     {
         update_prompt_ = capture_ ? UpdatePrompt::None : prompt;
-        updates_->Check(channel);
+        updates_->Check(channel, draft_.test_build);
     }
 
     bool UpdateBusy() const
@@ -700,23 +713,56 @@ private:
         return ResolveChannel(draft_.update_channel, updates_ ? updates_->Build() : CurrentBuild());
     }
 
-    // The Play page's Release / Test switch is saved at once, without other
-    // unsaved changes, so it never holds an update back.
+    // The Play page's Release / Test switch and the Test menu's choice are
+    // saved at once, without other unsaved changes, so they never hold an
+    // update back.
+    void SaveUpdateChoice(const std::string& channel, int test_build)
+    {
+        draft_.update_channel = channel;
+        draft_.test_build = test_build;
+        if (!config_ok_) return;
+        try
+        {
+            Settings saved = file_.settings;
+            saved.update_channel = channel;
+            saved.test_build = test_build;
+            SaveConfig(file_, saved);
+        }
+        catch (const std::exception& error) { Notice(error.what(), NoticeKind::Error); }
+    }
+
+    // Release leaves the test builds; Test asks which one when several are open.
     void SelectUpdateChannel(UpdateChannel channel)
     {
-        const std::string value = channel == UpdateChannel::Test ? "test" : "release";
-        draft_.update_channel = value;
-        if (config_ok_)
-        {
-            try
-            {
-                Settings saved = file_.settings;
-                saved.update_channel = value;
-                SaveConfig(file_, saved);
-            }
-            catch (const std::exception& error) { Notice(error.what(), NoticeKind::Error); }
-        }
-        CheckForUpdates(UpdatePrompt::Any, channel);
+        const bool test = channel == UpdateChannel::Test;
+        SaveUpdateChoice(test ? "test" : "release", test ? draft_.test_build : 0);
+        CheckForUpdates(test ? UpdatePrompt::Switch : UpdatePrompt::Any, channel);
+    }
+
+    // A test build chosen in the Test menu: followed from now on, offered
+    // with its notes when it is not the running build.
+    void SelectTestBuild(int pull_request)
+    {
+        SaveUpdateChoice("test", pull_request);
+        CheckForUpdates(UpdatePrompt::Any, UpdateChannel::Test);
+    }
+
+    // On the test channel, test builds are published but none is followed
+    // (several pull requests are open, or the one followed has closed).
+    bool ChooseTestBuild() const
+    {
+        return update_.channel == UpdateChannel::Test && update_.state == UpdateService::State::UpToDate
+            && !update_.track && !update_.test_builds.empty();
+    }
+
+    // Test gets its menu when there is a choice to make.
+    bool TestMenuAvailable() const
+    {
+        using State = UpdateService::State;
+        if (update_.channel != UpdateChannel::Test || update_.state == State::Downloading
+            || update_.state == State::Installing || update_.state == State::Installed)
+            return false;
+        return update_.test_builds.size() >= 2 || ChooseTestBuild();
     }
 
     // The update status: a glass pill over the artwork, tinted with the
@@ -770,11 +816,25 @@ private:
             break;
         case State::Checking: look = {Icon::None, true, "Checking for updates...", "", color::info}; break;
         case State::UpToDate:
-            // Switched to Test on a build that is no test build: say why nothing changes.
-            if (test && updates_->Build().origin != BuildOrigin::Test)
-                look = {Icon::Check, false, "No new test builds",
-                        "No test build is newer than this build right now. Test builds are published while "
-                        "pull requests are open."
+            if (ChooseTestBuild())
+            {
+                // Test builds to choose from: the click opens the Test menu.
+                const auto count = update_.test_builds.size();
+                look = {Icon::Flask, false, count == 1 ? "Test build available" : "Choose a test build",
+                        (count == 1 ? std::string("A test build is published.")
+                                    : std::to_string(count) + " test builds are published, one for each change "
+                                                              "being tested.")
+                            + "\nClick to choose which one to follow.",
+                        color::warning};
+                look.filled = true;
+                look.action = PillAction::Open;
+                return look;
+            }
+            // Switched to Test while no test build is published: say why nothing changes.
+            if (test && update_.test_builds.empty() && updates_->Build().origin != BuildOrigin::Test)
+                look = {Icon::Check, false, "No test builds",
+                        "No test build is published right now. Test builds are published while pull requests "
+                        "are open."
                             + checked + again,
                         color::warning};
             else
@@ -911,27 +971,166 @@ private:
         int channel = UpdateChannelSetting() == UpdateChannel::Test ? 1 : 0;
         const bool busy = update_.state == State::Downloading || update_.state == State::Installing
             || update_.state == State::Installed;
+        const bool menu = TestMenuAvailable();
+        int pressed = -1;
         ImGui::BeginDisabled(busy || !config_ok_);
         if (SegmentedIcons("##update_channel", &channel,
-                           {{"Release", Icon::Tag, color::accent}, {"Test", Icon::Flask, color::warning}},
-                           {switch_width, height}, true))
+                           {{"Release", Icon::Tag, color::accent}, {"Test", Icon::Flask, color::warning, menu}},
+                           {switch_width, height}, true, &pressed))
             SelectUpdateChannel(channel ? UpdateChannel::Test : UpdateChannel::Release);
+        // Test again, with a choice: the menu, unless this mouse click closed it.
+        else if (pressed == 1 && menu
+                 && !(ImGui::GetIO().MouseReleased[0] && test_menu_closed_ >= ImGui::GetIO().MouseClickedTime[0]))
+            test_menu_ = true;
         ImGui::EndDisabled();
+        const ImVec2 menu_anchor{ImGui::GetItemRectMax().x, ImGui::GetItemRectMax().y + Dp(8)};
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-            ImGui::SetTooltip("Release: official releases.\n"
-                              "Test: also the test builds of pull requests, to try changes before they are released.\n"
-                              "Nothing is installed without asking.");
+            ImGui::SetTooltip(menu ? "Release: official releases.\n"
+                                     "Test: test builds of changes before they are released; click Test again to "
+                                     "choose which one.\n"
+                                     "Nothing is installed without asking."
+                                   : "Release: official releases.\n"
+                                     "Test: also the test builds of pull requests, to try changes before they are "
+                                     "released.\n"
+                                     "Nothing is installed without asking.");
         const float pill_width = PillWidth(look);
         x -= Dp(10) + pill_width;
         ImGui::SetCursorScreenPos({x, y});
         if (DrawUpdatePill(look, {pill_width, height}))
         {
-            if (update_.state == State::Idle || update_.state == State::UpToDate || update_.state == State::CheckFailed)
+            if (ChooseTestBuild()) test_menu_ = true;
+            else if (update_.state == State::Idle || update_.state == State::UpToDate
+                     || update_.state == State::CheckFailed)
                 CheckForUpdates(UpdatePrompt::Any, UpdateChannelSetting());
             else if (update_.offer)
                 update_dialog_ = true;
         }
         if (!look.tooltip.empty() && ImGui::IsItemHovered()) ImGui::SetTooltip("%s", look.tooltip.c_str());
+        DrawTestBuildMenu(menu_anchor);
+    }
+
+    // What a test build's title says besides its version: CI names them
+    // "Test build: <pull request title> (#N)", release pull requests are
+    // titled "Release 1.1.0 – NetCode!".
+    static std::string TestBuildSubtitle(const PublishedBuild& build)
+    {
+        std::string title = build.title;
+        const std::string prefix = "Test build: ", suffix = " (#" + std::to_string(build.pull_request) + ")";
+        if (title.rfind(prefix, 0) == 0) title.erase(0, prefix.size());
+        if (title.size() > suffix.size() && title.compare(title.size() - suffix.size(), suffix.size(), suffix) == 0)
+            title.resize(title.size() - suffix.size());
+        if (title.rfind("Release ", 0) == 0) title.erase(0, 8);
+        return ReleaseSubtitle(title, build.version);
+    }
+
+    // `text` cut to `width` with an ellipsis, at a UTF-8 character boundary.
+    static std::string Elide(ImFont* font, std::string text, float width)
+    {
+        if (TextSize(font, text.c_str()).x <= width) return text;
+        const std::string ellipsis = "\xE2\x80\xA6";
+        while (!text.empty() && TextSize(font, (text + ellipsis).c_str()).x > width)
+        {
+            do text.pop_back();
+            while (!text.empty() && (static_cast<unsigned char>(text.back()) & 0xC0) == 0x80);
+            while (!text.empty() && text.back() == ' ') text.pop_back();
+        }
+        return text + ellipsis;
+    }
+
+    // The Test menu below the switch: the newest test build of each open
+    // pull request. A click follows that one and offers it in the update
+    // dialog; the running build's own is marked as installed.
+    void DrawTestBuildMenu(ImVec2 anchor)
+    {
+        if (test_menu_)
+        {
+            test_menu_ = false;
+            if (!update_.test_builds.empty()) ImGui::OpenPopup("##test_builds");
+        }
+        const auto& fonts = CurrentFonts();
+        const float width = Dp(392);
+        ImGui::SetNextWindowPos(anchor, ImGuiCond_Always, {1.0f, 0.0f});
+        ImGui::SetNextWindowSize({width, 0});
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, Dp(10, 14));
+        ImGui::PushStyleVar(ImGuiStyleVar_PopupBorderSize, 0.0f);
+        ImGui::PushStyleColor(ImGuiCol_PopupBg, ImVec4{0, 0, 0, 0});
+        const bool open = ImGui::BeginPopup("##test_builds", ImGuiWindowFlags_NoMove | ImGuiWindowFlags_AlwaysAutoResize);
+        ImGui::PopStyleColor();
+        ImGui::PopStyleVar(2);
+        if (!open)
+        {
+            if (test_menu_open_) test_menu_closed_ = ImGui::GetTime();
+            test_menu_open_ = false;
+            return;
+        }
+        test_menu_open_ = true;
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, {Dp(10), 0.0f});
+        DrawDialogCard(color::warning, Dp(14), Dp(6));
+        auto* draw = ImGui::GetWindowDrawList();
+        const float left = ImGui::GetCursorScreenPos().x;
+        DrawTracked(draw, fonts.caption, {left + Dp(8), ImGui::GetCursorScreenPos().y}, Col(color::dim), "TEST BUILDS",
+                    Dp(1.2f));
+        ImGui::Dummy({0, FontSize(fonts.caption) + Dp(10)});
+        const BuildIdentity self = updates_->Build();
+        const PortVersion mine = ParsePortVersion(self.version);
+        const float row_width = width - Dp(20), row_height = Dp(56);
+        int choice = 0;
+        for (const auto& build : update_.test_builds)
+        {
+            const bool followed = build.pull_request == update_.track;
+            const bool running = self.origin == BuildOrigin::Test && build.pull_request == self.pull_request;
+            const bool current = running && !mine.commit.empty() && build.version.commit.rfind(mine.commit, 0) == 0;
+            const ImVec2 pos = ImGui::GetCursorScreenPos();
+            ImGui::PushID(build.pull_request);
+            if (ImGui::InvisibleButton("##test_build", {row_width, row_height})) choice = build.pull_request;
+            if (followed) ImGui::SetItemDefaultFocus();
+            const float hover = Animate(ImGui::GetItemID(), ImGui::IsItemHovered() || ImGui::IsItemFocused(), 14.0f);
+            ImGui::PopID();
+            const ImVec2 max{pos.x + row_width, pos.y + row_height};
+            if (followed || hover > 0.01f)
+                draw->AddRectFilled(pos, max,
+                                    Col(Mix(DialogFill(), color::warning, followed ? 0.10f + 0.06f * hover : 0.07f),
+                                        followed ? 1.0f : hover),
+                                    Dp(10));
+            // A flask in a soft disc, then the version and title over the pull request and date.
+            const ImVec2 icon{pos.x + Dp(26), pos.y + row_height * 0.5f};
+            draw->AddCircleFilled(icon, Dp(15), Col(Mix(DialogFill(), color::warning, followed ? 0.24f : 0.13f)));
+            DrawIcon(draw, Icon::Flask, icon, Dp(15), Col(color::warning, followed ? 1.0f : 0.8f));
+            const float text_left = pos.x + Dp(52), text_right = max.x - Dp(36);
+            const std::string number = VersionNumber(build.version);
+            const float line1 = pos.y + Dp(9);
+            DrawLabel(draw, fonts.label, {text_left, line1}, Col(color::text), number.c_str());
+            const float title_left = text_left + TextSize(fonts.label, number.c_str()).x + Dp(9);
+            const std::string subtitle = Elide(fonts.body, TestBuildSubtitle(build), text_right - title_left);
+            DrawLabel(draw, fonts.body,
+                      {title_left, line1 + (FontSize(fonts.label) - FontSize(fonts.body)) * 0.5f + Dp(1)},
+                      Col(Mix(color::muted, color::text, 0.55f + 0.45f * hover)), subtitle.c_str());
+            std::string detail = "Test build #" + std::to_string(build.pull_request);
+            if (build.published) detail += "  \xC2\xB7  " + LocalTime(build.published);
+            const float line2 = pos.y + row_height - Dp(9) - FontSize(fonts.caption);
+            DrawLabel(draw, fonts.caption, {text_left, line2}, Col(color::dim), detail.c_str());
+            // Installed, or the running build's pull request has a newer build.
+            if (running)
+            {
+                const char* tag = current ? "INSTALLED" : "UPDATE";
+                const ImVec4 tint = current ? color::muted : color::accent;
+                const float tag_x = text_left + TextSize(fonts.caption, detail.c_str()).x + Dp(10);
+                DrawTracked(draw, fonts.caption, {tag_x, line2}, Col(tint), tag, Dp(0.8f));
+            }
+            if (followed) DrawIcon(draw, Icon::Check, {max.x - Dp(18), pos.y + row_height * 0.5f}, Dp(15), Col(color::warning));
+            ImGui::Dummy({0, Dp(2)});
+        }
+        ImGui::Dummy({0, Dp(8)});
+        TextWrappedColored(fonts.caption, color::dim, "Updates come from the test build you choose. Release takes you "
+                                                      "back to the official release.");
+        ImGui::PopStyleVar();
+        if (choice)
+        {
+            ImGui::CloseCurrentPopup();
+            SelectTestBuild(choice);
+        }
+        else if (CancelPressed()) ImGui::CloseCurrentPopup();
+        ImGui::EndPopup();
     }
 
     // One line on the Advanced page: what the last check found.
@@ -943,7 +1142,9 @@ private:
         {
         case State::Idle: return "Not checked yet.";
         case State::Checking: return "Checking...";
-        case State::UpToDate: return "This build is up to date." + checked;
+        case State::UpToDate:
+            if (ChooseTestBuild()) return "Test builds are available; choose one with Test on the Play page." + checked;
+            return "This build is up to date." + checked;
         case State::CheckFailed: return "Couldn't check: " + update_.error;
         case State::Available:
             switch (ClassifyOffer(updates_->Build(), *update_.offer))
@@ -1001,17 +1202,16 @@ private:
     // The dialog's card: a soft shadow, a fill a shade lighter than the
     // launcher's cards, a hairline edge, and the offer's colour as a fine line
     // along the top that fades out to both sides.
-    static void DrawDialogCard(const ImVec4& tint)
+    static void DrawDialogCard(const ImVec4& tint, float rounding = Dp(18), float drop = Dp(14))
     {
         auto* draw = ImGui::GetWindowDrawList();
         const ImVec2 min = ImGui::GetWindowPos();
         const ImVec2 max{min.x + ImGui::GetWindowWidth(), min.y + ImGui::GetWindowHeight()};
-        const float rounding = Dp(18);
         draw->PushClipRectFullScreen();
         for (int i = 0; i < 8; ++i)
         {
             const float grow = Dp(2.0f + 3.0f * float(i));
-            draw->AddRectFilled({min.x - grow, min.y - grow + Dp(14)}, {max.x + grow, max.y + grow + Dp(14)},
+            draw->AddRectFilled({min.x - grow, min.y - grow + drop}, {max.x + grow, max.y + grow + drop},
                                 Col(ImVec4{0, 0, 0, 1}, 0.075f - 0.008f * float(i)), rounding + grow);
         }
         draw->AddRectFilled(min, max, Col(DialogFill()), rounding);
@@ -1174,11 +1374,18 @@ private:
         bool callout = false;
         if (kind != OfferKind::Update)
         {
-            std::string meaning = kind == OfferKind::TestBuild
-                ? "Test builds have changes that are not released yet, to try them early; they can have new "
-                  "problems. Release on the Play page takes you back."
-                : "This replaces your test build by the official release: changes that are not released yet "
-                  "go away. Your settings and saves stay.";
+            std::string meaning;
+            if (kind == OfferKind::TestBuild && self.origin == BuildOrigin::Test)
+                meaning = "This replaces test build #" + std::to_string(self.pull_request) + " by test build #"
+                    + std::to_string(offer.pull_request)
+                    + ", whose updates you then get. Test on the Play page switches between test builds, Release "
+                      "takes you back to the official release.";
+            else if (kind == OfferKind::TestBuild)
+                meaning = "Test builds have changes that are not released yet, to try them early; they can have new "
+                          "problems. Release on the Play page takes you back.";
+            else
+                meaning = "This replaces your test build by the official release: changes that are not released yet "
+                          "go away. Your settings and saves stay.";
             if (kind == OfferKind::BackToRelease && !UpdatesItself(offer.version))
                 meaning += " Version " + VersionNumber(offer.version)
                     + " cannot update itself; newer versions are downloaded from the releases page.";
@@ -1335,7 +1542,13 @@ private:
                 ImGui::SameLine(0, Dp(10));
                 if (PrimaryButton("update_now", action, {action_width, height}, true, Icon::Download))
                 {
-                    if (status.install_blocker.empty()) updates_->Install();
+                    if (status.install_blocker.empty())
+                    {
+                        // Its pull request is followed from now on, also after it is released.
+                        if (offer.test && draft_.test_build != offer.pull_request)
+                            SaveUpdateChoice(draft_.update_channel, offer.pull_request);
+                        updates_->Install();
+                    }
                     else SDL_OpenURL(asset->url.c_str());
                 }
                 if (ImGui::IsItemHovered() && status.install_blocker.empty())
@@ -1785,10 +1998,16 @@ private:
             update_ = updates_->Snapshot();
             if (update_prompt_ != UpdatePrompt::None && update_.state != UpdateService::State::Checking)
             {
-                if (update_.state == UpdateService::State::Available && update_.offer
-                    && (update_prompt_ == UpdatePrompt::Any
-                        || ClassifyOffer(updates_->Build(), *update_.offer) != OfferKind::BackToRelease))
-                    update_dialog_ = true;
+                if (update_.state == UpdateService::State::Available && update_.offer)
+                {
+                    // After the start only newer builds: an update or a newer test build.
+                    const OfferKind kind = ClassifyOffer(updates_->Build(), *update_.offer);
+                    if (update_prompt_ != UpdatePrompt::Newer || kind == OfferKind::Update
+                        || (kind == OfferKind::TestBuild && IsNewer(updates_->Build(), *update_.offer)))
+                        update_dialog_ = true;
+                }
+                else if (update_prompt_ == UpdatePrompt::Switch && ChooseTestBuild())
+                    test_menu_ = true;
                 update_prompt_ = UpdatePrompt::None;
             }
             if (update_.state == UpdateService::State::Available && update_capture_dialog_)
@@ -5559,6 +5778,9 @@ private:
     bool update_dialog_ = false, update_capture_dialog_ = false, update_capture_install_ = false, restart_ = false;
     bool update_preview_ = false;
     UpdatePrompt update_prompt_ = UpdatePrompt::None;
+    // The Test menu: open it next frame; whether it was open, and when it closed.
+    bool test_menu_ = false, test_menu_open_ = false;
+    double test_menu_closed_ = -1.0;
     std::string notes_source_;
     std::vector<NoteBlock> notes_;
 };

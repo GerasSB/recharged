@@ -64,7 +64,8 @@ Values Encode(const Settings& s)
             {"advanced.log_window", s.log_window ? "true" : "false"},
             {"launcher.ui_scale", s.ui_scale},
             {"launcher.check_updates", s.check_updates ? "true" : "false"},
-            {"launcher.update_channel", s.update_channel}};
+            {"launcher.update_channel", s.update_channel},
+            {"launcher.test_build", std::to_string(s.test_build)}};
     for (std::size_t n = 0; n < KeyActionCount; ++n)
         values.emplace(std::string("keyboard.") + kKeyActions[n].key, s.keys[n]);
     for (std::size_t n = 0; n < kGameTweaks.size(); ++n)
@@ -264,6 +265,7 @@ Settings Decode(const Values& values)
     choice("launcher.ui_scale", s.ui_scale, {"auto", "75", "100", "125", "150", "175", "200"});
     boolean("launcher.check_updates", s.check_updates);
     choice("launcher.update_channel", s.update_channel, {"auto", "release", "test"});
+    number("launcher.test_build", s.test_build, 0, 999999999);
     for (std::size_t n = 0; n < kGameTweaks.size(); ++n)
     {
         bool value = kGameTweaks[n].on_by_default;

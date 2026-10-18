@@ -175,7 +175,8 @@ It also **updates Recharged**: when a newer release is out it shows the release
 notes and asks, then installs it in place and restarts; only the program's own
 files are replaced. **Release / Test** on the Play page switches between
 official releases and test builds of changes not yet released, and back,
-asking before it installs anything ([updates](SETTINGS.md#updates)).
+asking before it installs anything; with several changes in testing, Test
+lets you choose which one to follow ([updates](SETTINGS.md#updates)).
 
 ## Not supported (yet)
 

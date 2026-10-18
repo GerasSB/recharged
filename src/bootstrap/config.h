@@ -157,6 +157,9 @@ struct Settings
     // launcher.update_channel: release (official releases), test (also test
     // builds of pull requests) or auto (where this build comes from).
     std::string update_channel = "auto";
+    // launcher.test_build: the pull request whose test builds the test channel
+    // follows, chosen on the Play page; 0 for the running test build's own.
+    int test_build = 0;
     // [gameplay]: game tweaks (kGameTweaks order), off by default except the
     // recommended ones.
     std::array<bool, kGameTweaks.size()> tweaks = DefaultGameTweaks();
