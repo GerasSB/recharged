@@ -665,6 +665,10 @@ int mscharged::RunOriginalGame(int argc, char** argv,
                 : "none (this build's game module has no tweaks)");
             mscharged::platform::SessionLogLine(line.c_str());
             std::fprintf(stderr,"%s\n",line.c_str());
+            // Texture packs: Mirror match's recoloured textures in HD.
+            if(auto* configureRecolour=reinterpret_cast<void(*)(ChargedRecolouredTextureHook)>(
+                   mscharged::platform::FindNativeModuleSymbol(module,"charged_configure_hd_recolour")))
+                configureRecolour(mscharged::TexturePackRecolourHook());
             // No HUD (issue #58): H shows or hides the match HUD, whatever the tweak set.
             mscharged::platform::SetHudKey(reinterpret_cast<void(*)()>(
                 mscharged::platform::FindNativeModuleSymbol(module,"charged_toggle_hud")));
