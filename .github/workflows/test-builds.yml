@@ -1,7 +1,9 @@
 name: Remove test builds
 
 # A pull request's test builds (prereleases test-pr<N>-<commit>, published by
-# build.yml) end with the pull request: merged into a release or closed.
+# build.yml) end with the pull request: merged into a release or closed. So do
+# its compiler caches, which only that pull request could restore; several
+# release pull requests open at once otherwise fill the repository's cache.
 on:
   pull_request:
     types: [closed]
@@ -17,6 +19,7 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: write
+      actions: write
     env:
       GH_TOKEN: ${{ github.token }}
       PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -28,4 +31,11 @@ jobs:
             | while read -r tag; do
                 echo "Removing $tag"
                 gh release delete "$tag" --repo "$GITHUB_REPOSITORY" --cleanup-tag --yes
+              done
+      - name: Delete the pull request's compiler caches
+        run: |
+          gh cache list --repo "$GITHUB_REPOSITORY" --ref "refs/pull/$PR_NUMBER/merge" --limit 100 \
+              --json id --jq '.[].id' \
+            | while read -r id; do
+                gh cache delete "$id" --repo "$GITHUB_REPOSITORY"
               done
