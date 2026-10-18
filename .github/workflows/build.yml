@@ -484,13 +484,14 @@ jobs:
             exit 0
           fi
           tag="test-pr$PR_NUMBER-${HEAD_SHA:0:12}"
+          # The pull request's change list first: the launcher shows these
+          # notes. test-builds.yml writes the same when the description changes.
           {
-            echo "Test build of [pull request #$PR_NUMBER]($PR_URL) at commit ${HEAD_SHA:0:12}, to try it before it is released."
-            echo "It is replaced by each new push to the pull request and removed when the pull request closes."
+            printf '%s\n' "$PR_BODY"
             echo
             echo "---"
             echo
-            printf '%s\n' "$PR_BODY"
+            echo "Test build of [pull request #$PR_NUMBER]($PR_URL) at commit ${HEAD_SHA:0:12}; each push replaces it, and it is removed when the pull request closes."
           } > notes.md
           gh release delete "$tag" --repo "$GITHUB_REPOSITORY" --cleanup-tag --yes 2>/dev/null || true
           gh release create "$tag" --repo "$GITHUB_REPOSITORY" --prerelease --latest=false --target "$HEAD_SHA" \
