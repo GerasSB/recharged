@@ -3,6 +3,7 @@
 #include "platform/screenshot_hotkey.h"
 #endif
 #include "platform/alarms.h"
+#include "platform/fullscreen_hotkey.h"
 #include "platform/interrupts.h"
 #include "platform/stm_device.h"
 #include "platform/ios_device.h"
@@ -352,6 +353,8 @@ void InitializeNativeHardwareInput(SDL_Window* window, WpadSDLSettings settings,
 #if defined(MSCHARGED_HOST_SCREENSHOTS)
     InitializeScreenshotHotkey(window);
 #endif
+    // Alt+Enter: fullscreen or a window (issue #77); its Enter never reaches the keyboard player.
+    InitializeFullscreenHotkey(window);
 }
 
 void ServiceNativeHardwareInput() { Service(); }
@@ -417,6 +420,7 @@ void ShutdownNativeHardwareInput() {
 #if defined(MSCHARGED_HOST_SCREENSHOTS)
     ShutdownScreenshotHotkey();
 #endif
+    ShutdownFullscreenHotkey();
     ShutdownNativeAlarms();
     ShutdownWiimoteHid();
     ShutdownDesktopWpad();

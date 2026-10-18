@@ -110,6 +110,11 @@ The 3D scene renders at the window's resolution by default, or at the Wii's
 The layout is 16:9 by default, or 4:3; resizing keeps it and fills unused
 space with bars.
 
+**Fullscreen** (Display → Mode, `[display] fullscreen`) covers the whole
+display at its own resolution. **Alt+Enter** (Option+Return on a Mac) switches
+between fullscreen and a window while playing, for that run only; that Enter
+never presses A.
+
 **Antialiasing** (Display → Antialiasing, `[display] antialiasing`) smooths
 jagged edges. **4x MSAA** (`4x`, the default) smooths the edges of 3D shapes.
 **FXAA** (`fxaa`) smooths the finished picture at almost no cost, but softens

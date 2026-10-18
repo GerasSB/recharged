@@ -1,5 +1,6 @@
 #include "platform/graphics_stats.h"
 #include "platform/app_icon.h"
+#include "platform/fullscreen_hotkey.h"
 #include "platform/screenshot_hotkey.h"
 #include "platform/window_fit.h"
 #include "runtime/original_game.h"
@@ -1039,6 +1040,19 @@ int mscharged::RunOriginalGame(int argc, char** argv,
                 exit=true;
             }
             if(exit)break;
+            // Alt+Enter (Option+Return on a Mac): fullscreen or a window, for this run (issue #77).
+            switch(mscharged::platform::ServiceFullscreenHotkey()) {
+            case mscharged::platform::FullscreenSwitch::Fullscreen:
+                mscharged::platform::SessionLogLine(std::string("Display: fullscreen (")
+                    +mscharged::platform::kFullscreenShortcut+")"); break;
+            case mscharged::platform::FullscreenSwitch::Windowed:
+                mscharged::platform::SessionLogLine(std::string("Display: windowed (")
+                    +mscharged::platform::kFullscreenShortcut+")"); break;
+            case mscharged::platform::FullscreenSwitch::Failed:
+                mscharged::platform::SessionLogLine(std::string("Display: ")+mscharged::platform::kFullscreenShortcut
+                    +" could not switch: "+SDL_GetError()); break;
+            case mscharged::platform::FullscreenSwitch::None: break;
+            }
             mscharged::diagnostic::ServiceMovieHardware();
             if(requestSH) {
                 const auto status=requestSH();
