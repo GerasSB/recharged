@@ -163,7 +163,8 @@ settings:
 - **Speaker volume** (`controls.speaker_volume`, 0-100, default 70 like the
   Wii): the game plays some sounds on each player's Remote as well as on the
   TV. 0 sends no sound to the Remotes. How clean it sounds depends on the
-  Bluetooth link; turn it down or off if it crackles.
+  Bluetooth link; turn it down or off if it crackles. The log
+  (`logs/recharged.log`) says when the connection was too slow for it.
 
 The **Rumble** card switches rumble for Wii Remotes and gamepads
 (`controls.rumble`) and sets how strongly gamepads rumble
