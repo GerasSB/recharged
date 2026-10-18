@@ -52,6 +52,14 @@ issue gets it added to the package, so nobody else sees the stutter.
 The builds are not signed. Choose *More info → Run anyway*. Antivirus programs
 can also quarantine new unsigned programs; restore the file and allow it.
 
+## Windows: the game stops with a message about graphics
+
+- On the launcher's **Advanced** page, set **Graphics API** to **Automatic**
+  (it tries DirectX 12 when Vulkan cannot start) or to **DirectX 12**.
+- Update the graphics driver, from the GPU maker (Intel, AMD, NVIDIA) or the
+  PC maker. Vulkan refuses Intel drivers below 101.2111, the last two parts of
+  the driver version (as in 31.0.**101.2111**).
+
 ## macOS: the app cannot be opened
 
 The builds are not signed. Allow the app under *System Settings → Privacy &

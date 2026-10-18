@@ -358,8 +358,12 @@ int mscharged::RunOriginalGame(int argc, char** argv,
         config.userPath=config.cachePath=dataPath.c_str();
         const auto graphicsResourcesPath=mscharged::PathUtf8(executableDirectory/"assets"/"graphics");
         config.resourcesPath=graphicsResourcesPath.c_str();
-        const auto& graphics=mscharged::ResolveGraphicsBackend(launch.settings.backend);
-        config.desiredBackend=mscharged::platform::AuroraGraphicsBackend(graphics.backend);
+        // display.backend: only auto names a second API for Aurora to try.
+        const auto* graphics=&mscharged::ResolveGraphicsBackend(launch.settings.backend);
+        const auto* graphicsFallback=mscharged::GraphicsBackendFallback(launch.settings.backend);
+        config.desiredBackend=mscharged::platform::AuroraGraphicsBackend(graphics->backend);
+        if(graphicsFallback)
+            config.fallbackBackend=mscharged::platform::AuroraGraphicsBackend(graphicsFallback->backend);
         config.windowWidth=windowWidth;config.windowHeight=windowHeight;
         config.windowPosX=config.windowPosY=-1;
         config.mem1Size=MEM1_DEFAULT_SIZE;
@@ -389,12 +393,17 @@ int mscharged::RunOriginalGame(int argc, char** argv,
             +", performance overlay "+(shown.fps_overlay?shown.fps_overlay_corner:std::string("off"))
             +", graphics validation "+(shown.graphics_validation?"on":"off"));
         mscharged::platform::SessionLogLine(std::string("Startup: initializing ")
-            +graphics.label+" graphics and the window");
+            +graphics->label+" graphics and the window");
         shaderCacheUse.emplace(mscharged::platform::ShaderCacheDirectory(executableDirectory));
         const auto host=aurora_initialize(argc,argv,&config);
-        if(!host.window||host.backend!=config.desiredBackend)
-            throw std::runtime_error(std::string(graphics.label)
-                +" is unavailable. Select a different graphics API in the launcher.");
+        if(!host.window)
+            throw std::runtime_error(mscharged::GraphicsStartFailure(*graphics,graphicsFallback));
+        if(host.backend!=config.desiredBackend) {
+            Check(graphicsFallback && host.backend==config.fallbackBackend,"Aurora started an unrequested graphics API");
+            mscharged::platform::SessionLogLine(std::string("Startup: ")+graphics->label+" could not start; using "
+                +graphicsFallback->label);
+            graphics=graphicsFallback;
+        }
         mscharged::platform::SetApplicationIcon(host.window);
         mscharged::platform::SessionLogLine("Startup: graphics ready");
         mscharged::platform::LogSessionDisplays(host.window);
@@ -830,7 +839,7 @@ int mscharged::RunOriginalGame(int argc, char** argv,
         auto entry=reinterpret_cast<int(*)()>(mscharged::platform::FindNativeModuleSymbol(module,"charged_original_entry"));
         if(!entry)throw std::runtime_error("Original source main export unavailable");
         mscharged::platform::Trace("Entering actual source main with real Aurora %s/FIFO owner and native PI_VI under temporary MAIN_BOOTSTRAP; flow remains incomplete.\n",
-                     graphics.label);
+                     graphics->label);
         mscharged::platform::SessionLogLine("Startup: game module loaded, entering the game");
         std::fflush(nullptr);
         const int result=entry();
@@ -989,7 +998,7 @@ int mscharged::RunOriginalGame(int argc, char** argv,
         if(frameTiming)
             frameTiming->SetContext(std::string("Session: version ")+mscharged::build::version+" ("
                 +mscharged::build::channel+")\nSettings: "+(shown.fullscreen?"fullscreen":"windowed")+" "
-                +std::to_string(windowWidth)+"x"+std::to_string(windowHeight)+", graphics "+graphics.label
+                +std::to_string(windowWidth)+"x"+std::to_string(windowHeight)+", graphics "+graphics->label
                 +", 3D resolution "+shown.resolution+", antialiasing "+shown.antialiasing
                 +", frame rate "+shown.frame_rate+", vsync "+(shown.vsync?"on":"off")
                 +", performance mode "+(shown.performance_mode?"on":"off")+"\n");
@@ -1258,11 +1267,13 @@ int mscharged::RunOriginalGame(int argc, char** argv,
         mscharged::platform::SessionLogLine("=== Session ended ===");
         std::fflush(nullptr);mscharged::platform::TerminateProcessNow(0);
         } catch(const std::exception& e) {
-            mscharged::platform::ReportFatalError(std::string("Actual source diagnostic stopped with live owners: ")+e.what());
+            // The player's box shows only the reason; the log keeps the context.
+            mscharged::platform::SessionLogLine("The game stopped with its source owners still live.");
+            mscharged::platform::ReportFatalError(e.what());
             mscharged::platform::TerminateProcessNow(1);
         }
     }catch(const std::exception& e){
-        mscharged::platform::ReportFatalError(std::string("Actual source diagnostic stopped: ")+e.what());
+        mscharged::platform::ReportFatalError(e.what());
         mscharged::platform::TerminateProcessNow(1);
     }
 }

@@ -63,10 +63,12 @@ disc.
 ## Graphics
 
 **Graphics API.** Linux uses Vulkan and macOS uses Metal. On Windows,
-**Advanced → Graphics API** chooses Vulkan or DirectX 12 for the next start
-(`[display] backend = vulkan` or `d3d12`; `auto` means Vulkan). If the chosen
-API fails, the game reports an error instead of silently switching. Keep the
-shader compiler DLLs from the Windows package beside `recharged.exe`.
+**Advanced → Graphics API** chooses Automatic, Vulkan or DirectX 12 for the next
+start (`[display] backend = auto`, `vulkan` or `d3d12`). Automatic uses Vulkan
+and switches to DirectX 12 when Vulkan cannot start, for example when the
+graphics driver is too old for it. A chosen API is never switched: if it fails,
+the game says so. Keep the shader compiler DLLs from the Windows package beside
+`recharged.exe`.
 
 **Preparing graphics.** Before the game starts, Recharged builds the game's
 drawing and effect pipelines for your graphics card: the ones listed in the

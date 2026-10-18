@@ -5724,21 +5724,24 @@ private:
         BeginCard("##graphics", "Graphics", nullptr, Icon::Display);
         if (BeginRows("##graphics_rows"))
         {
-            Row("Graphics API", "Used the next time you start the game.");
 #if defined(_WIN32)
-            const std::string selected = draft_.backend == "auto" ? kGraphicsBackends.front().value : draft_.backend;
-            const char* preview = "Choose a graphics API";
+            // Automatic is its own choice: only it may switch to DirectX 12.
+            Row("Graphics API", "Automatic uses Vulkan, or DirectX 12 when Vulkan cannot start. Used the next time you start the game.");
+            const char* preview = draft_.backend == "auto" ? "Automatic" : "Choose a graphics API";
             for (const auto& choice : kGraphicsBackends)
-                if (selected == choice.value) preview = choice.label;
+                if (draft_.backend == choice.value) preview = choice.label;
             ImGui::SetNextItemWidth(-1);
             if (ImGui::BeginCombo("##graphics_api", preview))
             {
+                if (ImGui::Selectable("Automatic", draft_.backend == "auto"))
+                { draft_.backend = "auto"; dirty_ = true; }
                 for (const auto& choice : kGraphicsBackends)
-                    if (ImGui::Selectable(choice.label, selected == choice.value))
+                    if (ImGui::Selectable(choice.label, draft_.backend == choice.value))
                     { draft_.backend = choice.value; dirty_ = true; }
                 ImGui::EndCombo();
             }
 #else
+            Row("Graphics API", "Used the next time you start the game.");
             ImGui::SetCursorPosY(ImGui::GetCursorPosY() + Dp(4));
             Chip(kGraphicsBackends.front().label, color::info);
 #endif
