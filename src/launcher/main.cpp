@@ -1872,6 +1872,8 @@ private:
             library_available_ = std::move(scan.available);
             library_folders_ = library_scan_folders_;
             library_other_games_ = scan.other_games;
+            library_strikers_ = std::move(scan.strikers);
+            PrefillGameCubeDisc();
             library_limited_ = scan.limited;
             for (auto& [id, rgba] : scan.banners) StoreBanner(id, rgba);
             banner_failures_.insert(scan.banner_failures.begin(), scan.banner_failures.end());
@@ -2074,6 +2076,15 @@ private:
                 folder_dialog_->ready = false;
                 if (!folder_dialog_->error.empty()) Notice(folder_dialog_->error, NoticeKind::Error);
                 else if (!folder_dialog_->path.empty()) FolderChosen(folder_dialog_->path);
+            }
+        }
+        {
+            std::lock_guard<std::mutex> lock(gamecube_dialog_->mutex);
+            if (gamecube_dialog_->ready)
+            {
+                gamecube_dialog_->ready = false;
+                if (!gamecube_dialog_->error.empty()) Notice(gamecube_dialog_->error, NoticeKind::Error);
+                else if (!gamecube_dialog_->path.empty()) GameCubeDiscChosen(PathFromUtf8(gamecube_dialog_->path));
             }
         }
         if (pending_ && future_.wait_for(std::chrono::seconds(0)) == std::future_status::ready)
@@ -5382,6 +5393,89 @@ private:
         EndCard();
     }
 
+    // The Super Team needs a Super Mario Strikers (GameCube) image: one of the
+    // game folder is taken when none is set; turning the tweak on without one
+    // asks for it.
+    void PrefillGameCubeDisc()
+    {
+        if (!draft_.gamecube_disc.empty() || library_strikers_.empty()) return;
+        const bool clean = !dirty_;
+        draft_.gamecube_disc = SettingsPath(library_strikers_.front());
+        dirty_ = true;
+        if (clean) Save();
+        if (draft_.tweaks[std::size_t(GameTweak::SuperTeam)])
+            Notice("The Super Team uses " + PathUtf8(library_strikers_.front().filename()) + " from your game folder.",
+                   NoticeKind::Success);
+    }
+
+    void BrowseGameCubeDisc()
+    {
+        static const SDL_DialogFileFilter filters[] = {
+            {"GameCube disc images (ISO / RVZ / GCM)", "iso;rvz;gcm;ISO;RVZ;GCM"}, {"All files", "*"}};
+        {
+            std::lock_guard<std::mutex> lock(gamecube_dialog_->mutex);
+            gamecube_dialog_->active = true;
+        }
+        const fs::path current = draft_.gamecube_disc.empty() ? fs::path()
+                                                              : ResolveGameCubeDiscPath(draft_, file_.path);
+        const fs::path start = !current.empty() ? current.parent_path() : ResolveGameFolder(draft_, file_.path);
+        const std::string location = PathUtf8(start);
+        SDL_ShowOpenFileDialog(DiscChosen, new std::shared_ptr<DialogResult>(gamecube_dialog_), window_, filters,
+                               int(std::size(filters)), location.empty() ? nullptr : location.c_str(), false);
+    }
+
+    void GameCubeDiscChosen(const fs::path& path)
+    {
+        const DiscProbe probe = ProbeDisc(path);
+        if (probe.kind != DiscProbe::Kind::OtherGame || !IsStrikersGameId(probe.info.game_id))
+        {
+            Notice(PathUtf8(path.filename()) + " is not a Super Mario Strikers (GameCube) image.", NoticeKind::Error);
+            return;
+        }
+        draft_.gamecube_disc = SettingsPath(path);
+        dirty_ = true;
+        Notice("The Super Team uses " + PathUtf8(path.filename()) + ".", NoticeKind::Success);
+    }
+
+    void SuperTeamRows()
+    {
+        const auto index = std::size_t(GameTweak::SuperTeam);
+        const auto& info = kGameTweaks[index];
+        Row(info.name, info.description);
+        if (Toggle("##tweak_super_team", &draft_.tweaks[index]))
+        {
+            dirty_ = true;
+            if (draft_.tweaks[index] && draft_.gamecube_disc.empty()) BrowseGameCubeDisc();
+        }
+        if (!draft_.tweaks[index]) return;
+        Row("Super Team side", "The team whose captain and sidekicks are robots.");
+        const char* sides[] = {"away", "home", "both"};
+        int side = 0;
+        for (int i = 0; i < 3; ++i)
+            if (draft_.super_team_side == sides[i]) side = i;
+        if (Segmented("##super_team_side", &side, {"Away team", "Home team", "Both teams"},
+                      ImGui::GetContentRegionAvail().x))
+        {
+            draft_.super_team_side = sides[side];
+            dirty_ = true;
+        }
+        bool browsing;
+        {
+            std::lock_guard<std::mutex> lock(gamecube_dialog_->mutex);
+            browsing = gamecube_dialog_->active;
+        }
+        const std::string path = draft_.gamecube_disc.empty()
+            ? std::string("None found in your game folder. Choose your Super Mario Strikers image.")
+            : PathUtf8(ResolveGameCubeDiscPath(draft_, file_.path));
+        Row("GameCube disc", path.c_str());
+        const std::string label = draft_.gamecube_disc.empty()
+            ? std::string("Choose image...")
+            : PathUtf8(PathFromUtf8(draft_.gamecube_disc).filename());
+        if (SecondaryButton("gamecube_disc", label.c_str(), {ImGui::GetContentRegionAvail().x, ImGui::GetFrameHeight()},
+                            !browsing && config_ok_, Icon::Disc))
+            BrowseGameCubeDisc();
+    }
+
     void TweakRow(GameTweak tweak)
     {
         const auto index = std::size_t(tweak);
@@ -5429,6 +5523,7 @@ private:
             TweakRow(GameTweak::MirrorMatch);
             TweakRow(GameTweak::BluePeach);
             TweakRow(GameTweak::RobotGoalies);
+            SuperTeamRows();
             TweakRow(GameTweak::NoHud);
             TweakRow(GameTweak::UnlockAll);
             EndRows();
@@ -5785,6 +5880,7 @@ private:
     std::vector<LibraryFolder> library_folders_, library_scan_folders_;
     std::vector<bool> library_available_;
     std::size_t library_other_games_ = 0;
+    std::vector<fs::path> library_strikers_; // Super Mario Strikers images of the game folder
     bool library_limited_ = false;
     std::string scanned_folder_; // the game folder setting of the last scan
     bool scanned_subfolders_ = true;
@@ -5806,6 +5902,7 @@ private:
     std::vector<SDL_DisplayID> display_ids_;
     std::shared_ptr<DialogResult> dialog_ = std::make_shared<DialogResult>();
     std::shared_ptr<DialogResult> folder_dialog_ = std::make_shared<DialogResult>();
+    std::shared_ptr<DialogResult> gamecube_dialog_ = std::make_shared<DialogResult>();
     FolderPurpose folder_purpose_ = FolderPurpose::SaveFolder;
     fs::path import_source_;
     bool import_prompt_ = false;

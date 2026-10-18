@@ -657,6 +657,42 @@ int mscharged::RunOriginalGame(int argc, char** argv,
                 mscharged::platform::SessionLogLine(robotLine.c_str());
                 std::fprintf(stderr,"%s\n",robotLine.c_str());
             }
+            // Super Team: the GameCube robot's model, skeleton and textures from
+            // the player's Super Mario Strikers disc. The module keeps a view of them.
+            if(tweaks & mscharged::GameTweakBit(mscharged::GameTweak::SuperTeam)) {
+                static std::vector<std::vector<std::uint8_t>> superTeamFiles;
+                std::string why;
+                const auto gamecube=mscharged::ResolveGameCubeDiscPath(launch.settings,launch.config.path);
+                if(gamecube.empty())
+                    why="no Super Mario Strikers (GameCube) disc is set ([game] gamecube_disc)";
+                else {
+                    try {
+                        superTeamFiles=mscharged::ReadStrikersFiles(gamecube,
+                            {"art/characters/SuperTeam/SuperTeam.glg","art/animation/SuperTeam.shier",
+                             "art/characters/SuperTeam/SuperTeam.glt"},16u<<20);
+                    } catch(const std::exception& error) {
+                        why=error.what();
+                        superTeamFiles.clear();
+                    }
+                }
+                auto* configureSuperTeam=reinterpret_cast<bool(*)(const void*,unsigned long,const void*,unsigned long,
+                    const void*,unsigned long,int)>(
+                    mscharged::platform::FindNativeModuleSymbol(module,"charged_configure_super_team"));
+                const std::string& side=launch.settings.super_team_side;
+                const int sides=side=="home" ? 1 : side=="both" ? 3 : 2;
+                bool ready=false;
+                if(!configureSuperTeam) why="this build's game module has no Super Team";
+                else if(superTeamFiles.size()==3) {
+                    const auto& f=superTeamFiles;
+                    ready=configureSuperTeam(f[0].data(),(unsigned long)f[0].size(),f[1].data(),(unsigned long)f[1].size(),
+                        f[2].data(),(unsigned long)f[2].size(),sides);
+                    if(!ready) why="the GameCube disc's Super Team files are not the expected ones";
+                }
+                const std::string superTeamLine=std::string("Super Team: ")
+                    +(ready ? "on ("+side+(side=="both" ? " teams)" : " team)") : "off ("+why+")");
+                mscharged::platform::SessionLogLine(superTeamLine.c_str());
+                std::fprintf(stderr,"%s\n",superTeamLine.c_str());
+            }
         }
         // European revision 1 disc: its data runs on the revision 2 code
         // through the tweak series' adapters, whatever the tweak set.

@@ -293,6 +293,31 @@ int main()
                     && ResolveSaveFolder(changed, path, executable) == directory / "absolute saves",
                     "An absolute save folder round trips");
         }
+        // The Super Team's GameCube disc and robot side.
+        {
+            Require(Settings{}.gamecube_disc.empty() && ResolveGameCubeDiscPath(Settings{}, path).empty()
+                    && Settings{}.super_team_side == "away", "Super Team defaults");
+            std::ofstream(path) << "[game]\ngamecube_disc = \"game/Strikers.rvz\"\n[gameplay]\nsuper_team = true\n"
+                                   "super_team_side = both\n";
+            auto loaded = LoadConfig(path);
+            Require(loaded.settings.gamecube_disc == "game/Strikers.rvz"
+                    && ResolveGameCubeDiscPath(loaded.settings, path) == path.parent_path() / "game/Strikers.rvz"
+                    && loaded.settings.super_team_side == "both"
+                    && loaded.settings.tweaks[std::size_t(mscharged::GameTweak::SuperTeam)],
+                    "The Super Team settings load");
+            auto changed = loaded.settings;
+            changed.super_team_side = "home";
+            changed.gamecube_disc = "other.iso";
+            SaveConfig(loaded, changed);
+            const auto saved = LoadConfig(path);
+            Require(saved.settings.super_team_side == "home" && saved.settings.gamecube_disc == "other.iso"
+                    && saved.contents.find("gamecube_disc = \"other.iso\"") != std::string::npos,
+                    "The Super Team settings round trip");
+            std::ofstream(path) << "[gameplay]\nsuper_team_side = left\n";
+            bool rejected = false;
+            try { LoadConfig(path); } catch (const std::runtime_error&) { rejected = true; }
+            Require(rejected, "An unknown Super Team side is rejected");
+        }
         // The game folder (#65): game beside the settings file by default, in
         // quotes, with its subfolders; the first builds' [library] list moves to it.
         {

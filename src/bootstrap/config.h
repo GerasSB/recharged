@@ -30,6 +30,10 @@ struct Settings
     // uses the default folder next to the executable; a relative path
     // counts from the settings file, like the disc.
     std::string save_folder;
+    // game.gamecube_disc: a Super Mario Strikers image (GameCube), for the
+    // Super Team tweak: its robot model and textures come from that disc. A
+    // relative path counts from the settings file, like the disc.
+    std::string gamecube_disc;
     std::string language = "auto";
     int width = 1280;
     int height = 720;
@@ -163,6 +167,9 @@ struct Settings
     // [gameplay]: game tweaks (kGameTweaks order), off by default except the
     // recommended ones.
     std::array<bool, kGameTweaks.size()> tweaks = DefaultGameTweaks();
+    // gameplay.super_team_side: the team the Super Team tweak dresses as
+    // robots: away, home or both.
+    std::string super_team_side = "away";
     unsigned GameTweakMask() const
     {
         unsigned mask = 0;
@@ -190,6 +197,8 @@ bool SamePadProfileName(const std::string& a, const std::string& b);
 ConfigFile LoadConfig(const std::filesystem::path& path, bool allow_missing = false);
 void SaveConfig(ConfigFile& file, const Settings& settings);
 std::filesystem::path ResolveDiscPath(const Settings& settings, const std::filesystem::path& config);
+// game.gamecube_disc's path, empty when none is set.
+std::filesystem::path ResolveGameCubeDiscPath(const Settings& settings, const std::filesystem::path& config);
 // Saves, shader caches and the game clock, beside the executable: data/, or
 // the original-main-credits-data/ of earlier builds until it has been moved.
 std::filesystem::path DataFolder(const std::filesystem::path& executable_directory);

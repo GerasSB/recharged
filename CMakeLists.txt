@@ -409,6 +409,12 @@ if(BUILD_TESTING)
     target_include_directories(robot_goalie_tests PRIVATE src)
     target_compile_features(robot_goalie_tests PRIVATE cxx_std_20)
     add_test(NAME robot_goalie COMMAND robot_goalie_tests "${CMAKE_CURRENT_SOURCE_DIR}/assets/gameplay/robot_goalie.map")
+    # Super Team: the robot model and textures made from the GameCube robot.
+    add_executable(super_team_tests tests/super_team.cpp src/platform/super_team.cpp src/platform/gx_texture.cpp
+        src/platform/host_metadata.cpp)
+    target_include_directories(super_team_tests PRIVATE src)
+    target_compile_features(super_team_tests PRIVATE cxx_std_20)
+    add_test(NAME super_team COMMAND super_team_tests)
     # The logo reads RECHARGED: the rewrite of the front end's scene files.
     add_executable(recharged_logo_tests tests/recharged_logo.cpp src/platform/recharged_logo.cpp
         src/platform/host_metadata.cpp src/resources/frontend_scene.cpp)

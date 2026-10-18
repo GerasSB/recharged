@@ -20,6 +20,11 @@ language = auto
 # A different folder starts without saves.
 save_folder = ""
 
+# Super Mario Strikers (GameCube) image, for the Super Team tweak (its robots
+# come from that disc). Empty: the launcher fills in one it finds in the game
+# folder.
+gamecube_disc = ""
+
 [display]
 width = 1280
 height = 720
@@ -202,6 +207,9 @@ shake_nunchuk = Q
 # sidekicks, goalie); menus, Mega Strike hand, banners and crowd stay pink.
 # robot_goalies: both goalies wear the Super Team's robot goalie skin from
 # Super Mario Strikers, which the disc still holds unused. Only the look.
+# super_team: the captain and sidekicks of super_team_side (away, home or both)
+# become the robots of the Super Team from Super Mario Strikers, fitted to each
+# character. Needs [game] gamecube_disc. Bowser, Petey and Boo keep their look.
 # no_hud: matches start without the scoreboard, player markers and captions
 # (H shows or hides them in a match); the Mega Strike meter and its defence
 # stay.
@@ -218,6 +226,8 @@ mirror_match = false
 thunder_island_walls = false
 blue_peach = false
 robot_goalies = false
+super_team = false
+super_team_side = away
 no_hud = false
 fair_ball_contests = true
 

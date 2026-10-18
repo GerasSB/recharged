@@ -153,6 +153,12 @@ The launcher's **Gameplay** page (or `[gameplay]` in `recharged.ini`) turns them
   game's disc still holds its texture, unused and made for the older game's
   goalie; Recharged lays it onto Charged's goalie (assets/gameplay). Only the
   look changes.
+- **Super Team**: the captain and sidekicks of a team (the away team, the home
+  team or both) become the Super Team's robots. Their model comes from your own
+  Super Mario Strikers (GameCube) disc image: the launcher finds one in your
+  game folder, or asks for it when you turn the option on. Each robot is fitted
+  to its character's size and keeps the character's animations and play;
+  Bowser, Petey Piranha and Boo keep their own look.
 - **No HUD**: matches start without the scoreboard (score, clock, items,
   ability meter), the player markers and the captions (replay label, goal
   banner, super ability card), for clean recordings and screenshots. Press

@@ -36,7 +36,8 @@ Values Encode(const Settings& s)
 {
     Values values{{"game.disc", s.disc}, {"game.folder", s.folder},
             {"game.folder_subfolders", s.folder_subfolders ? "true" : "false"},
-            {"game.save_folder", s.save_folder}, {"game.language", s.language},
+            {"game.save_folder", s.save_folder}, {"game.gamecube_disc", s.gamecube_disc},
+            {"game.language", s.language}, {"gameplay.super_team_side", s.super_team_side},
             {"display.width", std::to_string(s.width)}, {"display.height", std::to_string(s.height)},
             {"display.fullscreen", s.fullscreen ? "true" : "false"},
             {"display.vsync", s.vsync ? "true" : "false"}, {"display.frame_rate", s.frame_rate},
@@ -136,6 +137,9 @@ Settings Decode(const Values& values)
     if (const auto it = values.find("game.save_folder"); it != values.end()) s.save_folder = it->second;
     if (s.save_folder.find_first_of("\r\n") != std::string::npos || s.save_folder.find('\0') != std::string::npos)
         throw std::runtime_error("Invalid configuration: the save folder contains a line break or NUL");
+    if (const auto it = values.find("game.gamecube_disc"); it != values.end()) s.gamecube_disc = it->second;
+    if (s.gamecube_disc.find_first_of("\r\n") != std::string::npos || s.gamecube_disc.find('\0') != std::string::npos)
+        throw std::runtime_error("Invalid configuration: the GameCube disc path contains a line break or NUL");
     choice("game.language", s.language, {"auto", "english", "french", "spanish", "german", "italian", "japanese"});
     number("display.width", s.width, 1, 16384);
     number("display.height", s.height, 1, 16384);
@@ -272,6 +276,7 @@ Settings Decode(const Values& values)
         boolean((std::string("gameplay.") + kGameTweaks[n].key).c_str(), value);
         s.tweaks[n] = value;
     }
+    choice("gameplay.super_team_side", s.super_team_side, {"away", "home", "both"});
     return s;
 }
 
@@ -289,7 +294,10 @@ bool OwnedSection(const std::string& section)
 }
 
 // Paths are written in quotes.
-bool QuotedKey(const std::string& key) { return key == "game.disc" || key == "game.folder" || key == "game.save_folder"; }
+bool QuotedKey(const std::string& key)
+{
+    return key == "game.disc" || key == "game.folder" || key == "game.save_folder" || key == "game.gamecube_disc";
+}
 
 Values Parse(const std::string& contents, std::string* updated = nullptr, Values replacements = {})
 {
@@ -512,6 +520,13 @@ bool MoveOldDataFolder(const std::filesystem::path& executable_directory)
 std::filesystem::path DefaultSaveFolder(const std::filesystem::path& executable_directory)
 {
     return DataFolder(executable_directory) / "nand";
+}
+
+std::filesystem::path ResolveGameCubeDiscPath(const Settings& settings, const std::filesystem::path& config)
+{
+    if (settings.gamecube_disc.empty()) return {};
+    const auto path = PathFromUtf8(settings.gamecube_disc);
+    return path.is_absolute() ? path : config.parent_path() / path;
 }
 
 std::filesystem::path ResolveSaveFolder(const Settings& settings, const std::filesystem::path& config,
