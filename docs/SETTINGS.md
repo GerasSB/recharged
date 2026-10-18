@@ -192,7 +192,18 @@ A and B. A gamepad profile also sets, for both sticks:
 - **Trigger press point** (`trigger_press`, 10-90 %, default 50): a trigger
   bound to a button presses it past this much of its travel.
 
-The profile page shows both sticks and triggers live with these settings.
+**Gyro pointer** (`gyro_pointer`, off by default): a controller with a gyro,
+such as a PlayStation or Switch Pro controller, points by turning it, like a
+Wii Remote, instead of with the stick. **Gyro speed** (`gyro_speed`, 25-300 %,
+default 100): at 100 %, turning the controller about 25 degrees moves the
+pointer across the picture. **Recenter pointer** (`recenter_pointer`, default
+the right stick click) puts it back in the middle; it also goes there whenever
+the game turns the pointer on, as at the start of a goalie's Mega Strike
+defence. A controller without a gyro points with its stick. Controllers seen
+through Steam Input usually show the game no gyro.
+
+The profile page shows both sticks and triggers live with these settings, and
+the gyro pointer when it is on.
 The built-in Default always uses the defaults; changing it makes your own copy.
 
 **Linux permissions.** If a Remote is connected but cannot be opened, the

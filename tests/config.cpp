@@ -137,6 +137,7 @@ int main()
         std::ofstream(path) << "; my pads\n[controls]\ngamepad2_profile = kyle\ngamepad3_profile = Gone\n"
                                "[gamepad_profile1]\n; Kyle's layout\nname = Kyle\na = b | start\nswap_sticks = true\n"
                                "inner_deadzone = 22\nouter_deadzone = 90\ntrigger_press = 30\n"
+                               "gyro_pointer = true\ngyro_speed = 150\nrecenter_pointer = leftstick\n"
                                "[gamepad_profile2]\nname = Spare\nb = x\ncontroller = gamecube\n";
         {
             auto file = LoadConfig(path);
@@ -152,6 +153,12 @@ int main()
                         && loaded.pad_profiles[1].outer_deadzone == 71 && loaded.pad_profiles[1].trigger_press == 50
                         && Settings{}.PadProfileOf(0).outer_deadzone == 71,
                     "Gamepad profiles keep their dead zones; missing ones are the Wii Nunchuk's");
+            Require(loaded.pad_profiles[0].gyro_pointer && loaded.pad_profiles[0].gyro_speed == 150
+                        && loaded.pad_profiles[0].inputs[mscharged::GamepadActionRecenterPointer] == "leftstick"
+                        && !loaded.pad_profiles[1].gyro_pointer && loaded.pad_profiles[1].gyro_speed == 100
+                        && loaded.pad_profiles[1].inputs[mscharged::GamepadActionRecenterPointer] == "rightstick"
+                        && !Settings{}.PadProfileOf(0).gyro_pointer,
+                    "Gamepad profiles keep their gyro pointer; it is off unless asked for");
             Require(loaded.PadProfileIndex(1) == 0 && loaded.pad_profile_names[1] == "Kyle",
                     "A gamepad finds its profile by name, ignoring case");
             Require(loaded.PadProfileIndex(2) == -1 && loaded.pad_profile_names[2] == "Default",
@@ -164,6 +171,8 @@ int main()
             changed.pad_profiles[0].inner_deadzone = 0;
             changed.pad_profiles[0].outer_deadzone = 100;
             changed.pad_profiles[0].trigger_press = 90;
+            changed.pad_profiles[0].gyro_pointer = true;
+            changed.pad_profiles[0].gyro_speed = 25;
             SaveConfig(file, changed);
             const auto saved = LoadConfig(path);
             Require(saved.settings.pad_profiles.size() == 1 && saved.settings.pad_profiles[0].name == "Spare"
@@ -173,6 +182,8 @@ int main()
                         && saved.settings.pad_profiles[0].inner_deadzone == 0
                         && saved.settings.pad_profiles[0].outer_deadzone == 100
                         && saved.settings.pad_profiles[0].trigger_press == 90
+                        && saved.settings.pad_profiles[0].gyro_pointer
+                        && saved.settings.pad_profiles[0].gyro_speed == 25
                         && saved.settings.PadProfileIndex(3) == 0
                         && saved.settings.PadProfileIndex(1) == -1,
                     "A deleted gamepad profile stays deleted");
@@ -204,7 +215,8 @@ int main()
         std::ofstream(path) << "[gamepad_profile1]\nname = Pad\na = a | b | x\n";
         Reject([&] { LoadConfig(path); });
         for (const char* range : {"inner_deadzone = 31", "inner_deadzone = -1", "outer_deadzone = 69",
-                                  "outer_deadzone = 101", "trigger_press = 9", "trigger_press = 91"})
+                                  "outer_deadzone = 101", "trigger_press = 9", "trigger_press = 91",
+                                  "gyro_speed = 24", "gyro_speed = 301", "gyro_pointer = maybe"})
         {
             std::ofstream(path) << "[gamepad_profile1]\nname = Pad\n" << range << "\n";
             Reject([&] { LoadConfig(path); });

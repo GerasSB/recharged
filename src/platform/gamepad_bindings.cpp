@@ -140,7 +140,7 @@ std::array<std::string, GamepadActionCount> DefaultGamepadInputs(GamepadFamily f
     } else if (family == GamepadFamily::GameCube) {
         // GameCube (USB adapter): A bottom, B left, X right, Y top; L/R are
         // the analog triggers and Z the right shoulder button. It has no
-        // buttons left for 1, - and HOME.
+        // buttons left for 1, - and HOME, and no stick buttons (nor a gyro).
         inputs[GamepadActionA] = "a";
         inputs[GamepadActionB] = "x";
         inputs[GamepadActionOne] = "none";
@@ -151,6 +151,7 @@ std::array<std::string, GamepadActionCount> DefaultGamepadInputs(GamepadFamily f
         inputs[GamepadActionZ] = "rightshoulder";
         inputs[GamepadActionShakeRemote] = "righttrigger";
         inputs[GamepadActionShakeNunchuk] = "b";
+        inputs[GamepadActionRecenterPointer] = "none";
     }
     return inputs;
 }

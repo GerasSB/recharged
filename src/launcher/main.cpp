@@ -36,6 +36,7 @@
 #include "platform/shader_cache.h"
 #include "platform/session_log.h"
 #include "platform/gamepad_bindings.h"
+#include "platform/gyro_pointer.h"
 #include "platform/key_bindings.h"
 #include "platform/wiimote_bluetooth.h"
 #include "platform/wiimote_hid.h"
@@ -467,7 +468,11 @@ public:
                     && platform::MouseKeyInput(event.button.button) != platform::kKeyNone)
                     CaptureKey(platform::MouseKeyInput(event.button.button));
                 GamepadCaptureEvent(event);
+                GyroPreviewEvent(event);
             }
+            // The gyro preview takes readings only while it is on screen.
+            if (!gyro_preview_drawn_) StopGyroPreview();
+            gyro_preview_drawn_ = false;
             // While an input waits for a gamepad press, and until the press
             // that set it is released, the gamepad does not drive the launcher.
             auto& io = ImGui::GetIO();
@@ -1852,6 +1857,7 @@ private:
     void RefreshGamepad()
     {
         // Every pad stays open: the gamepad setup takes presses from any of them.
+        StopGyroPreview();
         for (auto* pad : pads_) SDL_CloseGamepad(pad);
         pads_.clear();
         gamepad_ = nullptr;
@@ -3556,15 +3562,20 @@ private:
             });
             table("NUNCHUK & MOTION", "##pad_sticks", [&] {
                 row(swap ? "Right stick" : "Left stick", "Nunchuk stick");
-                for (std::size_t n = GamepadActionC; n < GamepadActionCount; ++n)
+                for (std::size_t n = GamepadActionC; n < GamepadActionRecenterPointer; ++n)
                     row(PadBindingLabel(bindings[n], type), kGamepadActions[n].label);
-                row(swap ? "Left stick" : "Right stick", "Pointer");
+                row(profile.gyro_pointer ? "Gyro" : swap ? "Left stick" : "Right stick", "Pointer");
+                if (profile.gyro_pointer)
+                    row(PadBindingLabel(bindings[GamepadActionRecenterPointer], type),
+                        kGamepadActions[GamepadActionRecenterPointer].label);
             });
             ImGui::Dummy({0, Dp(6)});
             TextColored(fonts.caption, color::muted,
                         ("Stick dead zones " + std::to_string(profile.inner_deadzone) + "-"
                          + std::to_string(profile.outer_deadzone) + "%, triggers press at "
-                         + std::to_string(profile.trigger_press) + "%")
+                         + std::to_string(profile.trigger_press) + "%"
+                         + (profile.gyro_pointer ? ", gyro speed " + std::to_string(profile.gyro_speed) + "%"
+                                                 : std::string()))
                             .c_str());
             ImGui::EndTooltip();
         }
@@ -4803,16 +4814,19 @@ private:
         rows(GamepadActionA, GamepadActionC);
         EndCard();
         BeginCard("##pad_nunchuk", "Nunchuk & motion",
-                  "The Nunchuk stick and pointer on the controller's sticks, the Nunchuk buttons and the shakes.",
+                  "The Nunchuk stick and pointer on the controller's sticks or gyro, the Nunchuk buttons and "
+                  "the shakes.",
                   Icon::Gamepad);
         const bool swap = profile.swap_sticks;
+        const bool gyro = profile.gyro_pointer;
         ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, Dp(0, 6));
         if (ImGui::BeginTable("##pad_sticks", 2))
         {
             ImGui::TableSetupColumn("action", ImGuiTableColumnFlags_WidthFixed, Dp(220));
             ImGui::TableSetupColumn("inputs", ImGuiTableColumnFlags_WidthStretch);
             KeyRow("Nunchuk stick", {swap ? "Right stick" : "Left stick"}, nullptr, "Move, aim");
-            KeyRow("Pointer", {swap ? "Left stick" : "Right stick"}, nullptr, "Point at menu items");
+            KeyRow("Pointer", {gyro ? "Gyro" : swap ? "Left stick" : "Right stick"}, nullptr,
+                   "Point at menu items and Mega Strike shots");
             ImGui::EndTable();
         }
         ImGui::PopStyleVar();
@@ -4826,9 +4840,38 @@ private:
                     target->swap_sticks = swapped;
                     dirty_ = true;
                 }
+            // Gyro pointer (issue #14).
+            Row("Gyro pointer", "Point by turning the controller, like a Wii Remote, instead of with the stick. "
+                "For controllers with a gyro, such as PlayStation and Switch Pro controllers.");
+            bool gyro_on = gyro;
+            if (Toggle("##gyro_pointer", &gyro_on))
+                if (auto* target = editable())
+                {
+                    target->gyro_pointer = gyro_on;
+                    dirty_ = true;
+                }
+            if (gyro)
+            {
+                Row("Gyro speed", "At 100%, turning the controller about 25 degrees moves the pointer across "
+                    "the picture.");
+                int speed = profile.gyro_speed;
+                if (PercentSlider("##gyro_speed", &speed, ImGui::GetContentRegionAvail().x, nullptr, kMinGyroSpeed,
+                                  kMaxGyroSpeed)
+                    && speed != profile.gyro_speed)
+                    if (auto* target = editable())
+                    {
+                        target->gyro_speed = speed;
+                        dirty_ = true;
+                    }
+            }
             EndRows();
         }
-        rows(GamepadActionC, GamepadActionCount);
+        if (gyro)
+        {
+            rows(GamepadActionRecenterPointer, GamepadActionCount);
+            GyroPreview(profile, bindings);
+        }
+        rows(GamepadActionC, GamepadActionRecenterPointer);
         EndCard();
 
         // Dead zones and trigger press point (issue #62), tried live on the
@@ -4868,7 +4911,8 @@ private:
         const bool changed = platform::ParseGamepadBindings(profile.inputs) != platform::ParseGamepadBindings(defaults)
             || swap || profile.inner_deadzone != default_profile.inner_deadzone
             || profile.outer_deadzone != default_profile.outer_deadzone
-            || profile.trigger_press != default_profile.trigger_press;
+            || profile.trigger_press != default_profile.trigger_press
+            || profile.gyro_pointer != default_profile.gyro_pointer || profile.gyro_speed != default_profile.gyro_speed;
         ImGui::Dummy(Dp(0, 4));
         if (SecondaryButton("##reset_pad", "Reset to defaults", Dp(180, 36), changed, Icon::Refresh))
         {
@@ -4877,14 +4921,99 @@ private:
             profile.inner_deadzone = default_profile.inner_deadzone;
             profile.outer_deadzone = default_profile.outer_deadzone;
             profile.trigger_press = default_profile.trigger_press;
+            profile.gyro_pointer = default_profile.gyro_pointer;
+            profile.gyro_speed = default_profile.gyro_speed;
             pad_capture_action_ = pad_capture_slot_ = -1;
             dirty_ = true;
         }
-        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Buttons, sticks, dead zones and triggers as in Default");
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Buttons, sticks, gyro, dead zones and triggers as in Default");
         EndCard();
         // A click anywhere else stops waiting for a press.
         if (pad_capture_action_ >= 0 && !clicked && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
             pad_capture_action_ = pad_capture_slot_ = -1;
+    }
+
+    // The page's gamepad turning a pointer over a picture-shaped box at the
+    // profile's gyro speed, as in the game; its recentre button or a click
+    // centres it. Without a gyro the stick points, as in the game.
+    void GyroPreview(const Settings::PadProfile& profile, const platform::GamepadBindings& bindings)
+    {
+        gyro_preview_drawn_ = true;
+        const auto& fonts = CurrentFonts();
+        SDL_Gamepad* pad = pad_slot_ < pads_.size() ? pads_[pad_slot_] : nullptr;
+        if (!pad)
+        {
+            TextWrappedColored(fonts.caption, color::muted,
+                               ("Connect gamepad " + std::to_string(pad_slot_ + 1) + " to try the gyro here.").c_str());
+            return;
+        }
+        const std::string name = pad_slot_ < gamepad_names_.size() ? gamepad_names_[pad_slot_] : "This controller";
+        if (!SDL_GamepadHasSensor(pad, SDL_SENSOR_GYRO))
+        {
+            TextWrappedColored(fonts.caption, color::warning,
+                               (name + " has no gyro: its " + (profile.swap_sticks ? "left" : "right")
+                                + " stick moves the pointer instead.")
+                                   .c_str());
+            return;
+        }
+        if (gyro_preview_pad_ != pad)
+        {
+            StopGyroPreview();
+            SDL_SetGamepadSensorEnabled(pad, SDL_SENSOR_GYRO, true);
+            if (SDL_GamepadHasSensor(pad, SDL_SENSOR_ACCEL)) SDL_SetGamepadSensorEnabled(pad, SDL_SENSOR_ACCEL, true);
+            gyro_preview_pad_ = pad;
+        }
+        const auto& recenter_binding = bindings[GamepadActionRecenterPointer];
+        const bool recenter = platform::GamepadBindingHeld(pad, recenter_binding, profile.trigger_press);
+        if (recenter && !gyro_preview_recenter_held_) gyro_preview_x_ = gyro_preview_y_ = 0.5f;
+        gyro_preview_recenter_held_ = recenter;
+        platform::MoveGyroPointer(gyro_preview_x_, gyro_preview_y_, platform::TakeGyroTurn(gyro_preview_motion_),
+                                  profile.gyro_speed, 9.0f / 16.0f);
+        ImGui::Dummy(Dp(0, 8));
+        const float width = std::min(ImGui::GetContentRegionAvail().x, Dp(320)), height = width * 9.0f / 16.0f;
+        const ImVec2 origin = ImGui::GetCursorScreenPos(), end{origin.x + width, origin.y + height};
+        if (ImGui::InvisibleButton("##gyro_preview", {width, height})) gyro_preview_x_ = gyro_preview_y_ = 0.5f;
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Click to centre the pointer");
+        auto* draw = ImGui::GetWindowDrawList();
+        draw->AddRectFilled(origin, end, Col(color::field), Dp(8));
+        // Hairlines as thin rectangles: SDL's software renderer drops parts of long lines.
+        const float hair = std::max(1.0f, Dp(1)), cx = origin.x + width * 0.5f, cy = origin.y + height * 0.5f;
+        draw->AddRectFilled({cx - hair * 0.5f, origin.y}, {cx + hair * 0.5f, end.y}, Col(color::border));
+        draw->AddRectFilled({origin.x, cy - hair * 0.5f}, {end.x, cy + hair * 0.5f}, Col(color::border));
+        draw->AddRect(origin, end, Col(color::border), Dp(8), 0, Dp(1.5f));
+        const ImVec2 dot{origin.x + gyro_preview_x_ * width, origin.y + gyro_preview_y_ * height};
+        draw->AddCircle(dot, Dp(11), Col(color::accent, 0.45f), 24, Dp(1.5f));
+        draw->AddCircleFilled(dot, Dp(6), Col(color::accent_hi));
+        const std::string centre = recenter_binding[0] != platform::kGamepadNone
+            ? PadInputLabel(recenter_binding[0], SDL_GetGamepadType(pad)) + " or a click centres it."
+            : "A click centres it.";
+        TextWrappedColored(fonts.caption, color::muted, ("Turn " + name + " to move the pointer. " + centre).c_str());
+    }
+
+    // Readings of the gamepad whose gyro the preview shows.
+    void GyroPreviewEvent(const SDL_Event& event)
+    {
+        if (event.type != SDL_EVENT_GAMEPAD_SENSOR_UPDATE || !gyro_preview_pad_
+            || event.gsensor.which != SDL_GetGamepadID(gyro_preview_pad_))
+            return;
+        if (event.gsensor.sensor == SDL_SENSOR_GYRO)
+            platform::AddGyroReading(gyro_preview_motion_, event.gsensor.data, event.gsensor.sensor_timestamp);
+        else if (event.gsensor.sensor == SDL_SENSOR_ACCEL)
+            platform::AddAccelReading(gyro_preview_motion_, event.gsensor.data, event.gsensor.sensor_timestamp);
+    }
+
+    // Turns the preview's sensors off; it starts again centred.
+    void StopGyroPreview()
+    {
+        if (gyro_preview_pad_)
+        {
+            SDL_SetGamepadSensorEnabled(gyro_preview_pad_, SDL_SENSOR_GYRO, false);
+            SDL_SetGamepadSensorEnabled(gyro_preview_pad_, SDL_SENSOR_ACCEL, false);
+        }
+        gyro_preview_pad_ = nullptr;
+        gyro_preview_motion_ = {};
+        gyro_preview_x_ = gyro_preview_y_ = 0.5f;
+        gyro_preview_recenter_held_ = false;
     }
 
     // Both sticks and triggers of the page's gamepad, live, with `profile`'s
@@ -5359,6 +5488,12 @@ private:
     bool renaming_ = false, rename_focus_ = false, confirm_delete_ = false;
     std::string rename_buffer_;
     int pad_capture_action_ = -1, pad_capture_slot_ = -1;
+    // Gyro pointer preview on the profile page: the pad whose gyro it shows,
+    // its readings and the preview pointer (0..1 of the box).
+    SDL_Gamepad* gyro_preview_pad_ = nullptr;
+    platform::GyroMotion gyro_preview_motion_;
+    float gyro_preview_x_ = 0.5f, gyro_preview_y_ = 0.5f;
+    bool gyro_preview_recenter_held_ = false, gyro_preview_drawn_ = false;
     bool wii_known_ = false;
     Uint64 wii_next_probe_ns_ = 0;
     float header_width_ = 1920;

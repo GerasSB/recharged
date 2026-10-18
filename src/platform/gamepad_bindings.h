@@ -33,6 +33,10 @@ struct GamepadProfile {
     int inner_deadzone = kDefaultInnerDeadzone;
     int outer_deadzone = kDefaultOuterDeadzone;
     int trigger_press = kDefaultTriggerPress;
+    // The controller's gyro moves the pointer instead of the stick, when it
+    // has one (issue #14); gyro_speed in percent (see gamepad_actions.h).
+    bool gyro_pointer = false;
+    int gyro_speed = kDefaultGyroSpeed;
 };
 
 // Controller families with their own default layout and button names.

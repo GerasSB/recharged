@@ -82,6 +82,8 @@ Values Encode(const Settings& s)
         values.emplace(section + "inner_deadzone", std::to_string(profile.inner_deadzone));
         values.emplace(section + "outer_deadzone", std::to_string(profile.outer_deadzone));
         values.emplace(section + "trigger_press", std::to_string(profile.trigger_press));
+        values.emplace(section + "gyro_pointer", profile.gyro_pointer ? "true" : "false");
+        values.emplace(section + "gyro_speed", std::to_string(profile.gyro_speed));
         values.emplace(section + "controller", profile.controller);
     }
     for (std::size_t slot = 0; slot < kGamepadSlots; ++slot)
@@ -218,6 +220,8 @@ Settings Decode(const Values& values)
         number((section + "inner_deadzone").c_str(), profile.inner_deadzone, kMinInnerDeadzone, kMaxInnerDeadzone);
         number((section + "outer_deadzone").c_str(), profile.outer_deadzone, kMinOuterDeadzone, kMaxOuterDeadzone);
         number((section + "trigger_press").c_str(), profile.trigger_press, kMinTriggerPress, kMaxTriggerPress);
+        boolean((section + "gyro_pointer").c_str(), profile.gyro_pointer);
+        number((section + "gyro_speed").c_str(), profile.gyro_speed, kMinGyroSpeed, kMaxGyroSpeed);
         choice((section + "controller").c_str(), profile.controller, {"xbox", "nintendo", "gamecube"});
         profiles.push_back(std::move(profile));
     }

@@ -145,6 +145,9 @@ shake_nunchuk = Q
 # the inner one and are pushed all the way from the outer one on; the defaults,
 # 15 and 71, play like a Nunchuk on the Wii. trigger_press (10-90 %, default
 # 50): a trigger presses its button past this much of its travel.
+# gyro_pointer = true: a controller with a gyro points by turning it instead of
+# with the stick; gyro_speed (25-300 %, default 100: about 25 degrees across
+# the picture). recenter_pointer: the input that centres the gyro pointer.
 # controller: the controllers the profile is made for, xbox (Xbox and
 # PlayStation, whose buttons sit in the same places), nintendo or gamecube;
 # the launcher offers a gamepad the profiles of its kind.
@@ -165,10 +168,13 @@ shake_nunchuk = Q
 # z = lefttrigger
 # shake_remote = righttrigger
 # shake_nunchuk = rightshoulder
+# recenter_pointer = rightstick
 # swap_sticks = true
 # inner_deadzone = 15
 # outer_deadzone = 71
 # trigger_press = 50
+# gyro_pointer = false
+# gyro_speed = 100
 # controller = xbox
 
 [gameplay]

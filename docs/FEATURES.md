@@ -34,8 +34,11 @@ come from the reconstructed source, unchanged.
 - **Gamepads**: Xbox, PlayStation, Switch Pro, GameCube (USB adapter) and
   other standard controllers stand in for the Wii Remote with Nunchuk the game
   is played with, with rumble (its strength can be set). The right stick
-  moves the pointer. **Gamepad profiles** say which controller button presses
-  each Wii button: a built-in
+  moves the pointer, or the gyro of a controller that has one (PlayStation,
+  Switch Pro): turn it to point, like a Wii Remote
+  ([#14](https://github.com/previouslevelgames/recharged/issues/14)).
+  **Gamepad profiles** say which controller button presses each Wii button: a
+  built-in
   Default that gives each controller family its own layout (Nintendo's A is
   its right button) plus up to 16 named profiles (up to two buttons per Wii
   button, or none; sticks can be swapped). A profile also sets the sticks'
@@ -57,7 +60,7 @@ come from the reconstructed source, unchanged.
 
 | Wii input | Keyboard / mouse | Gamepad (Xbox names) |
 | --- | --- | --- |
-| Pointer | Mouse | Right stick |
+| Pointer | Mouse | Right stick or gyro |
 | A / B | Enter or left click / Esc or right click | A / B |
 | D-pad | Arrow keys | D-pad |
 | Nunchuk stick | W A S D | Left stick |

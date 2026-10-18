@@ -92,12 +92,17 @@ struct Settings
         int inner_deadzone = kDefaultInnerDeadzone;
         int outer_deadzone = kDefaultOuterDeadzone;
         int trigger_press = kDefaultTriggerPress;
+        // gyro_pointer: a controller with a gyro points by turning it, at
+        // gyro_speed percent (issue #14); recenter_pointer centres it.
+        bool gyro_pointer = false;
+        int gyro_speed = kDefaultGyroSpeed;
         // Spelled out: charged_host is C++17.
         bool operator==(const PadProfile& other) const
         {
             return name == other.name && inputs == other.inputs && swap_sticks == other.swap_sticks
                 && controller == other.controller && inner_deadzone == other.inner_deadzone
-                && outer_deadzone == other.outer_deadzone && trigger_press == other.trigger_press;
+                && outer_deadzone == other.outer_deadzone && trigger_press == other.trigger_press
+                && gyro_pointer == other.gyro_pointer && gyro_speed == other.gyro_speed;
         }
         bool operator!=(const PadProfile& other) const { return !(*this == other); }
     };
