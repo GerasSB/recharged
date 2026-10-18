@@ -2884,7 +2884,7 @@ private:
     // -------------------------------------------------------------- pages
     void GamePage()
     {
-        PageHeader("Game", "Your Mario Strikers Charged images, the game's language and your saves.");
+        PageHeader("Game", "Your Mario Strikers Charged images, the game's language, the Discord status and your saves.");
         if (options_.launch.disc || options_.launch.size || options_.launch.fullscreen || options_.launch.aspect
             || options_.launch.frame_rate)
         {
@@ -2904,7 +2904,29 @@ private:
         }
         EndCard();
 
+        DiscordCard();
         SaveDataCard();
+    }
+
+    // The Discord status (issue #71): on unless switched off; builds without
+    // a Discord application (forks, local builds) cannot show one.
+    void DiscordCard()
+    {
+        BeginCard("##discord", "Discord", "Show what you play on your Discord profile.", Icon::Link);
+        if (BeginRows("##discord_rows"))
+        {
+            const bool available = *mscharged::build::discord_application_id != '\0'
+                || !draft_.discord_application_id.empty();
+            Row("Discord status", available
+                ? "Your profile shows the menu or match you are in, with the score and match time, while the "
+                  "Discord app runs on this computer."
+                : "This build has no Discord application, so it cannot show a Discord status.");
+            ImGui::BeginDisabled(!available);
+            if (Toggle("##discord_status", &draft_.discord_status)) dirty_ = true;
+            ImGui::EndDisabled();
+            EndRows();
+        }
+        EndCard();
     }
 
     // Where the game keeps its Wii storage, and importing a save from Dolphin.

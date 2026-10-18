@@ -131,6 +131,8 @@ function(mscharged_add_original_frontend_diagnostic target version suffix)
     mscharged_select_original_frontend_credits(${target})
     # RECHARGED_DEBUG_LAYERS_OFF: switch the game's own rendering layers off.
     target_sources(${target} PRIVATE src/platform/debug_layer_toggles.cpp)
+    # The Discord status (issue #71): what the game is doing, read by the host after a frame.
+    target_sources(${target} PRIVATE src/platform/presence_snapshot.cpp)
     # [gameplay] tweaks: the hooks of patches/mscharged-decomp-tweaks are
     # compiled into this game module only; every other target that builds the
     # same original sources keeps their original code unchanged.

@@ -37,6 +37,10 @@ set(MSCHARGED_BUILD_REPOSITORY previouslevelgames/recharged CACHE STRING
 set(MSCHARGED_BUILD_PULL_REQUEST 0 CACHE STRING "Pull request of a test build")
 set(MSCHARGED_BUILD_RUN 0 CACHE STRING "CI run that made the build (0: none)")
 set(MSCHARGED_BUILD_TIME 0 CACHE STRING "Build time in seconds since 1970, UTC (0: unknown)")
+# The Discord application the game's Discord status shows under (issue #71).
+# Its ID is public, not a secret; CI passes it from a repository variable so
+# it stays out of the source. Empty: no status unless recharged.ini names one.
+set(MSCHARGED_DISCORD_APPLICATION_ID "" CACHE STRING "Discord application ID for the Discord status (empty: none)")
 if(NOT MSCHARGED_BUILD_CHANNEL MATCHES "^(release|test|dev)$")
     message(FATAL_ERROR "MSCHARGED_BUILD_CHANNEL must be release, test or dev")
 endif()
@@ -48,6 +52,11 @@ foreach(number IN ITEMS MSCHARGED_BUILD_PULL_REQUEST MSCHARGED_BUILD_RUN MSCHARG
         message(FATAL_ERROR "${number} must be a whole number")
     endif()
 endforeach()
+string(LENGTH "${MSCHARGED_DISCORD_APPLICATION_ID}" _discord_id_length)
+if(NOT MSCHARGED_DISCORD_APPLICATION_ID MATCHES "^[0-9]*$"
+   OR (_discord_id_length GREATER 0 AND (_discord_id_length LESS 17 OR _discord_id_length GREATER 20)))
+    message(FATAL_ERROR "MSCHARGED_DISCORD_APPLICATION_ID must be a Discord application ID (17 to 20 digits) or empty")
+endif()
 if(MSCHARGED_BUILD_CHANNEL STREQUAL "test" AND MSCHARGED_BUILD_PULL_REQUEST STREQUAL "0")
     message(FATAL_ERROR "A test build needs MSCHARGED_BUILD_PULL_REQUEST")
 endif()
@@ -261,6 +270,7 @@ add_custom_target(update_build_version
             "-DBUILD_PULL_REQUEST:STRING=${MSCHARGED_BUILD_PULL_REQUEST}"
             "-DBUILD_RUN:STRING=${MSCHARGED_BUILD_RUN}"
             "-DBUILD_TIME:STRING=${MSCHARGED_BUILD_TIME}"
+            "-DDISCORD_APPLICATION_ID:STRING=${MSCHARGED_DISCORD_APPLICATION_ID}"
             -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/WriteBuildVersion.cmake"
     BYPRODUCTS "${MSCHARGED_VERSION_DIR}/build_version.h"
     COMMENT "Record the port version and current source revision"
@@ -299,6 +309,9 @@ endif()
 if(BUILD_TESTING OR MSCHARGED_BUILD_SCENE_PREVIEW OR MSCHARGED_BUILD_GAME_STARTUP)
     include(cmake/WorldObjects.cmake)
 endif()
+
+# The Discord status (issue #71); the game host links it.
+include(cmake/Discord.cmake)
 
 if(MSCHARGED_BUILD_ORIGINAL_FRONTEND_DIAGNOSTIC)
     # The game runtime: the host enters original main in a game module.

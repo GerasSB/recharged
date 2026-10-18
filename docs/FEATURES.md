@@ -190,6 +190,12 @@ official releases and test builds of changes not yet released, and back,
 asking before it installs anything; with several changes in testing, Test
 lets you choose which one to follow ([updates](SETTINGS.md#updates)).
 
+## Discord status
+
+While the Discord app runs on the same computer, your Discord profile shows the
+menu you are in or the match you play, with its mode, stadium, captains, score
+and match time ([settings](SETTINGS.md#discord-status)).
+
 ## Not supported (yet)
 
 - **The Japanese and Korean versions.** Their decompilation is still being

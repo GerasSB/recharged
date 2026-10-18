@@ -252,6 +252,17 @@ user folder or that save folder. The current save is first copied to
 `backups/` in the save folder. Dolphin's encrypted `data.bin` exports are not
 supported.
 
+## Discord status
+
+While the Discord app runs on the same computer, your Discord profile shows
+what you are playing: the menu you are in, or the match with its mode,
+stadium, captains, score and match time. The game talks only to the Discord
+app on your computer, which shows the status to your friends. Switch it off on
+the launcher's **Game** page (`[discord] rich_presence`); Discord's own
+activity privacy setting hides it too. Builds that do not come from the
+project's releases and test builds have no Discord application and show no
+status, unless `[discord] application_id` names one.
+
 ## Updates
 
 At each start the launcher asks GitHub whether a newer build exists (one

@@ -66,7 +66,8 @@ Values Encode(const Settings& s)
             {"launcher.ui_scale", s.ui_scale},
             {"launcher.check_updates", s.check_updates ? "true" : "false"},
             {"launcher.update_channel", s.update_channel},
-            {"launcher.test_build", std::to_string(s.test_build)}};
+            {"launcher.test_build", std::to_string(s.test_build)},
+            {"discord.rich_presence", s.discord_status ? "true" : "false"}};
     for (std::size_t n = 0; n < KeyActionCount; ++n)
         values.emplace(std::string("keyboard.") + kKeyActions[n].key, s.keys[n]);
     for (std::size_t n = 0; n < kGameTweaks.size(); ++n)
@@ -270,6 +271,15 @@ Settings Decode(const Values& values)
     boolean("launcher.check_updates", s.check_updates);
     choice("launcher.update_channel", s.update_channel, {"auto", "release", "test"});
     number("launcher.test_build", s.test_build, 0, 999999999);
+    boolean("discord.rich_presence", s.discord_status);
+    if (const auto it = values.find("discord.application_id"); it != values.end() && !it->second.empty())
+    {
+        const auto& id = it->second;
+        if (id.size() < 17 || id.size() > 20 || id.find_first_not_of("0123456789") != std::string::npos)
+            throw std::runtime_error("Invalid configuration: discord.application_id must be a Discord application ID "
+                "(17 to 20 digits)");
+        s.discord_application_id = id;
+    }
     for (std::size_t n = 0; n < kGameTweaks.size(); ++n)
     {
         bool value = kGameTweaks[n].on_by_default;

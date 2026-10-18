@@ -399,6 +399,25 @@ int main()
         hostSettings.frame_logging = false;
         SaveConfig(hostFile, hostSettings);
         Require(!LoadConfig(host).settings.frame_logging, "Frame logging can be disabled after enabling");
+        // [discord]: the status is on by default and round trips; an
+        // application ID in the INI (testing) is read but never written.
+        Require(defaults.discord_status && defaults.discord_application_id.empty(), "Discord defaults");
+        std::ofstream(path) << "[discord]\nrich_presence = false\napplication_id = 123456789012345678\n";
+        auto discordFile = LoadConfig(path);
+        Require(!discordFile.settings.discord_status
+                && discordFile.settings.discord_application_id == "123456789012345678", "Discord settings read");
+        auto discordSettings = discordFile.settings;
+        discordSettings.discord_status = true;
+        discordSettings.discord_application_id.clear();
+        SaveConfig(discordFile, discordSettings);
+        const auto discordReloaded = LoadConfig(path);
+        Require(discordReloaded.settings.discord_status
+                && discordReloaded.contents.find("rich_presence = true") != std::string::npos
+                && discordReloaded.settings.discord_application_id == "123456789012345678",
+                "Saving changed or dropped the Discord application ID");
+        hostFile = LoadConfig(host);
+        Require(hostFile.contents.find("application_id") == std::string::npos
+                && hostFile.contents.find("[discord]") != std::string::npos, "Saving wrote a Discord application ID");
         // Old title-bar settings are accepted, ignored and retired on explicit save.
         std::ofstream(path) << "[display]\nshow_fps = true\nfps_overlay = false\ncustom = preserved\n";
         auto legacyFps = LoadConfig(path);
@@ -419,7 +438,9 @@ int main()
                                     "[advanced]\ngraphics_validation = 2\n", "[advanced]\nverbose_console = yes\n",
                                     "[advanced]\nframe_logging = maybe\n", "[advanced]\nlog_window = on\n", "[launcher]\ncheck_updates = sometimes\n",
                                     "[launcher]\nupdate_channel = nightly\n", "[launcher]\ntest_build = -1\n",
-                                    "[launcher]\ntest_build = pr72\n"})
+                                    "[launcher]\ntest_build = pr72\n", "[discord]\nrich_presence = maybe\n",
+                                    "[discord]\napplication_id = 1234\n",
+                                    "[discord]\napplication_id = 12345678901234567x8\n"})
         {
             std::ofstream(path) << invalid;
             Reject([&] { LoadConfig(path); });

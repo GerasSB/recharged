@@ -43,6 +43,9 @@
 #include "platform/console.h"
 #include "platform/log_window.h"
 #include "platform/session_log.h"
+#include "platform/discord_presence.h"
+#include "platform/game_presence.h"
+#include "platform/presence_snapshot.h"
 #include "platform/shader_cache.h"
 #include "platform/process_exit.h"
 #include "platform/native_ax_module_memory.h"
@@ -764,6 +767,45 @@ int mscharged::RunOriginalGame(int argc, char** argv,
             mscharged::platform::SessionLogLine(line);
             std::fprintf(stderr,"%s\n",line.c_str());
         }
+        // The Discord status (issue #71): the game module reports what the
+        // game is doing; the host shows it on this computer's Discord app.
+        // A host setting like the sound levels, whatever the tweak set.
+        auto presenceSnapshot=reinterpret_cast<ChargedPresenceSnapshotFunction>(
+            mscharged::platform::FindNativeModuleSymbol(module,"charged_presence_snapshot"));
+        std::optional<mscharged::platform::DiscordPresence> discordPresence;
+        std::optional<mscharged::platform::GamePresence> gamePresence;
+        {
+            const bool ownApplication=!launch.settings.discord_application_id.empty();
+            const std::string application=ownApplication ? launch.settings.discord_application_id
+                : std::string(mscharged::build::discord_application_id);
+            std::string line="Discord status: ";
+            if(!launch.settings.discord_status)
+                line+="off";
+            else if(application.empty())
+                line+="off (this build has no Discord application)";
+            else if(!presenceSnapshot)
+                line+="off (this build's game module reports no game state)";
+            else {
+                mscharged::platform::DiscordPresence::Options options;
+                options.application_id=application;
+                options.log=[](const std::string& text) {
+                    mscharged::platform::SessionLogLine(text);
+                    std::fprintf(stderr,"%s\n",text.c_str());
+                };
+                options.shown=[](const std::optional<mscharged::platform::discord::Activity>& activity) {
+                    if(activity)
+                        mscharged::platform::Trace("Discord: showing \"%s\" / \"%s\"%s.\n",activity->details.c_str(),
+                            activity->state.c_str(),activity->start ? " with a timer" : "");
+                };
+                discordPresence.emplace(std::move(options));
+                const auto started=std::chrono::duration_cast<std::chrono::seconds>(
+                    std::chrono::system_clock::now().time_since_epoch()).count();
+                gamePresence.emplace(release->title,release->region,release->game_id,started);
+                line+=std::string("on")+(ownApplication ? " (application from recharged.ini)" : "");
+            }
+            mscharged::platform::SessionLogLine(line);
+            std::fprintf(stderr,"%s\n",line.c_str());
+        }
         if(axModuleMemory)axModuleMemory->ConfirmLoaded(module);
 #if defined(MSCHARGED_HAS_ORIGINAL_GAME_AUDIO_INITIALIZE)
         if(sourceAudio)
@@ -902,6 +944,19 @@ int mscharged::RunOriginalGame(int argc, char** argv,
                 std::fflush(stdout);optionsBoundsReported=true;
             }
         };
+        // Once a second, after a game frame: the game's state for the Discord status.
+        std::chrono::steady_clock::time_point lastPresence{};
+        auto observePresence = [&] {
+            if(!discordPresence)return;
+            const auto now=std::chrono::steady_clock::now();
+            if(now-lastPresence<std::chrono::seconds(1))return;
+            lastPresence=now;
+            ChargedPresenceSnapshot snapshot{};
+            if(!presenceSnapshot(&snapshot,sizeof snapshot))return;
+            const auto unixNow=std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+            discordPresence->Show(gamePresence->Describe(snapshot,unixNow));
+        };
         // Existing actual source GX/state/material/font/view initialization is
         // retained. No host GXInit, source pool restart or fixture font setup.
         AuroraSetViewportPolicy(AURORA_VIEWPORT_FIT);
@@ -980,7 +1035,7 @@ int mscharged::RunOriginalGame(int argc, char** argv,
                 // caught up, instead of growing it to the full-drain limit below.
                 aurora::gx::fifo::rebase_if_caught_up();
                 if(frameTiming)frameTiming->BeginFrame();
-                frame(delta); observeOptions(); observeBoot(); AuroraGXEndDrawReceipt(); ++frames;
+                frame(delta); observeOptions(); observeBoot(); observePresence(); AuroraGXEndDrawReceipt(); ++frames;
                 if(frameTiming){ if(takeStadium)frameTiming->SetArena(takeStadium()); frameTiming->EndFrame(ReadFrameTimingCounters()); }
                 // Nothing else drains once no host observation is due: without
                 // this the buffer grows every frame until Aurora aborts on its
@@ -1069,7 +1124,7 @@ int mscharged::RunOriginalGame(int argc, char** argv,
             if(!aurora_begin_frame()){std::this_thread::yield();continue;}
             const auto receipt=AuroraGXBeginDrawReceipt();Check(receipt,"Real source frame draw receipt unavailable");
             const float delta=std::chrono::duration<float>(now-previous).count(); previous=now;
-            frame(delta); observeOptions(); observeBoot(); AuroraGXEndDrawReceipt();
+            frame(delta); observeOptions(); observeBoot(); observePresence(); AuroraGXEndDrawReceipt();
             const bool sample=!snapshot && now-start>=std::chrono::seconds(3) && quiet>=2 &&
                 (!optionsScene || optionsReady) && bootReady;
             if(sample){EndWithSnapshot(dataDirectory/"original-main-efb.ppm");snapshot=true;}

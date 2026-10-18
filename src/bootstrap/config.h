@@ -164,6 +164,13 @@ struct Settings
     // launcher.test_build: the pull request whose test builds the test channel
     // follows, chosen on the Play page; 0 for the running test build's own.
     int test_build = 0;
+    // discord.rich_presence: show what is being played as the Discord status
+    // (issue #71), when the Discord app runs on this computer.
+    bool discord_status = true;
+    // discord.application_id: the Discord application to show it under
+    // instead of the build's own (testing; the ID is public, not a secret).
+    // Read only: saving never writes it.
+    std::string discord_application_id;
     // [gameplay]: game tweaks (kGameTweaks order), off by default except the
     // recommended ones.
     std::array<bool, kGameTweaks.size()> tweaks = DefaultGameTweaks();
