@@ -142,7 +142,24 @@ int main()
                 const std::uint8_t* c = x >= 8 && x < 26 ? kRed : kGreen;
                 for (int k = 0; k < 3; ++k) moved.rgba[(y * 32 + x) * 4 + k] = c[k];
             }
-        Check(!RecolourHdImage(kit, moved, &why), "a picture with the kit elsewhere is left alone");
+        Check(!RecolourHdImage(kit, moved, &why), "a kit texture with the kit elsewhere is left alone");
+        // A painted picture drawn anew: its kit is found by colour, skin and
+        // other colours keep theirs.
+        KitRecolour picture = kit;
+        picture.picture = true;
+        RgbaImage drawn = moved;
+        std::copy(kSkin, kSkin + 3, drawn.rgba.begin() + (5 * 32 + 12) * 4);
+        std::copy(kDarkRed, kDarkRed + 3, drawn.rgba.begin() + (9 * 32 + 12) * 4);
+        why.clear();
+        Check(RecolourHdImage(picture, drawn, &why) && why.find("by colour") != std::string::npos,
+              "a picture drawn anew is recoloured by colour: " + why);
+        Check(Blue(At(drawn, 20, 20)) && Blue(At(drawn, 8, 3)), "its kit, where it lies now, is blue");
+        Check(Blue(At(drawn, 12, 9)), "its dark kit shading is blue");
+        Check(Same(At(drawn, 12, 5), kSkin), "skin keeps its colour");
+        Check(Same(At(drawn, 2, 2), kGreen) && Same(At(drawn, 30, 30), kGreen), "other colours keep theirs");
+        RgbaImage greyPicture = grey;
+        Check(!RecolourHdImage(picture, greyPicture, &why) && greyPicture.rgba == greyBefore.rgba,
+              "a grey picture is left alone");
         RgbaImage same = Pack();
         KitRecolour none = kit;
         none.mask.assign(64, 0);

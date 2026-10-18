@@ -384,7 +384,7 @@ bool RecolourAwayKit(const AwayKit& kit, AwayKitTexture kind, std::span<std::uin
             const ChargedRecolouredTexture info{format == kCMPR ? 14u : format == kRGB5A3 ? 5u : 6u,
                 unsigned(level.width), unsigned(level.height), unsigned(levels.size()), original.data(),
                 texture.data() + level.offset, (unsigned long)bytes, mask.data(), rgba.data(),
-                {target.L, target.C, target.h}};
+                {target.L, target.C, target.h}, int(kind)};
             sRecolouredHook(&info);
         }
     }

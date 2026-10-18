@@ -24,12 +24,16 @@ struct KitRecolour
     std::vector<std::uint8_t> mask;      // width x height: 1 where it was recoloured
     std::vector<std::uint8_t> rgba;      // width x height: its texels before
     float to[3] = {};                    // the away colour in OKLCh
+    // A painted picture: when the pack drew it anew (another framing), its
+    // kit is found by colour instead.
+    bool picture = false;
 };
 
 // Recolours `image`, the pack's HD image of that texture. False (and `image`
 // unchanged, `why` set) when it does not fit: another shape, a picture that
 // differs from the game's, or a kit area without the kit's colour (a
-// greyscale image).
+// greyscale image). A picture whose kit lies elsewhere (drawn anew) is
+// recoloured by the kit's colour alone; `why` then says so.
 bool RecolourHdImage(const KitRecolour& kit, RgbaImage& image, std::string* why = nullptr);
 
 // A DDS file of the image (uncompressed RGBA8), with its full mip chain made

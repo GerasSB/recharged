@@ -291,9 +291,8 @@ show its original look for a moment before its replacement appears. Packs with
 `.dds` images (BC1, BC3 or BC7) load faster and use less graphics memory than
 `.png` ones. The images match the game's textures by their contents, so
 textures with text need images for each language. Mirror match's away kits
-recolour the pack's image of the home kit, where it is laid out as the game's
-(a picture drawn anew keeps the game's own away kit); the Super Team keeps its
-own look.
+recolour the pack's image of the home kit (in a picture the pack drew anew, its
+kit is found by colour); the Super Team keeps its own look.
 
 **Dump textures** (`[mods] dump_textures`) is for pack makers: each
 texture no pack replaces is saved to `data/texture_dumps` as a `.dds` file

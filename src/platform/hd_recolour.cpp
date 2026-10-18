@@ -45,6 +45,15 @@ constexpr float kInsideHueFull = 12.0f * kPi / 180.0f;
 constexpr float kInsideHueNone = 22.0f * kPi / 180.0f;
 constexpr float kOutsideHueFull = 8.0f * kPi / 180.0f;
 constexpr float kOutsideHueNone = 16.0f * kPi / 180.0f;
+// A picture drawn anew (its kit found by colour): its kit colour has at least
+// this share of the game's kit saturation, is kit within the first hue of the
+// kit's (none beyond the second), and covers between these shares of the
+// game's kit area (relative to the picture).
+constexpr float kColourSaturationShare = 0.45f;
+constexpr float kColourHueFull = 10.0f * kPi / 180.0f;
+constexpr float kColourHueNone = 18.0f * kPi / 180.0f;
+constexpr float kMinColourShare = 0.5f;
+constexpr float kMaxColourShare = 2.0f;
 
 struct Rgb
 {
@@ -88,7 +97,7 @@ class ColourCache
 public:
     struct Entry
     {
-        float chroma, hue;
+        float chroma, hue, lightness;
         std::array<std::uint8_t, 3> recoloured;
     };
     ColourCache(const LchStats& from, const LchStats& to) : from_(from), to_(to), keys_(65536, kEmpty), entries_(65536) {}
@@ -101,7 +110,7 @@ public:
             const Lab lab = kit_colour::ToLab(Pixel(p));
             const Rgb c = kit_colour::Recolour(Pixel(p), from_, to_);
             keys_[slot] = key;
-            entries_[slot] = {std::hypot(lab.a, lab.b), std::atan2(lab.b, lab.a), {Byte(c.r), Byte(c.g), Byte(c.b)}};
+            entries_[slot] = {std::hypot(lab.a, lab.b), std::atan2(lab.b, lab.a), lab.L, {Byte(c.r), Byte(c.g), Byte(c.b)}};
         }
         return entries_[slot];
     }
@@ -112,6 +121,76 @@ private:
     std::vector<std::uint32_t> keys_; // on the heap: worker threads have small stacks
     std::vector<Entry> entries_;
 };
+// Saturation as chroma over lightness: the kit's shades keep theirs (dark red
+// cloth as much as red cloth), skin and highlights have far less.
+float Saturation(float chroma, float lightness) { return chroma / std::max(lightness, 0.05f); }
+
+// A picture the pack drew anew: its kit, wherever it lies, is the pixels of
+// the kit's colour (as the game finds a picture's kit by colour too).
+// `gameShare`: the share of the game's picture that is kit.
+bool RecolourByColour(const LchStats& original, float gameShare, const KitRecolour& kit, RgbaImage& image,
+                      std::string& why)
+{
+    const std::size_t pixels = std::size_t(image.width) * image.height;
+    const std::size_t step = std::max<std::size_t>(1, pixels / 262144);
+    const float originalSaturation = Saturation(original.C, original.L);
+    // The pack's kit colour: the pixels near the game's kit colour.
+    std::vector<float> L, C, a, b, S;
+    std::size_t opaque = 0;
+    for (std::size_t p = 0; p < pixels; p += step)
+    {
+        if (image.rgba[p * 4 + 3] < 128) continue;
+        ++opaque;
+        const Lab c = kit_colour::ToLab(Pixel(&image.rgba[p * 4]));
+        const float chroma = std::hypot(c.a, c.b);
+        if (Saturation(chroma, c.L) < kColourSaturationShare * originalSaturation
+            || AngleBetween(std::atan2(c.b, c.a), original.h) > kMaxHueShift)
+            continue;
+        L.push_back(c.L), C.push_back(chroma), a.push_back(c.a), b.push_back(c.b), S.push_back(Saturation(chroma, c.L));
+    }
+    if (L.empty() || !opaque)
+    {
+        why = "it has no kit colour";
+        return false;
+    }
+    const LchStats from = Medians(L, C, a, b);
+    const float saturation = Median(S);
+    // A pixel's share of being kit: by hue, and by saturation against the kit's.
+    auto kitWeight = [&](float hue, float chroma, float lightness) {
+        if (chroma < kGrey) return 0.0f;
+        const float byHue = std::clamp((kColourHueNone - AngleBetween(hue, from.h)) / (kColourHueNone - kColourHueFull),
+                                       0.0f, 1.0f);
+        return byHue * Smoothstep(0.45f, 0.7f, Saturation(chroma, lightness) / std::max(saturation, 0.01f));
+    };
+    std::size_t kitPixels = 0;
+    for (std::size_t p = 0; p < pixels; p += step)
+    {
+        if (image.rgba[p * 4 + 3] < 128) continue;
+        const Lab c = kit_colour::ToLab(Pixel(&image.rgba[p * 4]));
+        kitPixels += kitWeight(std::atan2(c.b, c.a), std::hypot(c.a, c.b), c.L) >= 0.5f;
+    }
+    // About as much kit as the game's picture (a background of the kit's
+    // colour would be much more).
+    const float share = float(kitPixels) / float(opaque);
+    if (share < kMinColourShare * gameShare || share > kMaxColourShare * gameShare)
+    {
+        why = "its kit colour covers " + std::to_string(int(100.0f * share)) + "% of it, the game's kit "
+            + std::to_string(int(100.0f * gameShare)) + "%";
+        return false;
+    }
+    ColourCache colours(from, LchStats{kit.to[0], kit.to[1], kit.to[2]});
+    for (std::size_t p = 0; p < pixels; ++p)
+    {
+        std::uint8_t* px = &image.rgba[p * 4];
+        if (px[3] == 0) continue;
+        const auto& colour = colours(px);
+        const float weight = kitWeight(colour.hue, colour.chroma, colour.lightness);
+        if (weight <= 0.0f) continue;
+        for (int k = 0; k < 3; ++k)
+            px[k] = std::uint8_t(std::lround(px[k] + (float(colour.recoloured[k]) - px[k]) * weight));
+    }
+    return true;
+}
 } // namespace
 
 bool RecolourHdImage(const KitRecolour& kit, RgbaImage& image, std::string* why)
@@ -157,11 +236,14 @@ bool RecolourHdImage(const KitRecolour& kit, RgbaImage& image, std::string* why)
         }
     if (oL.empty()) return fail("no kit texels");
     if (compared && difference / double(compared) > kMaxMeanDifference) return fail("the picture differs from the game's");
+    const std::size_t gameKit = oL.size();
     const LchStats original = Medians(oL, oC, oa, ob), drawn = Medians(hL, hC, ha, hb);
-    if (original.C > 0.04f)
+    std::string misplaced; // why the pack's kit does not lie where the game's does
+    if (original.C > 0.04f && drawn.C < kMinChromaShare * original.C) misplaced = "its kit lacks the kit's colour";
+    else if (original.C > 0.04f && AngleBetween(original.h, drawn.h) > kMaxHueShift)
+        misplaced = "its kit has another colour";
+    else if (original.C > 0.04f)
     {
-        if (drawn.C < kMinChromaShare * original.C) return fail("its kit lacks the kit's colour");
-        if (AngleBetween(original.h, drawn.h) > kMaxHueShift) return fail("its kit has another colour");
         auto kitColoured = [](const Lab& c, const LchStats& colour) {
             return std::hypot(c.a, c.b) >= kKitChromaShare * colour.C
                 && AngleBetween(std::atan2(c.b, c.a), colour.h) <= kKitHue;
@@ -186,9 +268,19 @@ bool RecolourHdImage(const KitRecolour& kit, RgbaImage& image, std::string* why)
         }
         auto share = [&](std::size_t count) { return std::to_string(int(100.0f * float(count) / float(kitTexels))) + "%"; };
         if (float(covered) < kMinKitCoverage * float(kitTexels))
-            return fail("its kit is not where the game's is (" + share(covered) + " of it)");
-        if (float(leaked) > kMaxKitLeak * float(kitTexels))
-            return fail("it shows the kit's colour where the game's does not (" + share(leaked) + " more)");
+            misplaced = "its kit is not where the game's is (" + share(covered) + " of it)";
+        else if (float(leaked) > kMaxKitLeak * float(kitTexels))
+            misplaced = "it shows the kit's colour where the game's does not (" + share(leaked) + " more)";
+    }
+    if (!misplaced.empty())
+    {
+        if (!kit.picture || original.C <= 0.04f) return fail(misplaced);
+        std::string colourWhy;
+        if (!RecolourByColour(original, float(gameKit) / float(std::max<std::size_t>(compared, 1)), kit, image,
+                              colourWhy))
+            return fail(misplaced + ", and by colour " + colourWhy);
+        if (why) *why = "by colour: the pack's picture is drawn anew (" + misplaced + ")";
+        return true;
     }
 
     // The kit grown by one texel: HD kit pixels just past the game's kit edge.

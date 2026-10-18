@@ -16,6 +16,7 @@ struct ChargedRecolouredTexture
     const unsigned char* mask;          // width x height texels: 1 where the away colour was applied
     const unsigned char* original_rgba; // width x height texels before the recolour, 8-bit sRGB and alpha
     float to[3];                        // the away colour in OKLCh: L, C, h (radians)
+    int kind;                           // 0 kit texture, 1 team texture, 2 picture (painted portrait)
 };
 typedef void (*ChargedRecolouredTextureHook)(const ChargedRecolouredTexture* texture);
 }

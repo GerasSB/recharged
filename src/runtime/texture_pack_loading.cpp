@@ -13,6 +13,8 @@
 
 #include <algorithm>
 #include <cinttypes>
+#include <condition_variable>
+#include <deque>
 #include <climits>
 #include <cstdio>
 #include <list>
@@ -20,6 +22,7 @@
 #include <memory>
 #include <mutex>
 #include <set>
+#include <thread>
 #include <tuple>
 #include <vector>
 
@@ -55,8 +58,9 @@ struct RecolourJob
     platform::KitRecolour kit;
     bool mips = false;
     std::mutex mutex;
+    std::condition_variable done;
     std::shared_ptr<const std::vector<std::uint8_t>> made; // kept while within kMadeBudget
-    bool failed = false;
+    bool making = false, failed = false;
 };
 
 std::mutex gMutex;
@@ -128,37 +132,83 @@ bool DecodePackImage(const PackImage& source, platform::RgbaImage& image, std::s
     return true;
 }
 
-// Aurora's texture workers: the HD image of a recoloured texture, made the
-// first time it is asked for.
+// The HD image of a recoloured texture, made once (again after it left the
+// kept images); a second caller waits for the first. Null when it cannot be made.
+std::shared_ptr<const std::vector<std::uint8_t>> Make(RecolourJob* job)
+{
+    {
+        std::unique_lock lock(job->mutex);
+        job->done.wait(lock, [&] { return !job->making; });
+        if (job->failed) return nullptr;
+        if (job->made) return job->made;
+        job->making = true;
+    }
+    platform::RgbaImage image;
+    std::string why;
+    std::shared_ptr<const std::vector<std::uint8_t>> made;
+    if (DecodePackImage(job->source, image, why) && platform::RecolourHdImage(job->kit, image, &why))
+        made = std::make_shared<const std::vector<std::uint8_t>>(platform::EncodeDds(image, job->mips));
+    if (made)
+    {
+        KeepMade(job, made);
+        if (!why.empty()) platform::SessionLogLine("Texture packs: " + job->source.path + " recoloured in HD " + why);
+    }
+    else
+        platform::SessionLogLine("Texture packs: " + job->source.path + " is not recoloured in HD (" + why
+            + "); the game's own recolour is shown");
+    {
+        std::lock_guard lock(job->mutex);
+        job->failed = !made;
+        job->making = false;
+    }
+    job->done.notify_all();
+    return made;
+}
+
+// Aurora's texture workers ask for the HD image when the texture is drawn.
 bool ReadRecoloured(void* user, const char* path, std::vector<std::uint8_t>& out)
 {
     auto* job = static_cast<RecolourJob*>(user);
     if (job->name != path) return false; // the mip levels are inside the image
-    std::shared_ptr<const std::vector<std::uint8_t>> made;
-    {
-        std::lock_guard lock(job->mutex);
-        if (job->failed) return false;
-        made = job->made;
-    }
-    if (!made)
-    {
-        platform::RgbaImage image;
-        std::string why;
-        if (!DecodePackImage(job->source, image, why) || !platform::RecolourHdImage(job->kit, image, &why))
-        {
-            {
-                std::lock_guard lock(job->mutex);
-                job->failed = true;
-            }
-            platform::SessionLogLine("Texture packs: " + job->source.path + " is not recoloured in HD (" + why
-                + "); the game's own recolour is shown");
-            return false;
-        }
-        made = std::make_shared<const std::vector<std::uint8_t>>(platform::EncodeDds(image, job->mips));
-        KeepMade(job, made);
-    }
+    const auto made = Make(job);
+    if (!made) return false;
     out = *made;
     return true;
+}
+
+// Images are made as soon as the game recolours, on a thread of their own:
+// Aurora's workers are busy with the packs' other images while a match loads,
+// and the recoloured picture (a loading screen's) may show only briefly. The
+// thread and its queue live until the process ends.
+struct MakeQueue
+{
+    std::mutex mutex;
+    std::condition_variable ready;
+    std::deque<RecolourJob*> jobs;
+    bool started = false;
+};
+
+void MakeSoon(RecolourJob* job)
+{
+    static auto* queue = new MakeQueue;
+    std::lock_guard lock(queue->mutex);
+    queue->jobs.push_back(job);
+    queue->ready.notify_one();
+    if (queue->started) return;
+    queue->started = true;
+    std::thread([] {
+        for (;;)
+        {
+            RecolourJob* next;
+            {
+                std::unique_lock lock(queue->mutex);
+                queue->ready.wait(lock, [] { return !queue->jobs.empty(); });
+                next = queue->jobs.front();
+                queue->jobs.pop_front();
+            }
+            Make(next);
+        }
+    }).detach();
 }
 
 // The game module recoloured a texture (Mirror match): where a pack replaces
@@ -186,6 +236,7 @@ void OnRecoloured(const ChargedRecolouredTexture* texture)
         made->name = name;
         made->source = image->second;
         const std::size_t texels = std::size_t(texture->width) * texture->height;
+        made->kit.picture = texture->kind == 2;
         made->kit.width = texture->width;
         made->kit.height = texture->height;
         made->kit.mask.assign(texture->mask, texture->mask + texels);
@@ -198,8 +249,9 @@ void OnRecoloured(const ChargedRecolouredTexture* texture)
     // Above every pack: no pack has an image of a texture the port makes.
     const auto registration = aurora::texture::register_virtual_replacement(
         job->name, {.read = ReadRecoloured, .userData = job}, {.priority = INT32_MAX});
-    if (registration.id)
-        platform::SessionLogLine("Texture packs: " + job->source.path + " recoloured for Mirror match");
+    if (!registration.id) return;
+    platform::SessionLogLine("Texture packs: " + job->source.path + " recoloured for Mirror match");
+    MakeSoon(job);
 }
 
 void LoadPacks(const Settings& settings, const std::filesystem::path& config_path, std::string_view game_id)
