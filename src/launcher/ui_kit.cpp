@@ -1086,16 +1086,25 @@ void BeginCard(const char* id, const char* title, const char* subtitle, Icon ico
     if (title)
     {
         const ImVec2 pos = ImGui::GetCursorScreenPos();
-        float indent = 0.0f;
+        const float box = icon != Icon::None ? Dp(34) : 0.0f;
+        const float indent = icon != Icon::None ? box + Dp(14) : 0.0f;
+        // The icon and the title (with its subtitle) are centred on each
+        // other, whichever is taller.
+        float block = FontSize(fonts.heading);
+        if (subtitle)
+        {
+            const float wrap = ImGui::GetContentRegionAvail().x - indent;
+            block += ImGui::GetStyle().ItemSpacing.y - Dp(6)
+                + fonts.caption->CalcTextSizeA(FontSize(fonts.caption), FLT_MAX, wrap, subtitle).y;
+        }
         if (icon != Icon::None)
         {
             auto* draw = ImGui::GetWindowDrawList();
-            const float box = Dp(34);
-            draw->AddRectFilled(pos, {pos.x + box, pos.y + box}, Col(color::accent, 0.12f), Dp(10));
-            DrawIcon(draw, icon, {pos.x + box * 0.5f, pos.y + box * 0.5f}, Dp(18), Col(color::accent));
-            indent = box + Dp(14);
+            const ImVec2 at{pos.x, pos.y + std::max(0.0f, (block - box) * 0.5f)};
+            draw->AddRectFilled(at, {at.x + box, at.y + box}, Col(color::accent, 0.12f), Dp(10));
+            DrawIcon(draw, icon, {at.x + box * 0.5f, at.y + box * 0.5f}, Dp(18), Col(color::accent));
         }
-        ImGui::SetCursorScreenPos({pos.x + indent, pos.y + (subtitle ? 0.0f : Dp(4))});
+        ImGui::SetCursorScreenPos({pos.x + indent, pos.y + std::max(0.0f, (box - block) * 0.5f)});
         ImGui::BeginGroup();
         TextColored(fonts.heading, color::text, title);
         if (subtitle)
@@ -1104,6 +1113,7 @@ void BeginCard(const char* id, const char* title, const char* subtitle, Icon ico
             TextWrappedColored(fonts.caption, color::muted, subtitle);
         }
         ImGui::EndGroup();
+        ImGui::SetCursorScreenPos({pos.x, std::max(ImGui::GetCursorScreenPos().y, pos.y + box + ImGui::GetStyle().ItemSpacing.y)});
         ImGui::Dummy({0, Dp(6)});
     }
 }
