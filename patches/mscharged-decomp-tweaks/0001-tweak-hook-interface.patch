@@ -16,7 +16,7 @@ new file mode 100644
 index 0000000..84ba3f5
 --- /dev/null
 +++ b/include/mscharged_tweaks.h
-@@ -0,0 +1,148 @@
+@@ -0,0 +1,156 @@
 +#ifndef MSCHARGED_TWEAKS_H
 +#define MSCHARGED_TWEAKS_H
 +
@@ -44,6 +44,7 @@ index 0000000..84ba3f5
 +    MSCHARGED_TWEAK_BLUE_PEACH = 8,
 +    MSCHARGED_TWEAK_NO_HUD = 9,
 +    MSCHARGED_TWEAK_FAIR_BALL_CONTESTS = 10,
++    MSCHARGED_TWEAK_ROBOT_GOALIES = 11,
 +};
 +
 +bool mscharged_tweak_enabled(int tweak);
@@ -158,6 +159,13 @@ index 0000000..84ba3f5
 +// read from the disc (Wii FENL bytes), or a rewritten copy of it (its size in
 +// *size), valid until the next call.
 +void* mscharged_tweak_frontend_package(void* data, unsigned long* size);
++
++// Robot goalies: lays the robot goalie texture of a bundle `robot` (the disc's
++// unused art/characters/superteamgoalie) onto every goalie texture of a loaded
++// bundle, in place: the teams' kits and away kits, the eye and the shine mask.
++// Returns how many textures it rewrote.
++int mscharged_tweak_robot_goalie_textures(void* bundle, unsigned long size, const void* robot,
++    unsigned long robotSize);
 +
 +#ifdef __cplusplus
 +}

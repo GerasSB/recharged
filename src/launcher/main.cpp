@@ -5392,6 +5392,7 @@ private:
             TweakRow(GameTweak::CpuVsCpu);
             TweakRow(GameTweak::MirrorMatch);
             TweakRow(GameTweak::BluePeach);
+            TweakRow(GameTweak::RobotGoalies);
             TweakRow(GameTweak::NoHud);
             TweakRow(GameTweak::UnlockAll);
             EndRows();

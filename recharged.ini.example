@@ -200,6 +200,8 @@ shake_nunchuk = Q
 # knocked players are electrocuted instead of falling off. Online unchanged.
 # blue_peach: Peach's team wears her unused blue kit on the field (Peach,
 # sidekicks, goalie); menus, Mega Strike hand, banners and crowd stay pink.
+# robot_goalies: both goalies wear the Super Team's robot goalie skin from
+# Super Mario Strikers, which the disc still holds unused. Only the look.
 # no_hud: matches start without the scoreboard, player markers and captions
 # (H shows or hides them in a match); the Mega Strike meter and its defence
 # stay.
@@ -215,6 +217,7 @@ fast_terrain = false
 mirror_match = false
 thunder_island_walls = false
 blue_peach = false
+robot_goalies = false
 no_hud = false
 fair_ball_contests = true
 

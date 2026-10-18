@@ -148,6 +148,11 @@ The launcher's **Gameplay** page (or `[gameplay]` in `recharged.ini`) turns them
   uses it against a captain of her colours, and nobody else is pink. Her menu
   pictures, Mega Strike hand, stadium banners and crowd have no blue version
   and stay pink.
+- **Robot goalies**: both goalies wear the robot Kritter skin of the Super
+  Team, the hidden robot team of Super Mario Strikers on the GameCube. The
+  game's disc still holds its texture, unused and made for the older game's
+  goalie; Recharged lays it onto Charged's goalie (assets/gameplay). Only the
+  look changes.
 - **No HUD**: matches start without the scoreboard (score, clock, items,
   ability meter), the player markers and the captions (replay label, goal
   banner, super ability card), for clean recordings and screenshots. Press

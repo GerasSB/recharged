@@ -29,6 +29,7 @@ enum class GameTweak : unsigned
     BluePeach = 8,
     NoHud = 9,
     FairBallContests = 10,
+    RobotGoalies = 11,
 };
 
 struct GameTweakInfo
@@ -40,7 +41,7 @@ struct GameTweakInfo
     bool on_by_default = false; // recommended to every player: on without its [gameplay] key
 };
 
-inline constexpr std::array<GameTweakInfo, 11> kGameTweaks{{
+inline constexpr std::array<GameTweakInfo, 12> kGameTweaks{{
     {GameTweak::SkipIntro, "skip_intro", "Skip intro",
      "Starts at the main menu: no notice screens, studio logo, intro movie or title screen. Loading still takes as long."},
     {GameTweak::FastMenus, "fast_menus", "Fast menus",
@@ -78,6 +79,9 @@ inline constexpr std::array<GameTweakInfo, 11> kGameTweaks{{
      "players in an order it shuffles at kickoff, slightly in the home team's favour; this shuffles it fairly, and "
      "again every step. On by default; online matches always play with it.",
      true},
+    {GameTweak::RobotGoalies, "robot_goalies", "Robot goalies",
+     "Both goalies wear the robot Kritter skin of the Super Team from Super Mario Strikers, which the game's disc "
+     "still holds unused: red lens eyes, metal plating and the robot jersey. Only the look changes."},
 }};
 
 // The tweaks on without a [gameplay] key.

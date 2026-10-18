@@ -24,6 +24,8 @@
 #include <array>
 #include <algorithm>
 #include <vector>
+#include <filesystem>
+#include <fstream>
 #include <memory>
 #include <optional>
 #include <chrono>
@@ -632,6 +634,29 @@ int mscharged::RunOriginalGame(int argc, char** argv,
             // No HUD (issue #58): H shows or hides the match HUD, whatever the tweak set.
             mscharged::platform::SetHudKey(reinterpret_cast<void(*)()>(
                 mscharged::platform::FindNativeModuleSymbol(module,"charged_toggle_hud")));
+            // Robot goalies: the map that lays the disc's unused robot goalie
+            // texture onto Charged's goalie. The module keeps a view of it.
+            if(tweaks & mscharged::GameTweakBit(mscharged::GameTweak::RobotGoalies)) {
+                static std::vector<unsigned char> robotGoalieMap;
+                const auto path=executableDirectory/"assets"/"gameplay"/"robot_goalie.map";
+                std::error_code error;
+                const auto size=std::filesystem::file_size(path,error);
+                if(!error && size>0 && size<=(16u<<20)) {
+                    robotGoalieMap.resize(size_t(size));
+                    std::ifstream file(path,std::ios::binary);
+                    if(!file.read(reinterpret_cast<char*>(robotGoalieMap.data()),std::streamsize(size)))
+                        robotGoalieMap.clear();
+                }
+                auto* configureRobotGoalie=reinterpret_cast<bool(*)(const void*,unsigned long)>(
+                    mscharged::platform::FindNativeModuleSymbol(module,"charged_configure_robot_goalie"));
+                const bool ready=configureRobotGoalie && !robotGoalieMap.empty()
+                    && configureRobotGoalie(robotGoalieMap.data(),(unsigned long)robotGoalieMap.size());
+                const std::string robotLine=std::string("Robot goalies: ")+(ready ? "on"
+                    : !configureRobotGoalie ? "off (this build's game module has no robot goalies)"
+                    : "off (assets/gameplay/robot_goalie.map is missing or not valid)");
+                mscharged::platform::SessionLogLine(robotLine.c_str());
+                std::fprintf(stderr,"%s\n",robotLine.c_str());
+            }
         }
         // European revision 1 disc: its data runs on the revision 2 code
         // through the tweak series' adapters, whatever the tweak set.
