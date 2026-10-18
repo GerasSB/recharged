@@ -70,6 +70,14 @@ graphics driver is too old for it. A chosen API is never switched: if it fails,
 the game says so. Keep the shader compiler DLLs from the Windows package beside
 `recharged.exe`.
 
+**Graphics card** (Windows and Linux, **Advanced → Graphics card**,
+`[display] gpu`). *Automatic* draws with the fastest card; on a PC with two
+(a gaming laptop, say) you can choose one. The launcher lists the cards
+Windows offers (on Linux, those with a Vulkan driver) and stores the choice as
+the card's PCI ID, such as `10de:1f99`. A card switched off in Device Manager or
+by a laptop's GPU mode is not listed, and a chosen card that the graphics API
+does not offer falls back to *Automatic*.
+
 **Preparing graphics.** Before the game starts, Recharged builds the game's
 drawing and effect pipelines for your graphics card: the ones listed in the
 package's `assets/graphics/initial_pipeline_cache.db`, recorded from runs

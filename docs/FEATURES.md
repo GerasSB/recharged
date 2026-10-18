@@ -75,7 +75,8 @@ Press **P** for a screenshot and **H** to show or hide the HUD in a match.
 ## Picture and sound
 
 - Vulkan on Linux, Vulkan or DirectX 12 on Windows (Advanced → Graphics API),
-  Metal on macOS.
+  Metal on macOS; on PCs with two GPUs, a choice of graphics card (Advanced →
+  Graphics card).
 - Window or fullscreen on any monitor, freely sized, 4:3 or 16:9.
 - **3D at your window's resolution** (default) instead of the Wii's 640 x 448,
   or fixed 2x-4x; menus and the HUD keep their original artwork.

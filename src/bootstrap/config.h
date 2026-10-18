@@ -44,6 +44,8 @@ struct Settings
     // presents every frame; the game keeps its own speed.
     std::string frame_rate = "original";
     std::string backend = "auto";
+    // display.gpu: auto (the fastest graphics card) or a card's PCI ID, such as 10de:1f99.
+    std::string gpu = "auto";
     std::string aspect = "16:9";
     // display.picture: soft (the TV signal, as on a Wii), clean (one smooth
     // pass to the window, no TV flicker filter) or sharp (square pixels).

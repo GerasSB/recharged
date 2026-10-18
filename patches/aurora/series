@@ -108,3 +108,4 @@
 0112-open-discs-by-path.patch
 0113-fall-back-to-a-second-graphics-backend.patch
 0114-offer-supersampling-and-fxaa.patch
+0115-use-a-chosen-graphics-card.patch

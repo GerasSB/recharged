@@ -8,6 +8,7 @@
 #include <aurora/aurora.h>
 #include <aurora/hardware.h>
 #include "bootstrap/antialiasing.h"
+#include "bootstrap/graphics_card.h"
 #include "bootstrap/launch_options.h"
 #include "platform/path.h"
 #include "platform/disc.h"
@@ -365,6 +366,11 @@ int mscharged::RunOriginalGame(int argc, char** argv,
         config.desiredBackend=mscharged::platform::AuroraGraphicsBackend(graphics->backend);
         if(graphicsFallback)
             config.fallbackBackend=mscharged::platform::AuroraGraphicsBackend(graphicsFallback->backend);
+        // display.gpu: a chosen card; Aurora keeps the fastest when the API does not offer it.
+        if(const auto card=mscharged::ParseGraphicsCard(launch.settings.gpu)) {
+            config.adapterVendorId=card->vendor;
+            config.adapterDeviceId=card->device;
+        }
         config.windowWidth=windowWidth;config.windowHeight=windowHeight;
         config.windowPosX=config.windowPosY=-1;
         config.mem1Size=MEM1_DEFAULT_SIZE;
@@ -391,6 +397,7 @@ int mscharged::RunOriginalGame(int argc, char** argv,
             +" "+std::to_string(windowWidth)+"x"+std::to_string(windowHeight)+", aspect "+shown.aspect
             +", 3D resolution "+shown.resolution+", antialiasing "+shown.antialiasing+", picture "+shown.picture
             +", vsync "+(shown.vsync?"on":"off")+", display "+std::to_string(shown.monitor)
+            +", graphics card "+shown.gpu
             +", performance overlay "+(shown.fps_overlay?shown.fps_overlay_corner:std::string("off"))
             +", graphics validation "+(shown.graphics_validation?"on":"off"));
         mscharged::platform::SessionLogLine(std::string("Startup: initializing ")

@@ -1,4 +1,5 @@
 #include "bootstrap/graphics_backend.h"
+#include "bootstrap/graphics_card.h"
 
 #include <iostream>
 
@@ -40,6 +41,19 @@ int main()
         require(GraphicsStartFailure(ResolveGraphicsBackend("auto"), nullptr)
             == std::string(kGraphicsBackends.front().label) + " could not start on this PC. Updating the graphics driver may help.");
 #endif
+        // display.gpu: auto or a card's PCI ID, saved in lower case.
+        require(!ParseGraphicsCard("auto"));
+        require(ParseGraphicsCard("10de:1f99") == GraphicsCardId{0x10de, 0x1f99});
+        require(ParseGraphicsCard("8086:3EA0") == GraphicsCardId{0x8086, 0x3ea0});
+        require(GraphicsCardSetting({0x10de, 0x1f99}) == "10de:1f99" && GraphicsCardSetting({0x1002, 0x73df}) == "1002:73df");
+        for (const char* invalid : {"", "Auto", "nvidia", "10de-1f99", "10de:1f9", "10de:1f99 ", "0000:1f99", "10dex1f99",
+                                    "g0de:1f99"})
+        {
+            bool rejected = false;
+            try { ParseGraphicsCard(invalid); }
+            catch (const std::invalid_argument&) { rejected = true; }
+            require(rejected);
+        }
         for (const char* invalid : {unsupported, "d3d11", "unknown", ""})
         {
             bool rejected = false;
