@@ -5264,6 +5264,7 @@ private:
                 }
             if (gyro)
             {
+                BeginSubRows();
                 Row("Gyro speed", "At 100%, turning the controller about 25 degrees moves the pointer across "
                     "the picture.");
                 int speed = profile.gyro_speed;
@@ -5293,6 +5294,7 @@ private:
                         SetStickDpad(*target, free_stick, stick_dpad);
                         dirty_ = true;
                     }
+                EndSubRows();
             }
             EndRows();
         }
@@ -5676,7 +5678,8 @@ private:
             if (draft_.tweaks[index] && draft_.gamecube_disc.empty()) BrowseGameCubeDisc();
         }
         if (!draft_.tweaks[index]) return;
-        Row("Super Team side", "The team whose captain and sidekicks are robots.");
+        BeginSubRows();
+        Row("Side", "The team whose captain and sidekicks are robots.");
         const char* sides[] = {"away", "home", "both"};
         int side = 0;
         for (int i = 0; i < 3; ++i)
@@ -5702,6 +5705,7 @@ private:
         if (SecondaryButton("gamecube_disc", label.c_str(), {ImGui::GetContentRegionAvail().x, ImGui::GetFrameHeight()},
                             !browsing && config_ok_, Icon::Disc))
             BrowseGameCubeDisc();
+        EndSubRows();
     }
 
     void TweakRow(GameTweak tweak)
