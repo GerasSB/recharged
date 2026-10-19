@@ -26,6 +26,9 @@ struct WpadSDLSettings {
     // Wii Remotes play the game's speaker sounds (controls.speaker_volume
     // above 0).
     bool remote_speaker = false;
+    // The running game's WPAD byte for speaker register 0xa20001
+    // (WiimoteHidSettings::speaker_reg01).
+    std::uint8_t remote_speaker_reg01 = 0x08;
 };
 void ConfigureWpadSDL(WpadSDLSettings settings);
 // The Wii Remote HID driver sent a speaker command WiimoteHidControlSpeaker

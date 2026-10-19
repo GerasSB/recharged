@@ -70,14 +70,24 @@ come from the reconstructed source, unchanged.
 | + / − / HOME | Tab / - / Home | Start / Back / Guide |
 | Shake Remote / Nunchuk | E / Q | RT / RB |
 
-Press **P** for a screenshot and **H** to show or hide the HUD in a match.
+**Hotkeys** work whoever plays: **P** saves a screenshot, **H** shows or hides
+the HUD in a match and **Alt+Enter** (Option+Return on a Mac) switches between
+fullscreen and a window. P and H can be changed under Controls → Hotkeys.
+
+**No HUD** (Controls → Hotkeys → *Show the HUD when a match starts* off):
+matches start without the scoreboard (score, clock, items, ability meter),
+the player markers and the captions (replay label, goal banner, super ability
+card), for clean recordings and screenshots; the HUD key shows them. The Mega
+Strike meter and the goalie's Mega Strike defence stay, as you need them to
+play.
 
 ## Picture and sound
 
 - Vulkan on Linux, Vulkan or DirectX 12 on Windows (Advanced → Graphics API),
   Metal on macOS; on PCs with two GPUs, a choice of graphics card (Advanced →
   Graphics card).
-- Window or fullscreen on any monitor, freely sized, 4:3 or 16:9.
+- Window or fullscreen on any monitor, freely sized, 4:3 or 16:9; Alt+Enter
+  switches while playing.
 - **3D at your window's resolution** (default) instead of the Wii's 640 x 448,
   or fixed 2x-4x; menus and the HUD keep their original artwork.
 - Picture styles: **sharp** (default) or clean fill the window with the game's
@@ -96,7 +106,7 @@ Press **P** for a screenshot and **H** to show or hide the HUD in a match.
 - Master volume, mute and **sound levels** (Audio): music, sound effects,
   voices, the crowd, menus and HUD, cutscenes and movies each from 0 to 100 %,
   on top of the game's own music, effect and voice options.
-- **Screenshots** with the P key.
+- **Screenshots** with the P key, or the one chosen under Controls → Hotkeys.
 
 ## Optional tweaks
 
@@ -136,8 +146,11 @@ The launcher's **Gameplay** page (or `[gameplay]` in `recharged.ini`) turns them
 - **Fair ball contests**: when players of both teams reach a loose ball in
   the same instant, the one the game updates first takes it. The game
   shuffles that order at every kickoff in a way that puts the home team
-  first slightly more often (52 % of the time on average, up to 55 %). With
-  this option the order is shuffled fairly, and again every simulation step.
+  first slightly more often (52 % of the time on average, up to 55 %).
+  One-timers, first-time shots and passes off a loose ball (a rebound off
+  the goalie or the post) and pass receptions are settled after the physics
+  step instead, always home team first. With this option the order is
+  shuffled fairly, again every simulation step, and used for those too.
   On by default, as it is recommended to every player; online matches always
   play with it.
 - **Mirror match**: both teams can pick the same captain in Domination. The
@@ -162,12 +175,6 @@ The launcher's **Gameplay** page (or `[gameplay]` in `recharged.ini`) turns them
   game folder, or asks for it when you turn the option on. Each robot is fitted
   to its character's size and keeps the character's animations and play;
   Bowser, Petey Piranha and Boo keep their own look.
-- **No HUD**: matches start without the scoreboard (score, clock, items,
-  ability meter), the player markers and the captions (replay label, goal
-  banner, super ability card), for clean recordings and screenshots. Press
-  **H** in a match to show or hide them, with or without this option. The
-  Mega Strike meter and the goalie's Mega Strike defence stay, as you need
-  them to play.
 
 `--no-tweaks` turns them off for one run.
 

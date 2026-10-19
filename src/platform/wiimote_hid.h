@@ -29,6 +29,9 @@ struct WiimoteHidSettings {
     // The remotes offer original WPAD their speaker (controls.speaker_volume
     // above 0); without it WPAD finds none, and no sound goes to them.
     bool speaker = false;
+    // What original WPAD's speaker ON writes to register 0xa20001 before the
+    // configuration: 0x80 in the American game, 0x08 in the European one.
+    std::uint8_t speaker_reg01 = 0x08;
     // Players by remote id (wiimote_ids.h): WPAD channel (player - 1); a
     // remote without an entry is not a player. Without fixed players every
     // remote plays, DolphinBar slots first.
@@ -82,17 +85,25 @@ unsigned WiimoteHidScans();
 // joystick of a remote. Owner thread.
 enum class WiimoteSpeakerCommand { Off, On, Mute, Unmute, Play };
 // The output reports of original WPADControlSpeaker for a command, in order;
-// `volume` (0-127) is the configuration's volume byte for On.
-std::vector<std::vector<std::uint8_t>> WiimoteSpeakerReports(WiimoteSpeakerCommand command, std::uint8_t volume);
+// `volume` (0-127) is the configuration's volume byte for On, `reg01` the
+// game's byte for 0xa20001 (WiimoteHidSettings::speaker_reg01).
+std::vector<std::vector<std::uint8_t>> WiimoteSpeakerReports(WiimoteSpeakerCommand command, std::uint8_t volume,
+                                                             std::uint8_t reg01 = 0x08);
+// The reports the driver sends a Remote it newly hears from: WPAD's OFF after
+// enabling the speaker, so its registers take the writes. A Wii starts each
+// game with freshly connected Remotes; on a PC a Remote stays connected and
+// keeps the last game's speaker running.
+std::vector<std::vector<std::uint8_t>> WiimoteSpeakerResetReports();
 // A ready remote of this driver with the speaker setting on.
 bool WiimoteHidHasSpeaker(std::uint32_t joystick_id);
 // Queues the command's reports; the driver calls CompleteNativeWpadSpeaker
-// (wpad_sdl.h) once for it when its last report went out, or its write was
-// acknowledged. False: not a speaker of this driver.
+// (wpad_sdl.h) once for it when its last report is handed to the remote's
+// writer thread (it goes out before frames handed over later), or its write
+// was acknowledged. False: not a speaker of this driver.
 bool WiimoteHidControlSpeaker(std::uint32_t joystick_id, WiimoteSpeakerCommand command, std::uint8_t volume);
-// Speaker data (report 0x18) leaves on a thread of its own, one frame at a
-// time like original WPAD's stream check: the remote can take a frame when
-// its speaker is on, its commands went out and the previous frame was sent.
+// Speaker data (report 0x18) goes out on the remote's writer thread, after
+// its other reports: the remote takes a frame when its speaker is on, its
+// commands went out and fewer than three frames wait.
 bool WiimoteHidCanStreamSpeaker(std::uint32_t joystick_id);
 bool WiimoteHidStreamSpeaker(std::uint32_t joystick_id, const void* data, std::uint16_t size);
 
