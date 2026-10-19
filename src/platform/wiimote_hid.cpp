@@ -849,7 +849,7 @@ void ShutdownWiimoteHid() {
 }
 
 std::vector<std::vector<std::uint8_t>> WiimoteSpeakerReports(WiimoteSpeakerCommand command, std::uint8_t volume,
-                                                             bool pcm) {
+                                                             bool pcm, std::uint8_t reg01) {
     // Register writes (0x16): control registers, 3 address bytes, length,
     // 16 data bytes. 0xa20001 is the speaker configuration, 0xa20008 starts
     // playing, 0xa20009 powers the speaker's decoder.
@@ -869,16 +869,17 @@ std::vector<std::vector<std::uint8_t>> WiimoteSpeakerReports(WiimoteSpeakerComma
     case WiimoteSpeakerCommand::Off:
         return {mute, write(0xa20001, {0x01}), write(0xa20009, {0x00}), disable};
     case WiimoteSpeakerCommand::On: {
-        // 4-bit ADPCM, rate 0x07d0, the volume, then WPAD's last two bytes.
-        // The USA SDK writes 0x80 to 0xa20001 first, later SDKs (the European
-        // game's) 0x08: the later value. The sample rate is 12 MHz / rate.
+        // 4-bit ADPCM, rate 0x07d0, the volume, then WPAD's last two bytes,
+        // after the game's own byte for 0xa20001 (the American game's WPAD
+        // writes 0x80, the European one's 0x08). The sample rate is 12 MHz /
+        // rate.
         // PCM: format 0x40, rate 0x0fa0 (3000 Hz) and the volume on its 0-255
         // scale; the last two bytes as in WiiBrew's tested PCM settings.
         const int level = std::min<int>(volume, 127);
         const auto config = pcm
             ? write(0xa20001, {0x00, 0x40, 0xa0, 0x0f, std::uint8_t((level * 255 + 63) / 127), 0x00, 0x00})
             : write(0xa20001, {0x00, 0x00, 0xd0, 0x07, std::uint8_t(level), 0x0c, 0x0e});
-        return {enable, mute, write(0xa20009, {0x01}), write(0xa20001, {0x08}), config, unmute};
+        return {enable, mute, write(0xa20009, {0x01}), write(0xa20001, {reg01}), config, unmute};
     }
     case WiimoteSpeakerCommand::Mute: return {mute};
     case WiimoteSpeakerCommand::Unmute: return {unmute};
@@ -899,7 +900,7 @@ bool WiimoteHidControlSpeaker(std::uint32_t joystick_id, WiimoteSpeakerCommand c
     auto* remote = SpeakerRemote(joystick_id);
     if (!remote) return false;
     const bool pcm = State().settings.speaker_pcm;
-    auto reports = WiimoteSpeakerReports(command, volume, pcm);
+    auto reports = WiimoteSpeakerReports(command, volume, pcm, State().settings.speaker_reg01);
     if (reports.empty()) return false;
     for (std::size_t n = 0; n < reports.size(); ++n) {
         const bool written = reports[n][0] == 0x16;

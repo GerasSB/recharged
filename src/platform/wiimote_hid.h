@@ -34,6 +34,9 @@ struct WiimoteHidSettings {
     // A Remote whose link does not run in the Wii's sniff mode loses some of
     // the 150 packets a second, which garbles ADPCM until the next silence.
     bool speaker_pcm = true;
+    // What original WPAD's speaker ON writes to register 0xa20001 before the
+    // configuration: 0x80 in the American game, 0x08 in the European one.
+    std::uint8_t speaker_reg01 = 0x08;
     // Players by remote id (wiimote_ids.h): WPAD channel (player - 1); a
     // remote without an entry is not a player. Without fixed players every
     // remote plays, DolphinBar slots first.
@@ -88,9 +91,10 @@ unsigned WiimoteHidScans();
 enum class WiimoteSpeakerCommand { Off, On, Mute, Unmute, Play };
 // The output reports of original WPADControlSpeaker for a command, in order;
 // `volume` (0-127) is the configuration's volume byte for On. With `pcm`
-// On configures 8-bit PCM at 3000 Hz and the volume spans 0-255.
+// On configures 8-bit PCM at 3000 Hz and the volume spans 0-255. `reg01` is
+// the game's byte for 0xa20001 (WiimoteHidSettings::speaker_reg01).
 std::vector<std::vector<std::uint8_t>> WiimoteSpeakerReports(WiimoteSpeakerCommand command, std::uint8_t volume,
-                                                             bool pcm = false);
+                                                             bool pcm = false, std::uint8_t reg01 = 0x08);
 // The reports the driver sends a Remote it newly hears from: WPAD's OFF after
 // enabling the speaker, so its registers take the writes. A Wii starts each
 // game with freshly connected Remotes; on a PC a Remote stays connected and
