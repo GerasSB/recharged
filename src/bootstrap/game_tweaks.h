@@ -16,7 +16,7 @@ namespace mscharged
 {
 // Bit numbers; they match the hooks' tweak IDs (include/mscharged_tweaks.h in
 // the tweak series). Append only. NoHud is no [gameplay] tweak: its bit is
-// set by [hotkeys] hide_hud (Settings::ModuleTweakMask).
+// set by [hotkeys] show_hud = false (Settings::ModuleTweakMask).
 enum class GameTweak : unsigned
 {
     SkipIntro = 0,

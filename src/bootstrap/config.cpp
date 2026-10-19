@@ -78,7 +78,7 @@ Values Encode(const Settings& s)
         values.emplace(std::string("keyboard.") + kKeyActions[n].key, s.keys[n]);
     values.emplace("hotkeys.screenshot", s.screenshot_key);
     values.emplace("hotkeys.hud", s.hud_key);
-    values.emplace("hotkeys.hide_hud", s.hide_hud ? "true" : "false");
+    values.emplace("hotkeys.show_hud", s.show_hud ? "true" : "false");
     for (std::size_t n = 0; n < kGameTweaks.size(); ++n)
         values.emplace(std::string("gameplay.") + kGameTweaks[n].key, s.tweaks[n] ? "true" : "false");
     for (std::size_t n = 0; n < kSoundGroups.size(); ++n)
@@ -225,7 +225,12 @@ Settings Decode(const Values& values)
         *value = it->second;
     }
     // No HUD was the [gameplay] tweak no_hud until it moved beside its key.
-    boolean(values.count("hotkeys.hide_hud") ? "hotkeys.hide_hud" : "gameplay.no_hud", s.hide_hud);
+    if (values.count("hotkeys.show_hud")) boolean("hotkeys.show_hud", s.show_hud);
+    else if (bool no_hud = false; values.count("gameplay.no_hud"))
+    {
+        boolean("gameplay.no_hud", no_hud);
+        s.show_hud = !no_hud;
+    }
     // [gamepad_profileN]: numbered from 1, each with a unique name.
     for (auto it = values.lower_bound("gamepad_profile"); it != values.end() && it->first.rfind("gamepad_profile", 0) == 0;
          ++it)
@@ -397,7 +402,7 @@ Values Parse(const std::string& contents, std::string* updated = nullptr, Values
                 // Retired keys, accepted in old INIs: the title-bar counter, a
                 // dead zone nothing read (gamepad profiles have their own, #62),
                 // a 1.0.12 test build's Wii Remote speaker format (#60) and No
-                // HUD's tweak key, now hotkeys.hide_hud.
+                // HUD's tweak key, now hotkeys.show_hud.
                 drop = updated && ((OwnedSection(section) && !kept.count(full_key))
                     || full_key == "display.show_fps" || full_key == "controls.deadzone"
                     || full_key == "controls.speaker_format" || full_key == "gameplay.no_hud");

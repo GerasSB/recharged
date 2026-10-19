@@ -613,7 +613,7 @@ int mscharged::RunOriginalGame(int argc, char** argv,
             mscharged::platform::SessionLogLine(line);
             mscharged::platform::SessionLogLine("Hotkeys: screenshot "+mscharged::platform::KeyInputName(hotkeys.screenshot)
                 +", HUD "+mscharged::platform::KeyInputName(hotkeys.hud)+" (matches start with the HUD "
-                +(s.hide_hud ? "hidden)" : "shown)"));
+                +(s.show_hud ? "shown)" : "hidden)"));
             for (const auto& device : s.players) {
                 if (device.rfind("gamepad", 0) != 0) continue;
                 const std::size_t pad = std::size_t(device.back() - '1');
@@ -665,7 +665,7 @@ int mscharged::RunOriginalGame(int argc, char** argv,
                 reinterpret_cast<void(*)()>(mscharged::platform::FindNativeModuleSymbol(module,"charged_cycle_debug_layer")));
         }
         // [gameplay] tweaks: the enabled set, before original main, with
-        // [hotkeys] hide_hud's No HUD bit.
+        // the No HUD bit of [hotkeys] show_hud = false.
         {
             const unsigned tweaks=launch.settings.GameTweakMask();
             auto* configureTweaks=reinterpret_cast<void(*)(unsigned)>(
@@ -679,7 +679,7 @@ int mscharged::RunOriginalGame(int argc, char** argv,
             if(auto* configureRecolour=reinterpret_cast<void(*)(ChargedRecolouredTextureHook)>(
                    mscharged::platform::FindNativeModuleSymbol(module,"charged_configure_hd_recolour")))
                 configureRecolour(mscharged::TexturePackRecolourHook());
-            // No HUD (issue #58): the HUD key shows or hides the match HUD, whatever hide_hud says.
+            // No HUD (issue #58): the HUD key shows or hides the match HUD, whatever show_hud says.
             mscharged::platform::SetHudKey(reinterpret_cast<void(*)()>(
                 mscharged::platform::FindNativeModuleSymbol(module,"charged_toggle_hud")));
             // Robot goalies: the map that lays the disc's unused robot goalie

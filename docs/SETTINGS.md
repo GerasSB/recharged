@@ -246,10 +246,10 @@ The built-in Default always uses the defaults; changing it makes your own copy.
 **Hotkeys** (Controls → Hotkeys, `[hotkeys]`) work in the game window whoever
 plays: **P** saves a screenshot (`screenshot`) and **H** shows or hides the HUD
 in a match (`hud`). Click a key to change it; a hotkey cannot be Shift, Ctrl,
-Alt or the system key, nor a key of keyboard & mouse. **Start matches without
-the HUD** (`hide_hud`) starts every match without the scoreboard, player
-markers and captions, for clean recordings; the HUD key shows them, and the
-Mega Strike meter stays. **Alt+Enter** (Option+Return on a Mac) cannot be
+Alt or the system key, nor a key of keyboard & mouse. With **Show the HUD
+when a match starts** off (`show_hud = false`), every match starts without the
+scoreboard, player markers and captions, for clean recordings; the HUD key
+shows them, and the Mega Strike meter stays. **Alt+Enter** (Option+Return on a Mac) cannot be
 changed.
 
 **Linux permissions.** If a Remote is connected but cannot be opened, the

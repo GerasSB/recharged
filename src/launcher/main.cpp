@@ -2721,7 +2721,7 @@ private:
         std::string detail = aspect + (s.vsync ? "  -  VSync on" : "  -  VSync off");
         if (s.frame_rate != "original") detail += "  -  " + FrameRateLabel(s.frame_rate);
         if (s.performance_mode) detail += "  -  Performance mode";
-        if (s.hide_hud)
+        if (!s.show_hud)
         {
             const auto hud = platform::ParseHotkeys(s.screenshot_key, s.hud_key).hud;
             detail += "  -  HUD hidden (" + platform::KeyInputName(hud) + ")";
@@ -4755,10 +4755,11 @@ private:
             KeyCaps({"Alt", "Enter"}, true);
 #endif
             hotkey(1, "Show or hide the HUD", "In a match.", hotkeys.hud);
-            const std::string note = "No scoreboard, player markers or captions, for clean recordings; "
-                + platform::KeyInputName(hotkeys.hud) + " shows them. The Mega Strike meter and its defence stay.";
-            Row("Start matches without the HUD", note.c_str());
-            if (Toggle("##hide_hud", &draft_.hide_hud)) dirty_ = true;
+            const std::string note = "The scoreboard, player markers and captions. Off starts matches without them, "
+                "for clean recordings; " + platform::KeyInputName(hotkeys.hud)
+                + " shows them. The Mega Strike meter and its defence always stay.";
+            Row("Show the HUD when a match starts", note.c_str());
+            if (Toggle("##show_hud", &draft_.show_hud)) dirty_ = true;
             EndRows();
         }
         static const Settings defaults;

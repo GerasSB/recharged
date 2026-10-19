@@ -82,12 +82,12 @@ struct Settings
     }
     // [hotkeys]: keys of the game window, whoever plays, one SDL key name each
     // (no modifier; no [keyboard] action takes them): hotkeys.screenshot saves
-    // a screenshot, hotkeys.hud shows or hides the match HUD. hotkeys.hide_hud
-    // starts every match with the HUD hidden (No HUD, issue #58; formerly
-    // gameplay.no_hud).
+    // a screenshot, hotkeys.hud shows or hides the match HUD. hotkeys.show_hud
+    // = false starts every match with the HUD hidden (No HUD, issue #58;
+    // formerly gameplay.no_hud = true).
     std::string screenshot_key = "P";
     std::string hud_key = "H";
-    bool hide_hud = false;
+    bool show_hud = true;
     // Gamepad profiles ([gamepad_profile1], [gamepad_profile2], ...): a name
     // and the inputs of each action ("a | start"); swap_sticks puts the
     // Nunchuk stick on the right stick and the pointer on the left. The
@@ -213,7 +213,7 @@ struct Settings
     // What the game module receives: the tweaks and the HUD's start state.
     unsigned ModuleTweakMask() const
     {
-        return GameTweakMask() | (hide_hud ? GameTweakBit(GameTweak::NoHud) : 0u);
+        return GameTweakMask() | (show_hud ? 0u : GameTweakBit(GameTweak::NoHud));
     }
 };
 

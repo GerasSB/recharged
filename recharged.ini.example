@@ -152,11 +152,11 @@ shake_nunchuk = Q
 # be changed.
 # screenshot: saves the picture in the screenshots folder.
 # hud: shows or hides the scoreboard, player markers and captions in a match.
-# hide_hud: matches start with them hidden, for clean recordings; the Mega
-# Strike meter and its defence stay.
+# show_hud = false: matches start with them hidden, for clean recordings; the
+# Mega Strike meter and its defence stay.
 screenshot = P
 hud = H
-hide_hud = false
+show_hud = true
 
 # Gamepad profiles ([gamepad_profile1] to [gamepad_profile16]), made on the
 # launcher's Controls page: a unique name (not Default) and one or two SDL

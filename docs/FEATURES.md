@@ -74,11 +74,12 @@ come from the reconstructed source, unchanged.
 the HUD in a match and **Alt+Enter** (Option+Return on a Mac) switches between
 fullscreen and a window. P and H can be changed under Controls → Hotkeys.
 
-**No HUD** (Controls → Hotkeys → *Start matches without the HUD*): matches
-start without the scoreboard (score, clock, items, ability meter), the player
-markers and the captions (replay label, goal banner, super ability card), for
-clean recordings and screenshots; the HUD key shows them. The Mega Strike
-meter and the goalie's Mega Strike defence stay, as you need them to play.
+**No HUD** (Controls → Hotkeys → *Show the HUD when a match starts* off):
+matches start without the scoreboard (score, clock, items, ability meter),
+the player markers and the captions (replay label, goal banner, super ability
+card), for clean recordings and screenshots; the HUD key shows them. The Mega
+Strike meter and the goalie's Mega Strike defence stay, as you need them to
+play.
 
 ## Picture and sound
 

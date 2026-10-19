@@ -514,13 +514,13 @@ int main()
         // [hotkeys]: the screenshot and HUD keys and No HUD's start state,
         // which an old [gameplay] no_hud still sets until the next save.
         {
-            Require(defaults.screenshot_key == "P" && defaults.hud_key == "H" && !defaults.hide_hud
+            Require(defaults.screenshot_key == "P" && defaults.hud_key == "H" && defaults.show_hud
                     && defaults.ModuleTweakMask() == defaults.GameTweakMask(), "Hotkey defaults");
             Require(GameTweakIndex(GameTweak::NoHud) == kGameTweaks.size(), "No HUD is listed as a tweak");
             std::ofstream(path) << "[game]\ndisc = game.rvz\n[gameplay]\nno_hud = true\nskip_intro = true\n";
             auto old = LoadConfig(path);
             const unsigned tweaks = recommended | GameTweakBit(GameTweak::SkipIntro);
-            Require(old.settings.hide_hud && old.settings.GameTweakMask() == tweaks
+            Require(!old.settings.show_hud && old.settings.GameTweakMask() == tweaks
                     && old.settings.ModuleTweakMask() == (tweaks | GameTweakBit(GameTweak::NoHud)),
                     "gameplay.no_hud did not hide the HUD");
             auto changed = old.settings;
@@ -528,16 +528,18 @@ int main()
             changed.hud_key = "G";
             SaveConfig(old, changed);
             const auto saved = LoadConfig(path);
-            Require(saved.settings.hide_hud && saved.settings.screenshot_key == "F12" && saved.settings.hud_key == "G"
+            Require(!saved.settings.show_hud && saved.settings.screenshot_key == "F12" && saved.settings.hud_key == "G"
                     && saved.contents.find("no_hud") == std::string::npos
                     && saved.contents.find("[hotkeys]") != std::string::npos
-                    && saved.contents.find("hide_hud = true") != std::string::npos
+                    && saved.contents.find("show_hud = false") != std::string::npos
                     && saved.contents.find("skip_intro = true") != std::string::npos,
                     "The hotkeys did not round trip, or no_hud stayed");
-            std::ofstream(path) << "[gameplay]\nno_hud = true\n[hotkeys]\nhide_hud = false\n";
-            Require(!LoadConfig(path).settings.hide_hud, "gameplay.no_hud overrode hotkeys.hide_hud");
+            std::ofstream(path) << "[gameplay]\nno_hud = true\n[hotkeys]\nshow_hud = true\n";
+            Require(LoadConfig(path).settings.show_hud, "gameplay.no_hud overrode hotkeys.show_hud");
+            std::ofstream(path) << "[gameplay]\nno_hud = false\n";
+            Require(LoadConfig(path).settings.show_hud, "gameplay.no_hud = false hid the HUD");
             for (const char* invalid : {"[hotkeys]\nscreenshot = P | O\n", "[hotkeys]\nhud =\n",
-                                        "[hotkeys]\nhide_hud = maybe\n"})
+                                        "[hotkeys]\nshow_hud = maybe\n", "[gameplay]\nno_hud = 2\n"})
             {
                 std::ofstream(path) << invalid;
                 Reject([&] { LoadConfig(path); });
