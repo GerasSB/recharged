@@ -99,6 +99,10 @@ int main() {
         Check(WiimoteSpeakerReports(WiimoteSpeakerCommand::On, 200, true)[4][10] == 255, "PCM speaker volume at most");
         const std::vector<Report> off{{0x19, 0x04}, write(0xa20001, {0x01}), write(0xa20009, {0x00}), {0x14, 0x00}};
         Check(WiimoteSpeakerReports(WiimoteSpeakerCommand::Off, 0) == off, "speaker OFF sequence");
+        // A Remote the driver newly hears from: enabled, then OFF.
+        auto reset = off;
+        reset.insert(reset.begin(), Report{0x14, 0x04});
+        Check(WiimoteSpeakerResetReports() == reset, "speaker reset sequence");
         Check(WiimoteSpeakerReports(WiimoteSpeakerCommand::Mute, 0) == std::vector<Report>{{0x19, 0x04}} &&
               WiimoteSpeakerReports(WiimoteSpeakerCommand::Unmute, 0) == std::vector<Report>{{0x19, 0x00}},
               "speaker mute and unmute");

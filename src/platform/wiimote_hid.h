@@ -91,6 +91,11 @@ enum class WiimoteSpeakerCommand { Off, On, Mute, Unmute, Play };
 // On configures 8-bit PCM at 3000 Hz and the volume spans 0-255.
 std::vector<std::vector<std::uint8_t>> WiimoteSpeakerReports(WiimoteSpeakerCommand command, std::uint8_t volume,
                                                              bool pcm = false);
+// The reports the driver sends a Remote it newly hears from: WPAD's OFF after
+// enabling the speaker, so its registers take the writes. A Wii starts each
+// game with freshly connected Remotes; on a PC a Remote stays connected and
+// keeps the last game's speaker running.
+std::vector<std::vector<std::uint8_t>> WiimoteSpeakerResetReports();
 // A ready remote of this driver with the speaker setting on.
 bool WiimoteHidHasSpeaker(std::uint32_t joystick_id);
 // Queues the command's reports; the driver calls CompleteNativeWpadSpeaker

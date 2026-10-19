@@ -277,6 +277,15 @@ void QueueExtensionSetup(Remote& remote) {
     QueueWrite(remote, 0xa400fb, {0x00});
     QueueRead(remote, 0x04, 0xa400fa, 6, Tag::ExtensionId);
 }
+// A speaker still running from the last game start (the Remote stayed
+// connected) plays the next game's sound with its old format and decoder
+// state: noise or clicks.
+void QueueSpeakerReset(Remote& remote) {
+    for (auto& report : mscharged::platform::WiimoteSpeakerResetReports()) {
+        const Wait wait = report[0] == 0x16 ? Wait::Ack : Wait::None;
+        Queue(remote, std::move(report), wait);
+    }
+}
 void QueueSetup(Remote& remote) {
     auto& settings = State().settings;
     const int level = std::clamp(int(settings.ir_sensitivity), 1, 5) - 1;
@@ -526,6 +535,7 @@ void HandleReport(Remote& remote, const std::uint8_t* report, int size, Clock::t
             remote.present = true;
             remote.probing = false;
             remote.extension = extension;
+            QueueSpeakerReset(remote);
             QueueSetup(remote);
             return;
         }
@@ -875,6 +885,12 @@ std::vector<std::vector<std::uint8_t>> WiimoteSpeakerReports(WiimoteSpeakerComma
     case WiimoteSpeakerCommand::Play: return {write(0xa20008, {0x01})};
     }
     return {};
+}
+
+std::vector<std::vector<std::uint8_t>> WiimoteSpeakerResetReports() {
+    auto reports = WiimoteSpeakerReports(WiimoteSpeakerCommand::Off, 0);
+    reports.insert(reports.begin(), {0x14, 0x04});
+    return reports;
 }
 
 bool WiimoteHidHasSpeaker(std::uint32_t joystick_id) { return SpeakerRemote(joystick_id) != nullptr; }
