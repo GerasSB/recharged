@@ -4167,7 +4167,7 @@ private:
 
         // [audio] <group>_volume: applied by the game module when the game starts.
         BeginCard("##sound_levels", "Sound levels",
-                  "Each kind of sound as a share of the level the game gives it. Applies when the game starts.",
+                  "Each kind of sound as a share of the level the game gives it, on the PC only. Applies when the game starts.",
                   Icon::Sliders);
         if (BeginRows("##sound_level_rows"))
         {
