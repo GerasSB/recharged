@@ -171,6 +171,16 @@ int main()
                 for (int k = 0; k < 3; ++k) moved.rgba[(y * 32 + x) * 4 + k] = c[k];
             }
         Check(!RecolourHdImage(kit, moved, &why), "a kit texture with the kit elsewhere is left alone");
+        // Redrawn with the game's framing, a quarter of its kit a stripe in
+        // another colour: recoloured, the stripe kept.
+        constexpr std::uint8_t kViolet[3] = {120, 40, 190};
+        RgbaImage striped = Pack();
+        for (int y = 0; y < 32; ++y)
+            for (int x = 0; x < 4; ++x) std::copy(kViolet, kViolet + 3, striped.rgba.begin() + (y * 32 + x) * 4);
+        why.clear();
+        Check(RecolourHdImage(kit, striped, &why), "a redrawn kit with a stripe is recoloured: " + why);
+        Check(Same(At(striped, 2, 20), kViolet) && Blue(At(striped, 10, 20)) && Same(At(striped, 25, 20), kGreen),
+              "its stripe keeps its colour, the rest of its kit is blue");
         // A painted picture drawn anew: its kit is found by colour, skin and
         // other colours keep theirs.
         KitRecolour picture = kit;

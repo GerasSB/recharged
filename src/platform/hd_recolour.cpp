@@ -27,6 +27,11 @@ constexpr float kMaxMeanDifference = 0.35f;
 // picture drawn anew with another framing).
 constexpr float kMinKitCoverage = 0.8f;
 constexpr float kMaxKitLeak = 0.25f;
+// A picture redrawn with the game's framing (the lightness of its texels
+// follows the game's: correlation at least this) may shade parts of its kit
+// in another colour (a stripe): this share of the kit's texels is enough then.
+constexpr float kMinFramingCorrelation = 0.75f;
+constexpr float kMinRedrawnKitCoverage = 0.6f;
 // The kit's colour: within this hue of the kit's median, with this share of
 // its chroma. Outside the kit it must match closer (a background of a
 // neighbouring hue is not the kit).
@@ -354,12 +359,15 @@ bool RecolourHdImage(const KitRecolour& kit, RgbaImage& image, std::string* why,
             return std::hypot(c.a, c.b) >= kKitChromaShare * colour.C
                 && AngleBetween(std::atan2(c.b, c.a), colour.h) <= kKitHue;
         };
-        std::size_t kitTexels = 0, covered = 0, leaked = 0;
+        std::size_t kitTexels = 0, covered = 0, leaked = 0, texels = 0;
+        double o1 = 0, d1 = 0, oo = 0, dd = 0, od = 0; // lightness sums
         for (std::size_t i = 0; i < opaque.size(); ++i)
         {
             if (!opaque[i]) continue;
             const bool there = kitColoured(drawnTexels[i], drawn);
             const Lab& d = drawnTexels[i];
+            const double oL = originalTexels[i].L, dL = d.L;
+            ++texels, o1 += oL, d1 += dL, oo += oL * oL, dd += dL * dL, od += oL * dL;
             const bool kitExactly = std::hypot(d.a, d.b) >= kLeakChromaShare * drawn.C
                 && AngleBetween(std::atan2(d.b, d.a), drawn.h) <= kLeakHue && std::fabs(d.L - drawn.L) <= kLeakLightness;
             if (kit.mask[i])
@@ -372,8 +380,11 @@ bool RecolourHdImage(const KitRecolour& kit, RgbaImage& image, std::string* why,
             else if (kitExactly && !kitColoured(originalTexels[i], original))
                 ++leaked;
         }
+        const double n = double(texels), oVar = oo / n - o1 / n * (o1 / n), dVar = dd / n - d1 / n * (d1 / n);
+        const bool sameFraming = oVar > 1e-9 && dVar > 1e-9
+            && (od / n - o1 / n * (d1 / n)) / std::sqrt(oVar * dVar) >= kMinFramingCorrelation;
         auto share = [&](std::size_t count) { return std::to_string(int(100.0f * float(count) / float(kitTexels))) + "%"; };
-        if (float(covered) < kMinKitCoverage * float(kitTexels))
+        if (float(covered) < (sameFraming ? kMinRedrawnKitCoverage : kMinKitCoverage) * float(kitTexels))
             misplaced = "its kit is not where the game's is (" + share(covered) + " of it)";
         else if (float(leaked) > kMaxKitLeak * float(kitTexels))
             misplaced = "it shows the kit's colour where the game's does not (" + share(leaked) + " more)";
