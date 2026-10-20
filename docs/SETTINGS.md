@@ -207,7 +207,10 @@ settings:
 The **Rumble** card switches rumble for Wii Remotes and gamepads
 (`controls.rumble`) and sets how strongly gamepads rumble
 (`controls.rumble_strength`, 0-100). A Wii Remote's motor is either on or
-off.
+off. A connected Wii Remote lights the light of its player, in the launcher
+too (all lights off when it does not play); with rumble on it rumbles briefly
+when it becomes a player: in the launcher, when the game starts, and when it
+connects again during a game.
 
 **Who plays** is set on the **Controls** page: each of players 1-4 is keyboard
 & mouse, a Wii Remote, a gamepad, or off (`controls.player1` to `player4`:

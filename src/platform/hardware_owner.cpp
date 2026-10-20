@@ -237,6 +237,7 @@ void InitializeNativeHardwareInput(SDL_Window* window, WpadSDLSettings settings,
     hid.speaker = settings.remote_speaker;
     hid.speaker_reg01 = settings.remote_speaker_reg01;
     hid.bluetooth_search = settings.bluetooth_search;
+    hid.bind_rumble = settings.motor_enabled;
     hid.fixed_players = players.fixed;
     hid.channels = players.remotes;
     const bool remotes_play = !players.fixed || !players.remotes.empty();

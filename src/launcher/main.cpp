@@ -360,6 +360,7 @@ public:
     ~Launcher()
     {
         wii_probe_.Close();
+        remote_lights_.reset(); // a remote that still rumbles stops first
         if (renderer_ui_ready_) ImGui_ImplSDLRenderer3_Shutdown();
         if (window_ui_ready_) ImGui_ImplSDL3_Shutdown();
         if (ImGui::GetCurrentContext()) ImGui::DestroyContext();
@@ -4352,6 +4353,29 @@ private:
         }
         platform::SortWiimoteRemotes(status.remotes);
         wii_status_ = std::move(status);
+        UpdateRemoteLights();
+    }
+
+    // Each connected Wii Remote shows on its lights which player it is if the
+    // game starts now, lights off when it does not play, as the game does; it
+    // rumbles briefly when it becomes a player (with rumble on).
+    void UpdateRemoteLights()
+    {
+        const auto lineup = StartLineup();
+        std::map<std::string, int> shown;
+        for (const auto& remote : wii_status_.remotes)
+        {
+            const auto it = std::find(lineup.playing.begin(), lineup.playing.end(), remote.id);
+            const int player = it == lineup.playing.end() ? -1 : int(it - lineup.playing.begin());
+            const auto before = remote_players_.find(remote.id);
+            if (before == remote_players_.end() || before->second != player)
+            {
+                if (!remote_lights_) remote_lights_ = std::make_unique<platform::WiimotePlayerLights>();
+                remote_lights_->Show(remote.path, player, player >= 0 && draft_.rumble);
+            }
+            shown[remote.id] = player;
+        }
+        remote_players_ = std::move(shown);
     }
 
     bool RemotePlayer() const
@@ -7093,6 +7117,9 @@ private:
     // Windows: Bluetooth Wii Remotes; scans continuously while Controls is open.
     platform::WiimoteBluetoothSearch bluetooth_search_;
     platform::WiimoteHidStatus wii_status_{};
+    // The player each connected remote shows on its lights (-1: none).
+    std::map<std::string, int> remote_players_;
+    std::unique_ptr<platform::WiimotePlayerLights> remote_lights_;
     std::set<std::string> wii_held_; // remotes kept through one missed status answer
     // Controls: keyboard & mouse keys view, and the keycap waiting for a key.
     bool keyboard_view_ = false;
