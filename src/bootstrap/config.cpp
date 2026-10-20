@@ -1,4 +1,5 @@
 #include "config.h"
+#include "display_shape.h"
 #include "graphics_card.h"
 #include "platform/path.h"
 #include "platform/wiimote_ids.h"
@@ -58,6 +59,7 @@ Values Encode(const Settings& s)
             {"game.language", s.language}, {"gameplay.super_team_side", s.super_team_side},
             {"display.width", std::to_string(s.width)}, {"display.height", std::to_string(s.height)},
             {"display.fullscreen", s.fullscreen ? "true" : "false"},
+            {"display.fullscreen_resolution", s.fullscreen_resolution},
             {"display.vsync", s.vsync ? "true" : "false"}, {"display.frame_rate", s.frame_rate},
             {"display.backend", s.backend}, {"display.gpu", s.gpu}, {"display.aspect", s.aspect},
             {"display.picture", s.picture}, {"display.tv_border", s.tv_border ? "true" : "false"},
@@ -173,6 +175,13 @@ Settings Decode(const Values& values)
     number("display.width", s.width, 1, 16384);
     number("display.height", s.height, 1, 16384);
     boolean("display.fullscreen", s.fullscreen);
+    if (const auto it = values.find("display.fullscreen_resolution"); it != values.end())
+    {
+        if (it->second != kDesktopResolution && ParseResolution(it->second).width == 0)
+            throw std::runtime_error("Invalid configuration: display.fullscreen_resolution must be desktop or "
+                                     "WIDTHxHEIGHT, such as 1920x1080");
+        s.fullscreen_resolution = it->second;
+    }
     boolean("display.vsync", s.vsync);
     if (const auto it = values.find("display.frame_rate"); it != values.end())
     {

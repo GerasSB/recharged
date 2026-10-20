@@ -40,6 +40,10 @@ struct Settings
     int width = 1280;
     int height = 720;
     bool fullscreen = false;
+    // display.fullscreen_resolution: the display mode fullscreen switches the
+    // display to while the game runs ("1280x720"), or desktop (the default):
+    // the display keeps its own resolution.
+    std::string fullscreen_resolution = "desktop";
     bool vsync = true;
     // display.frame_rate: original, display, unlimited or 30-1000 frames per
     // second (bootstrap/frame_rate.h). Above the original the host paces and

@@ -117,31 +117,36 @@ their 16:9 picture. **F** switches the stretched picture or the wider view on
 and off while playing, for that run. The Display page
 tells what each choice does on your display.
 
-**3D resolution** (Display → 3D resolution, `[display] resolution`). **Window**
-(the default) draws the game at the size of its picture in the window, the
-sharpest. **Native** is the Wii's 640 x 448 and **2x-4x** its multiples, for
-slower graphics cards. **Page Up** and **Page Down** change it while playing, for
-that run.
+**3D resolution** (Display → 3D resolution, `[display] resolution`). **Full**
+(`window`, the default) draws the game at the resolution its picture has on the
+screen, the sharpest. **Native** is the Wii's 640 x 448 and **2x-4x** its
+multiples, for slower graphics cards. **Page Up** and **Page Down** change it
+while playing, for that run.
 
 **Picture style** (Display → Picture style, `[display] picture`). **Modern**
 draws the game's picture crisp, straight into the window; when the 3D
-resolution is not Window, **Upscaling** scales it to the window smoothly
+resolution is not Full, **Upscaling** scales it to the screen smoothly
 (`clean`) or with square pixels (`sharp`, the default). **Original TV**
 (`soft`) adds the Wii's flicker filter and a TV's softness. **TV border**
 (`tv_border = true`) also shows the empty border a Wii sends around its
 picture, which a TV hides.
 
-**Window size** (Display → Window size, `[display] width` and `height`) lists
-the sizes your graphics card offers for the display, of the picture's shape
-while the window keeps it. A size larger than a window can take there opens as
-the largest window that fits. The game window also opens at the size and place
-you leave it at (`remember_window = false` turns that off; the place is
-`position`). Wayland desktops place windows themselves.
+**Resolution** (Display → Resolution) lists the sizes your graphics card offers
+for the display. In a window it is the window's size (`[display] width` and
+`height`), of the picture's shape while the window keeps it; a size larger
+than a window can take there opens as the largest window that fits. The game
+window also opens at the size and place you leave it at
+(`remember_window = false` turns that off; the place is `position`). Wayland
+desktops place windows themselves. In fullscreen it is the screen's resolution
+(`fullscreen_resolution`): **Desktop** (`desktop`, the default) keeps the
+display's own; another (`1280x720`) switches the display to it while the game
+runs. A resolution of another shape than the display may be stretched by the
+display or shown with bars.
 
 **Fullscreen** (Display → Mode, `[display] fullscreen`) covers the whole
-display at its own resolution. **Alt+Enter** (Option+Return on a Mac, the
-`fullscreen` hotkey) switches between fullscreen and a window while playing,
-for that run only; that Enter never presses A.
+display, at the resolution chosen for it. **Alt+Enter** (Option+Return on a
+Mac, the `fullscreen` hotkey) switches between fullscreen and a window while
+playing, for that run only; that Enter never presses A.
 
 **Antialiasing** (Display → Antialiasing, `[display] antialiasing`) smooths
 jagged edges. **4x MSAA** (`4x`, the default) smooths the edges of 3D shapes.

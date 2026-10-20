@@ -410,6 +410,10 @@ int mscharged::RunOriginalGame(int argc, char** argv,
         // remotes, including DolphinBar mode 4 and its IR sensor bar; SDL's
         // own Wii HID driver must not open the same devices.
         SDL_SetHintWithPriority(SDL_HINT_JOYSTICK_HIDAPI_WII,"0",SDL_HINT_DEFAULT);
+        // display.fullscreen_resolution on Wayland, where the compositor shows
+        // other modes scaled: a mode of another shape than the display keeps
+        // its shape with bars, as the picture does (SDL's default stretches it).
+        SDL_SetHintWithPriority(SDL_HINT_VIDEO_WAYLAND_MODE_SCALING,"aspect",SDL_HINT_DEFAULT);
         // Startup milestones and display settings for logs/recharged.log.
         const auto& shown=launch.settings;
         mscharged::platform::SessionLogLine("Display settings: "+std::string(shown.fullscreen?"fullscreen":"windowed")
@@ -450,12 +454,30 @@ int mscharged::RunOriginalGame(int argc, char** argv,
             SDL_free(displays);
         }
         {
-            // display.aspect: the shape the picture fills is the display's in
+            const SDL_DisplayID display=SDL_GetDisplayForWindow(host.window);
+            // display.fullscreen_resolution: fullscreen (at start, and with the
+            // fullscreen hotkey) switches the display to that mode while the
+            // game runs; desktop keeps the display's own resolution.
+            SDL_DisplayMode fullscreenMode{};
+            if(const auto wanted=mscharged::ParseResolution(launch.settings.fullscreen_resolution); wanted.width) {
+                const std::string name=mscharged::FormatResolution(wanted.width,wanted.height);
+                if(display && SDL_GetClosestFullscreenDisplayMode(display,wanted.width,wanted.height,0.0f,false,&fullscreenMode)
+                   && fullscreenMode.w==wanted.width && fullscreenMode.h==wanted.height
+                   && SDL_SetWindowFullscreenMode(host.window,&fullscreenMode))
+                    mscharged::platform::SessionLogLine("Startup: fullscreen resolution "+name);
+                else {
+                    fullscreenMode={};
+                    mscharged::platform::SessionLogLine("Startup: fullscreen resolution "+name
+                        +" is not one of this display's; fullscreen keeps the display's own");
+                }
+            }
+            // display.aspect: the shape the picture fills is the screen's in
             // fullscreen, the window's otherwise.
             int shapeWidth=int(windowWidth), shapeHeight=int(windowHeight);
             SDL_Rect bounds{};
-            const SDL_DisplayID display=SDL_GetDisplayForWindow(host.window);
-            if(launch.settings.fullscreen && display && SDL_GetDisplayBounds(display,&bounds)) {
+            if(launch.settings.fullscreen && fullscreenMode.w) {
+                shapeWidth=fullscreenMode.w; shapeHeight=fullscreenMode.h;
+            } else if(launch.settings.fullscreen && display && SDL_GetDisplayBounds(display,&bounds)) {
                 shapeWidth=bounds.w; shapeHeight=bounds.h;
             }
             widescreen=mscharged::WidescreenLayout(aspect,shapeWidth,shapeHeight);

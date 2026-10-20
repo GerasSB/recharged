@@ -39,6 +39,8 @@ int main()
         settings.width = 1920;
         settings.height = 1080;
         settings.fullscreen = true;
+        Require(settings.fullscreen_resolution == "desktop", "Fullscreen keeps the desktop resolution by default");
+        settings.fullscreen_resolution = "1280x720";
         settings.master_volume = 65;
         settings.sound_volumes = {20, 80, 35, 50, 70, 0, 60};
         settings.players = {"remote2", "keyboard", "remote1", "off"};
@@ -50,7 +52,8 @@ int main()
         SaveConfig(file, settings);
         const auto reloaded = LoadConfig(path);
         Require(reloaded.settings.width == 1920 && reloaded.settings.height == 1080
-            && reloaded.settings.fullscreen && reloaded.settings.master_volume == 65
+            && reloaded.settings.fullscreen && reloaded.settings.fullscreen_resolution == "1280x720"
+            && reloaded.settings.master_volume == 65
             && reloaded.settings.sound_volumes == settings.sound_volumes
             && reloaded.settings.players == settings.players
             && !reloaded.settings.rumble && reloaded.settings.rumble_strength == 40
@@ -589,7 +592,10 @@ int main()
             const auto named = LoadConfig(path).settings;
             Require(named.hotkeys[HotkeyStretch] == "F" && named.hotkeys[HotkeyResolutionUp] == kNoHotkey,
                     "A hotkey the INI names, or none, did not stay");
-            for (const char* invalid : {"[hotkeys]\nscreenshot = P | O\n", "[hotkeys]\nhud =\n",
+            for (const char* invalid : {"[display]\nfullscreen_resolution = big\n",
+                                        "[display]\nfullscreen_resolution = 1280 x 720\n",
+                                        "[display]\nfullscreen_resolution = 100x100\n",
+                                        "[hotkeys]\nscreenshot = P | O\n", "[hotkeys]\nhud =\n",
                                         "[hotkeys]\nstretch = F | G\n", "[hotkeys]\nresolution_down =\n",
                                         "[hotkeys]\nshow_hud = maybe\n", "[gameplay]\nno_hud = 2\n"})
             {

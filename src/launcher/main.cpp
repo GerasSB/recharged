@@ -3816,9 +3816,7 @@ private:
         BeginCard("##window", "Screen", nullptr, Icon::Display);
         if (BeginRows("##window_rows"))
         {
-            const std::string native = FullscreenResolution();
-            const std::string mode_note = "Fullscreen covers the whole display at its own resolution, "
-                + (native.empty() ? std::string() : native + " here, ") + "without a mode change."
+            const std::string mode_note = std::string("Fullscreen covers the whole display, at the resolution below.")
                 + (hotkeys[HotkeyFullscreen].key ? " " + key(HotkeyFullscreen) + " switches while playing."
                                                  : std::string());
             Row("Mode", mode_note.c_str());
@@ -3826,13 +3824,20 @@ private:
             if (Segmented("##mode", &mode, {"Windowed", "Fullscreen"}, ImGui::GetContentRegionAvail().x))
             { draft_.fullscreen = mode == 1; dirty_ = true; }
 
+            // One resolution row: the window's size, or the screen's in fullscreen.
             if (!draft_.fullscreen)
             {
-                Row("Window size", draft_.remember_window
-                    ? "The sizes your graphics card offers for this display. The game also keeps the size and "
-                      "place you leave its window at."
-                    : "The sizes your graphics card offers for this display.");
+                Row("Resolution", draft_.remember_window
+                    ? "The window's size, from those your graphics card offers for this display. The game also "
+                      "keeps the size and place you leave its window at."
+                    : "The window's size, from those your graphics card offers for this display.");
                 WindowSizeControl();
+            }
+            else
+            {
+                Row("Resolution", "The screen's resolution. Desktop keeps the display's own; another switches the "
+                    "display to it while the game runs.");
+                FullscreenResolutionControl();
             }
 
             if (displays_.size() > 1 || draft_.monitor > 0)
@@ -3864,8 +3869,8 @@ private:
                 if (Toggle("##wider_view", &draft_.wider_view)) dirty_ = true;
             }
 
-            std::string resolution_note = "Window draws the game at the size of its picture in the window, the "
-                "sharpest. Native is the Wii's 640 x 448; 2x-4x are its multiples, for slower graphics cards.";
+            std::string resolution_note = "Full draws the game at the resolution above, the sharpest. Native is the "
+                "Wii's 640 x 448; 2x-4x are its multiples, for slower graphics cards.";
             if (hotkeys[HotkeyResolutionUp].key || hotkeys[HotkeyResolutionDown].key)
                 resolution_note += " " + key(hotkeys[HotkeyResolutionUp].key ? HotkeyResolutionUp : HotkeyResolutionDown)
                     + (hotkeys[HotkeyResolutionUp].key && hotkeys[HotkeyResolutionDown].key
@@ -3875,7 +3880,7 @@ private:
             const char* resolutions[] = {"window", "native", "2x", "3x", "4x"};
             int resolution = 0;
             for (int i = 0; i < 5; ++i) if (draft_.resolution == resolutions[i]) resolution = i;
-            if (Segmented("##resolution", &resolution, {"Window", "Native", "2x", "3x", "4x"},
+            if (Segmented("##resolution", &resolution, {"Full", "Native", "2x", "3x", "4x"},
                           ImGui::GetContentRegionAvail().x))
             { draft_.resolution = resolutions[resolution]; dirty_ = true; }
             ResolutionNote();
@@ -3902,7 +3907,7 @@ private:
             else if (draft_.resolution != "window")
             {
                 BeginSubRows();
-                Row("Upscaling", "How a 3D resolution other than Window reaches the window's size. Sharp keeps "
+                Row("Upscaling", "How a 3D resolution other than Full reaches the resolution above. Sharp keeps "
                     "pixels square.");
                 int sharp = draft_.picture == "clean" ? 0 : 1;
                 if (Segmented("##upscaling", &sharp, {"Smooth", "Sharp"}, ImGui::GetContentRegionAvail().x))
@@ -3951,6 +3956,7 @@ private:
     ShapeSize PictureScreen() const
     {
         if (!draft_.fullscreen) return {draft_.width, draft_.height};
+        if (const auto chosen = ParseResolution(draft_.fullscreen_resolution); chosen.width) return chosen;
         const SDL_DisplayMode* mode = StartDisplayMode();
         if (!mode || mode->w <= 0 || mode->h <= 0) return {};
         const float density = mode->pixel_density > 0 ? mode->pixel_density : 1.0f;
@@ -4019,7 +4025,7 @@ private:
         const auto picture = PictureSize(screen.width, screen.height, wide ? 16 : 4, wide ? 9 : 3, PictureFills());
         const int width = RenderWidth(draft_.resolution, picture.width);
         const int height = RenderHeight(draft_.resolution, picture.height);
-        const std::string where = draft_.fullscreen ? "this display" : "this window";
+        const std::string where = draft_.fullscreen ? "this screen" : "this window";
         std::string note = std::string(RenderResolutionLabel(draft_.resolution)) + ": " + std::to_string(width) + " x "
             + std::to_string(height);
         if (RenderScale(draft_.resolution) == 0.0f) note += " on " + where + ".";
@@ -4328,17 +4334,7 @@ private:
         std::sort(sizes.begin(), sizes.end(), [](const auto& a, const auto& b) {
             return a[0] != b[0] ? a[0] > b[0] : a[1] > b[1];
         });
-        auto label = [&](int w, int h) {
-            std::string text = std::to_string(w) + " x " + std::to_string(h);
-            if (!any_shape) return text;
-            static const struct { double ratio; const char* name; } shapes[] = {{16.0 / 9, "16:9"},
-                {16.0 / 10, "16:10"}, {4.0 / 3, "4:3"}, {5.0 / 4, "5:4"}, {3.0 / 2, "3:2"}, {32.0 / 9, "32:9"}};
-            const double ratio = double(w) / h;
-            for (const auto& shape : shapes)
-                if (std::abs(ratio / shape.ratio - 1.0) < 0.01) return text + "   (" + shape.name + ")";
-            // Ultrawide displays (2560 x 1080, 3440 x 1440, 3840 x 1600) are all sold as 21:9.
-            return ratio > 2.3 && ratio < 2.42 ? text + "   (21:9)" : text;
-        };
+        auto label = [&](int w, int h) { return SizeLabel(w, h, any_shape); };
         const std::array<int, 2> current{draft_.width, draft_.height};
         const bool listed = std::find(sizes.begin(), sizes.end(), current) != sizes.end();
         const std::string preview = label(draft_.width, draft_.height) + (listed ? "" : "  (current)");
@@ -4371,14 +4367,72 @@ private:
         }
     }
 
-    // Pixel size of the display the game opens on, as fullscreen uses it
-    // (the default display when none is chosen); empty if unknown.
-    std::string FullscreenResolution() const
+    // "1280 x 720", with its shape ("   (16:9)") when `with_shape`.
+    static std::string SizeLabel(int w, int h, bool with_shape)
     {
-        const SDL_DisplayMode* mode = StartDisplayMode();
-        if (!mode || mode->w <= 0 || mode->h <= 0) return {};
-        const float density = mode->pixel_density > 0 ? mode->pixel_density : 1.0f;
-        return std::to_string(std::lround(mode->w * density)) + " x " + std::to_string(std::lround(mode->h * density));
+        std::string text = std::to_string(w) + " x " + std::to_string(h);
+        if (!with_shape || w <= 0 || h <= 0) return text;
+        static const struct { double ratio; const char* name; } shapes[] = {{16.0 / 9, "16:9"},
+            {16.0 / 10, "16:10"}, {4.0 / 3, "4:3"}, {5.0 / 4, "5:4"}, {3.0 / 2, "3:2"}, {32.0 / 9, "32:9"}};
+        const double ratio = double(w) / h;
+        for (const auto& shape : shapes)
+            if (std::abs(ratio / shape.ratio - 1.0) < 0.01) return text + "   (" + shape.name + ")";
+        // Ultrawide displays (2560 x 1080, 3440 x 1440, 3840 x 1600) are all sold as 21:9.
+        return ratio > 2.3 && ratio < 2.42 ? text + "   (21:9)" : text;
+    }
+
+    // display.fullscreen_resolution: Desktop (the display's own resolution, no
+    // mode change), or one of the display's other modes, largest first; the
+    // picture keeps or fills it as the aspect ratio says.
+    void FullscreenResolutionControl()
+    {
+        SDL_DisplayID display = SDL_GetPrimaryDisplay();
+        if (draft_.monitor > 0 && draft_.monitor <= int(display_ids_.size())) display = display_ids_[size_t(draft_.monitor - 1)];
+        const SDL_DisplayMode* desktop = display ? SDL_GetDesktopDisplayMode(display) : nullptr;
+        std::vector<std::array<int, 2>> sizes;
+        int count = 0;
+        if (SDL_DisplayMode** modes = display ? SDL_GetFullscreenDisplayModes(display, &count) : nullptr)
+        {
+            for (int i = 0; i < count; ++i)
+            {
+                const std::array<int, 2> size{modes[i]->w, modes[i]->h};
+                if (size[0] > 0 && size[1] > 0 && !(desktop && size[0] == desktop->w && size[1] == desktop->h)
+                    && std::find(sizes.begin(), sizes.end(), size) == sizes.end())
+                    sizes.push_back(size);
+            }
+            SDL_free(modes);
+        }
+        std::sort(sizes.begin(), sizes.end(), [](const auto& a, const auto& b) {
+            return a[0] != b[0] ? a[0] > b[0] : a[1] > b[1];
+        });
+        const std::string desktop_label = "Desktop" + (desktop ? "   (" + SizeLabel(desktop->w, desktop->h, false) + ")"
+                                                               : std::string());
+        const auto chosen = ParseResolution(draft_.fullscreen_resolution);
+        const std::array<int, 2> current{chosen.width, chosen.height};
+        const bool listed = chosen.width == 0 || std::find(sizes.begin(), sizes.end(), current) != sizes.end();
+        const std::string preview = chosen.width == 0 ? desktop_label
+            : SizeLabel(chosen.width, chosen.height, true) + (listed ? "" : "  (not on this display)");
+        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+        if (ImGui::BeginCombo("##fullscreen_resolution", preview.c_str(), ImGuiComboFlags_HeightLarge))
+        {
+            if (ImGui::Selectable(desktop_label.c_str(), chosen.width == 0))
+            { draft_.fullscreen_resolution = std::string(kDesktopResolution); dirty_ = true; }
+            if (!listed) ImGui::Selectable(preview.c_str(), true);
+            for (const auto& size : sizes)
+                if (ImGui::Selectable(SizeLabel(size[0], size[1], true).c_str(), size == current))
+                { draft_.fullscreen_resolution = FormatResolution(size[0], size[1]); dirty_ = true; }
+            ImGui::EndCombo();
+        }
+        if (!listed)
+            TextWrappedColored(CurrentFonts().caption, color::warning,
+                               "This display has no such mode, so fullscreen keeps the display's own resolution.");
+        else if (chosen.width && desktop && desktop->w > 0 && desktop->h > 0
+                 && std::abs(double(chosen.width) * desktop->h / (double(chosen.height) * desktop->w) - 1.0) > 0.01)
+        {
+            const std::string note = "Another shape than this " + SizeLabel(desktop->w, desktop->h, false)
+                + " display: some displays stretch it; others show bars.";
+            TextWrappedColored(CurrentFonts().caption, color::muted, note.c_str());
+        }
     }
 
     void DisplayChoice()
