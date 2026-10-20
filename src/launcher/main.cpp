@@ -2512,9 +2512,7 @@ private:
         if (play.segment_hovered && !menu_open) ImGui::SetTooltip("Play options");
         if (play.segment) ImGui::OpenPopup("play_options_menu");
         DrawPlayOptionsMenu({origin.x + pad + Dp(230), button_y});
-        const float status_x = origin.x + pad + Dp(230 + 58 + 24);
-        ImGui::SetCursorScreenPos({status_x, button_y + Dp(8)});
-        DrawPlayStatus(blocker);
+        DrawPlayStatus(blocker, {origin.x + pad + Dp(230 + 58 + 24), button_y + Dp(31)});
 
         // Summary cards.
         const float cards_y = button_y + Dp(62) + Dp(30);
@@ -2559,13 +2557,66 @@ private:
         ImGui::PopStyleVar(3);
     }
 
-    void DrawPlayStatus(const std::string& blocker)
+    // Something to know before playing, under the Play status: a small glass
+    // pill that opens the page where it is changed.
+    struct StatusNote
+    {
+        Icon icon;
+        ImVec4 tint;
+        bool alert;            // the text takes the tint too
+        std::string text;      // what is so
+        std::string secondary; // what follows from it; left out when the pill would be too wide
+        std::string tooltip;
+        int page;
+    };
+
+    // At most `max_width` wide; true when clicked.
+    bool StatusPill(const char* id, const StatusNote& note, float max_width)
     {
         const auto& fonts = CurrentFonts();
+        const float height = Dp(28), left = Dp(30), right = Dp(26);
+        const float room = std::max(Dp(40), max_width - left - right);
+        const std::string secondary = note.secondary.empty() ? std::string() : "  \xC2\xB7  " + note.secondary;
+        const bool both = !secondary.empty() && TextSize(fonts.caption, (note.text + secondary).c_str()).x <= room;
+        const std::string text = Elide(fonts.caption, note.text, room);
+        const ImVec2 label = TextSize(fonts.caption, text.c_str());
+        const float extra = both ? TextSize(fonts.caption, secondary.c_str()).x : 0.0f;
         const ImVec2 pos = ImGui::GetCursorScreenPos();
+        const ImVec2 size{left + label.x + extra + right, height};
+        const bool pressed = ImGui::InvisibleButton(id, size);
+        const bool hovered = ImGui::IsItemHovered();
+        const float hover = Animate(ImGui::GetItemID(), hovered, 12.0f);
+        auto* draw = ImGui::GetWindowDrawList();
+        const ImVec2 max{pos.x + size.x, pos.y + size.y};
+        const float rounding = height * 0.5f, middle = pos.y + height * 0.5f;
+        // Glass over the artwork, as the update status, washed with the note's colour.
+        draw->AddRectFilled(pos, max,
+                            Col(Mix(Mix(color::window, color::card_hover, 0.45f + 0.55f * hover), note.tint, 0.07f), 0.9f),
+                            rounding);
+        draw->AddRect(pos, max, Col(Mix(color::border, note.tint, 0.30f + 0.35f * hover), 0.95f), rounding, 0, Dp(1));
+        DrawIcon(draw, note.icon, {pos.x + Dp(16), middle}, Dp(14), Col(note.tint));
+        const ImVec4 ink = note.alert ? Mix(color::text, note.tint, 0.55f - 0.25f * hover)
+                                      : Mix(color::muted, color::text, 0.7f + 0.3f * hover);
+        DrawLabel(draw, fonts.caption, {pos.x + left, middle - label.y * 0.5f}, Col(ink), text.c_str());
+        if (both)
+            DrawLabel(draw, fonts.caption, {pos.x + left + label.x, middle - label.y * 0.5f}, Col(color::muted),
+                      secondary.c_str());
+        DrawChevron(draw, {max.x - Dp(14) + Dp(2) * hover, middle}, Dp(10), Col(Mix(color::dim, color::text, hover)));
+        if (hovered) ImGui::SetTooltip("%s", note.tooltip.c_str());
+        return pressed;
+    }
+
+    // Right of the Play button, centred on it (`anchor`: the left edge at the
+    // button's middle): whether the game can start and, under that, what to
+    // know first, each opening its page: a controller that is not connected
+    // and who plays instead, the gameplay tweaks that are on.
+    void DrawPlayStatus(const std::string& blocker, ImVec2 anchor)
+    {
+        const auto& fonts = CurrentFonts();
         auto* draw = ImGui::GetWindowDrawList();
         ImVec4 tint = color::accent;
         Icon icon = Icon::Check;
+        bool spinner = false;
         std::string headline = "Ready to play";
         std::string detail;
         const bool missing = !PinnedMissing().empty() && !pending_ && !searching_;
@@ -2573,9 +2624,9 @@ private:
         {
             tint = color::info;
             icon = Icon::None;
+            spinner = true;
             headline = searching_ ? "Looking for your game image" : "Checking your game image";
             detail = searching_ ? "In the game folder and the usual places..." : "Reading the game partition...";
-            Spinner({pos.x + Dp(11), pos.y + Dp(12)}, Dp(8), Col(tint));
         }
         else if (missing)
         {
@@ -2599,41 +2650,67 @@ private:
         else if (check_.info)
             detail = ReleaseTitle(*check_.info) + "  \xC2\xB7  " + RegionRevision(*check_.info) + "  \xC2\xB7  "
                 + check_.info->game_id;
-        // A player's controller that is not connected: say what the game does
-        // instead (the disc line moves out of the way; the disc card has it).
-        std::string controllers;
-        if (!pending_ && blocker.empty())
-            controllers = MissingControllersNote(draft_.players, StartLineup());
-        if (!controllers.empty())
+        std::vector<StatusNote> notes;
+        if (blocker.empty())
         {
-            tint = color::warning;
-            icon = Icon::Warning;
-            detail.clear();
+            // A player's controller that is not connected, and who plays instead.
+            const auto lineup = StartLineup();
+            const auto brief = MissingControllersBrief(draft_.players, lineup);
+            if (!brief.missing.empty())
+            {
+                const bool several = std::count(lineup.missing.begin(), lineup.missing.end(), true) > 1;
+                notes.push_back({Icon::Gamepad, color::warning, true, brief.missing, brief.instead,
+                                 MissingControllersNote(draft_.players, lineup) + "\nConnect "
+                                     + (several ? "them" : "it") + " or choose who plays on the Controls page.",
+                                 PageControls});
+            }
+            // Gameplay tweaks change the original game: never silently.
+            std::string names;
+            int count = 0;
+            for (std::size_t n = 0; n < kGameTweaks.size(); ++n)
+                if (draft_.tweaks[n])
+                {
+                    names += std::string("\n\xE2\x80\xA2 ") + kGameTweaks[n].name;
+                    ++count;
+                }
+            if (count)
+                notes.push_back({Icon::Target, color::accent, false,
+                                 std::to_string(count) + (count == 1 ? " gameplay tweak on" : " gameplay tweaks on"), "",
+                                 "Gameplay tweaks on:" + names, PageGameplay});
         }
-        // Gameplay tweaks change the original game: never silently.
-        if (!pending_ && blocker.empty() && draft_.GameTweakMask() != 0)
-        {
-            tint = color::warning;
-            headline = "Ready to play, with tweaks";
-            detail = "Tweaks: " + DescribeGameTweaks(draft_.GameTweakMask());
-        }
-        if (icon != Icon::None) DrawIcon(draw, icon, {pos.x + Dp(11), pos.y + Dp(12)}, Dp(20), Col(tint));
-        DrawLabel(draw, fonts.label, {pos.x + Dp(30), pos.y + Dp(1)}, Col(color::text), headline.c_str());
+        // The notes take the disc line's place (the Game image card has it).
+        if (!notes.empty()) detail.clear();
+
         const float limit = ImGui::GetWindowPos().x + ImGui::GetWindowSize().x - Dp(28);
-        const float wrap = std::max(Dp(120), limit - pos.x - Dp(30));
+        const float text_x = anchor.x + Dp(30);
+        const float wrap = std::max(Dp(120), limit - text_x);
+        const float caption = FontSize(fonts.caption);
+        const float detail_height =
+            detail.empty() ? 0.0f : fonts.caption->CalcTextSizeA(caption, FLT_MAX, wrap, detail.c_str()).y;
+        const float pill = Dp(28), pill_gap = Dp(6);
+        float height = Dp(26) + detail_height;
+        if (!notes.empty()) height += Dp(4) + float(notes.size()) * (pill + pill_gap) - pill_gap;
+        if (missing) height += Dp(4) + Dp(32);
+        const ImVec2 pos{anchor.x, std::floor(anchor.y - height * 0.5f)};
+
+        if (spinner) Spinner({pos.x + Dp(11), pos.y + Dp(12)}, Dp(8), Col(tint));
+        else if (icon != Icon::None) DrawIcon(draw, icon, {pos.x + Dp(11), pos.y + Dp(12)}, Dp(20), Col(tint));
+        DrawLabel(draw, fonts.label, {text_x, pos.y + Dp(1)}, Col(color::text), headline.c_str());
         float y = pos.y + Dp(26);
-        if (!controllers.empty())
-        {
-            draw->AddText(fonts.caption, FontSize(fonts.caption), {pos.x + Dp(30), y}, Col(color::warning),
-                          controllers.c_str(), nullptr, wrap);
-            y += fonts.caption->CalcTextSizeA(FontSize(fonts.caption), FLT_MAX, wrap, controllers.c_str()).y + Dp(2);
-        }
         if (!detail.empty())
         {
-            draw->AddText(fonts.caption, FontSize(fonts.caption), {pos.x + Dp(30), y}, Col(color::muted),
-                          detail.c_str(), nullptr, wrap);
-            y += fonts.caption->CalcTextSizeA(FontSize(fonts.caption), FLT_MAX, wrap, detail.c_str()).y;
+            draw->AddText(fonts.caption, caption, {text_x, y}, Col(color::muted), detail.c_str(), nullptr, wrap);
+            y += detail_height;
         }
+        ImGui::PushID("play_status");
+        for (std::size_t i = 0; i < notes.size(); ++i)
+        {
+            ImGui::SetCursorScreenPos({pos.x + Dp(22), y + Dp(4) + float(i) * (pill + pill_gap)});
+            ImGui::PushID(int(i));
+            if (StatusPill("##note", notes[i], limit - pos.x - Dp(22))) page_ = notes[i].page;
+            ImGui::PopID();
+        }
+        ImGui::PopID();
         if (missing)
         {
             ImGui::SetCursorScreenPos({pos.x + Dp(22), y + Dp(4)});
