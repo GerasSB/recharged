@@ -12,6 +12,7 @@
 #include "bootstrap/graphics_backend.h"
 #include "launcher/disc_search.h"
 #include "launcher/image_library.h"
+#include "launcher/issue_reporters.h"
 #include "launcher/player_lineup.h"
 #include "launcher/release_banner.h"
 #include "launcher/release_notes.h"
@@ -6505,99 +6506,464 @@ private:
 
     void AboutPage()
     {
-        PageHeader("About", "Recharged - native PC port of Mario Strikers Charged.");
-        BeginCard("##build", "This build", nullptr, Icon::Info);
-        if (BeginRows("##build_rows"))
+        AboutBanner();
+        AboutThanks();
+        AboutCommunity();
+        AboutFoundations();
+        AboutBuild();
+    }
+
+    // The page's banner: the name, what it is and which version this is.
+    void AboutBanner()
+    {
+        const auto& fonts = CurrentFonts();
+        auto* draw = ImGui::GetWindowDrawList();
+        const BuildIdentity identity = updates_ ? updates_->Build() : CurrentBuild();
+        const ImVec2 pos = ImGui::GetCursorScreenPos();
+        const float width = ImGui::GetContentRegionAvail().x;
+        const float pad = Dp(30);
+        const float wordmark = Dp(50); // the hero font, drawn smaller
+        const float height = pad + FontSize(fonts.caption) + Dp(6) + wordmark + Dp(6) + FontSize(fonts.heading) + Dp(20)
+            + Dp(26) + pad;
+        const ImVec2 max{pos.x + width, pos.y + height};
+        const float rounding = Dp(16);
+
+        // A dark green wash and, on the right, a lightning bolt in a soft glow.
+        FillGradient(draw, pos, max, Col(Mix(color::card, color::accent_dark, 0.9f)), Col(color::card), rounding, true);
+        draw->PushClipRect(pos, max, true);
+        const ImVec2 glow{max.x - std::min(Dp(140), width * 0.2f), pos.y + height * 0.5f};
+        for (int i = 24; i >= 1; --i)
+            draw->AddCircleFilled(glow, height * 0.035f * float(i), Col(color::accent, 0.007f), 64);
+        if (width >= Dp(520))
         {
-            auto value = [&](const char* label, const std::string& text) {
-                Row(label);
-                ImGui::SetCursorPosY(ImGui::GetCursorPosY() + Dp(2));
-                TextWrappedColored(CurrentFonts().body, color::muted, text.c_str());
-            };
-            value("Version", build::version);
-            const BuildIdentity identity = updates_ ? updates_->Build() : CurrentBuild();
-            value("Origin", DescribeOrigin(identity));
-            if (identity.built) value("Built", LocalTime(identity.built));
-            else if (identity.commit_time) value("Commit time", LocalTime(identity.commit_time));
-            value("Commit", identity.commit.substr(0, 12));
-            Row(identity.origin == BuildOrigin::Test ? "Pull request" : "Release notes");
-            const char* notes = identity.origin == BuildOrigin::Test ? "Open the pull request"
-                              : identity.origin == BuildOrigin::Release ? "Open the release notes"
-                                                                       : "All releases";
-            if (SecondaryButton("build_notes", notes, {ImGui::GetContentRegionAvail().x, Dp(40)}, true, Icon::GitHub))
-                SDL_OpenURL(BuildNotesUrl(identity).c_str());
-            value("Configuration", MSCHARGED_BUILD_CONFIG);
-            const int sdl = SDL_GetVersion();
-            value("Platform", std::string(SDL_GetPlatform()) + "  -  SDL " + std::to_string(SDL_VERSIONNUM_MAJOR(sdl)) + "."
-                + std::to_string(SDL_VERSIONNUM_MINOR(sdl)) + "." + std::to_string(SDL_VERSIONNUM_MICRO(sdl)));
-            const char* renderer = SDL_GetRendererName(renderer_);
-            char scale[96];
-            std::snprintf(scale, sizeof scale, "%s  -  interface x%.2f  -  pixel density x%.2f",
-                          renderer ? renderer : "unknown renderer", metrics_.ui, metrics_.density);
-            value("Launcher display", scale);
-#ifdef MSCHARGED_HAS_ORIGINAL_FRONTEND
-            value("Game runtime", "Included: original game code compiled for this system.");
-#else
-            value("Game runtime", "Not included in this launcher-only build.");
-#endif
-            EndRows();
+            const float s = height * 0.72f;
+            auto at = [&](float x, float y) { return ImVec2{glow.x + x * s, glow.y + y * s}; };
+            const ImVec2 bolt[] = {at(-0.05f, -0.50f), at(0.25f, -0.50f), at(0.06f, -0.10f), at(0.30f, -0.10f),
+                                   at(-0.18f, 0.50f),  at(-0.02f, 0.04f), at(-0.27f, 0.04f)};
+            draw->AddConcavePolyFilled(bolt, 7, Col(color::accent, 0.08f));
+            draw->AddPolyline(bolt, 7, Col(color::accent_hi, 0.30f), ImDrawFlags_Closed, Dp(1.5f));
         }
-        EndCard();
+        draw->PopClipRect();
+        draw->AddRect(pos, max, Col(color::border), rounding, 0, Dp(1));
+        // A highlight along the top edge, fading out to both sides.
+        const float middle = pos.x + width * 0.5f;
+        const ImU32 clear = Col(color::accent_hi, 0.0f), bright = Col(color::accent_hi, 0.45f);
+        draw->AddRectFilledMultiColor({pos.x + width * 0.12f, pos.y}, {middle, pos.y + Dp(1)}, clear, bright, bright, clear);
+        draw->AddRectFilledMultiColor({middle, pos.y}, {max.x - width * 0.12f, pos.y + Dp(1)}, bright, clear, clear, bright);
 
-        BeginCard("##project", "Mario Strikers Charged Decompilation Project", nullptr, Icon::Disc);
-        TextWrappedColored(CurrentFonts().body, color::text,
-            "Recharged compiles the reconstructed C/C++ source of Mario Strikers Charged to native code. "
-            "The original game logic runs unchanged; Recharged provides the platform underneath it: graphics, audio, "
-            "input, files and timing.");
-        ImGui::Dummy({0, Dp(2)});
-        TextWrappedColored(CurrentFonts().caption, color::muted,
-            "You need your own copy of the game. Unofficial project, not affiliated with Nintendo or Next Level Games.");
-        ImGui::Dummy({0, Dp(4)});
-        if (SecondaryButton("decomp_link", "Decompilation project", Dp(230, 40), true, Icon::GitHub))
-            SDL_OpenURL("https://github.com/yannicksuter/mscharged-decomp");
-        EndCard();
+        float y = pos.y + pad;
+        const float x = pos.x + pad;
+        DrawTracked(draw, fonts.caption, {x, y}, Col(color::accent, 0.95f), "ABOUT", Dp(2.6f));
+        y += FontSize(fonts.caption) + Dp(6);
+        // "RECHARGED" as on the Play page: a soft glow and a lime-to-green gradient.
+        for (int i = 3; i >= 1; --i)
+            draw->AddText(fonts.hero, wordmark, {x, y + Dp(float(i))}, Col(color::accent, 0.07f * float(i)), "RECHARGED");
+        const int start = draw->VtxBuffer.Size;
+        draw->AddText(fonts.hero, wordmark, {x, y}, IM_COL32_WHITE, "RECHARGED");
+        ImGui::ShadeVertsLinearColorGradientKeepAlpha(draw, start, draw->VtxBuffer.Size, {x, y}, {x, y + wordmark},
+                                                     Col(color::accent_hi), Col(color::accent));
+        y += wordmark + Dp(6);
+        const char* game = "Mario Strikers Charged";
+        DrawLabel(draw, fonts.heading, {x, y}, Col(color::text), game);
+        DrawLabel(draw, fonts.heading, {x + TextSize(fonts.heading, game).x, y}, Col(color::text, 0.72f),
+                  ", natively on your PC");
+        y += FontSize(fonts.heading) + Dp(20);
 
-        BeginCard("##aurora", "Powered by Aurora", nullptr, Icon::Display);
-        if (aurora_logo_)
+        ImGui::SetCursorScreenPos({x, y});
+        Chip(("Version " + VersionNumber(ParsePortVersion(identity.version))).c_str(), color::text, Icon::Tag);
+        ImGui::SameLine(0, Dp(8));
+        if (identity.origin == BuildOrigin::Release) Chip("Official release", color::accent, Icon::Check);
+        else if (identity.origin == BuildOrigin::Test)
+            Chip(("Test build #" + std::to_string(identity.pull_request)).c_str(), color::warning, Icon::Flask);
+        else Chip(identity.run ? "Development build" : "Local build", color::muted, Icon::Gear);
+
+        ImGui::SetCursorScreenPos(pos);
+        ImGui::Dummy({width, height});
+        ImGui::Dummy({0, Dp(8)});
+    }
+
+    // A small tracked heading inside a card.
+    void AboutOverline(const char* text)
+    {
+        DrawTracked(ImGui::GetWindowDrawList(), CurrentFonts().caption, ImGui::GetCursorScreenPos(),
+                    Col(color::accent, 0.95f), text, Dp(1.8f));
+        ImGui::Dummy({0, FontSize(CurrentFonts().caption) + Dp(4)});
+    }
+
+    void AboutDivider()
+    {
+        ImGui::Dummy({0, Dp(10)});
+        const ImVec2 pos = ImGui::GetCursorScreenPos();
+        // A filled rectangle: thin lines break up in the software renderer.
+        ImGui::GetWindowDrawList()->AddRectFilled(pos, {pos.x + ImGui::GetContentRegionAvail().x, pos.y + Dp(1)},
+                                                  Col(color::border, 0.8f));
+        ImGui::Dummy({0, Dp(14)});
+    }
+
+    // Lays out buttons left to right, moving to the next line when one does not fit.
+    void FlowNext(bool first, float width)
+    {
+        const float gap = Dp(10);
+        if (!first && ImGui::GetItemRectMax().x + gap + width <= ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x)
+            ImGui::SameLine(0, gap);
+    }
+
+    // A person or a group: a round badge (a letter or an icon), the name and a line under it.
+    void ThanksTile(const char* id, float width, const char* letter, Icon icon, const ImVec4& tint, const char* name,
+                    const char* line)
+    {
+        const auto& fonts = CurrentFonts();
+        auto* draw = ImGui::GetWindowDrawList();
+        const ImVec2 pos = ImGui::GetCursorScreenPos();
+        const float badge = Dp(46);
+        const float text_x = Dp(18) + badge + Dp(14);
+        const float wrap = width - text_x - Dp(16);
+        const float line_height = fonts.caption->CalcTextSizeA(FontSize(fonts.caption), FLT_MAX, wrap, line).y;
+        const float height = std::max(badge + Dp(28), FontSize(fonts.label) + Dp(2) + line_height + Dp(28));
+        const ImVec2 max{pos.x + width, pos.y + height};
+        draw->AddRectFilled(pos, max, Col(color::field), Dp(14));
+        draw->AddRect(pos, max, Col(tint, 0.28f), Dp(14), 0, Dp(1));
+        const ImVec2 center{pos.x + Dp(18) + badge * 0.5f, pos.y + height * 0.5f};
+        draw->AddCircleFilled(center, badge * 0.5f + Dp(4), Col(tint, 0.12f), 40);
+        const int start = draw->VtxBuffer.Size;
+        draw->AddCircleFilled(center, badge * 0.5f, IM_COL32_WHITE, 40);
+        ImGui::ShadeVertsLinearColorGradientKeepAlpha(draw, start, draw->VtxBuffer.Size,
+                                                     {center.x, center.y - badge * 0.5f},
+                                                     {center.x, center.y + badge * 0.5f},
+                                                     Col(Mix(tint, color::text, 0.35f)), Col(tint));
+        const ImU32 ink = Col(Mix(tint, color::window, 0.85f));
+        if (letter)
         {
-            const float width = Dp(180);
-            ImGui::Image(static_cast<ImTextureID>(reinterpret_cast<std::uintptr_t>(aurora_logo_)),
-                         {width, width * aurora_logo_height_ / aurora_logo_width_});
-            ImGui::Dummy({0, Dp(4)});
+            const ImVec2 size = TextSize(fonts.title, letter);
+            DrawLabel(draw, fonts.title, {center.x - size.x * 0.5f, center.y - size.y * 0.5f}, ink, letter);
         }
-        TextWrappedColored(CurrentFonts().body, color::text,
-            "Aurora by Luke Street provides the GameCube/Wii platform layer the game runs on: GX graphics on "
-            "modern GPUs, plus windowing, input and system services.");
-        ImGui::Dummy({0, Dp(4)});
-        if (SecondaryButton("aurora_link", "Aurora on GitHub", Dp(230, 40), true, Icon::GitHub))
-            SDL_OpenURL("https://github.com/encounter/aurora");
-        EndCard();
+        else DrawIcon(draw, icon, center, Dp(22), ink);
+        const float text_y = pos.y + (height - (FontSize(fonts.label) + Dp(2) + line_height)) * 0.5f;
+        DrawLabel(draw, fonts.label, {pos.x + text_x, text_y}, Col(color::text), name);
+        ImGui::SetCursorScreenPos({pos.x + text_x, text_y + FontSize(fonts.label) + Dp(2)});
+        ImGui::PushTextWrapPos(pos.x + text_x + wrap - ImGui::GetWindowPos().x);
+        TextWrappedColored(fonts.caption, color::muted, line);
+        ImGui::PopTextWrapPos();
+        ImGui::SetCursorScreenPos(pos);
+        ImGui::PushID(id);
+        ImGui::Dummy({width, height});
+        ImGui::PopID();
+    }
 
-        BeginCard("##thanks", "Special thanks", nullptr, Icon::Check);
-        TextWrappedColored(CurrentFonts().body, color::text,
-            "To the contributors of the decompilation, who helped bring it over the last miles:");
-        ImGui::Dummy({0, Dp(2)});
+    // Names as pills, flowing over as many lines as they need. With `links`
+    // each opens the person's GitHub page.
+    void NamePills(const char* id, const char* const* names, std::size_t count, bool links)
+    {
+        const auto& fonts = CurrentFonts();
+        auto* draw = ImGui::GetWindowDrawList();
+        ImGui::PushID(id);
+        const float left = ImGui::GetCursorScreenPos().x;
+        const float right = left + ImGui::GetContentRegionAvail().x;
+        const float gap = Dp(8);
+        const float height = Dp(32);
+        ImVec2 at = ImGui::GetCursorScreenPos();
+        for (std::size_t i = 0; i < count; ++i)
         {
-            // GitHub accounts; each button opens the profile.
-            const char* contributors[] = {"Jasu14", "vZylev", "GoldenPalazzo"};
-            for (int i = 0; i < 3; ++i)
+            const ImVec2 label = TextSize(fonts.body, names[i]);
+            const float icon = links ? Dp(12) + Dp(8) : 0.0f;
+            const ImVec2 size{Dp(16) + label.x + icon + Dp(16), height};
+            if (i && at.x + size.x > right)
+                at = {left, at.y + height + gap};
+            ImGui::SetCursorScreenPos(at);
+            ImGui::PushID(int(i));
+            float hover = 0.0f;
+            if (links)
             {
-                if (i) ImGui::SameLine(0, Dp(8));
-                const std::string url = std::string("https://github.com/") + contributors[i];
-                ImGui::PushID(i);
-                if (SecondaryButton("##contributor", contributors[i], Dp(170, 36), true, Icon::Link))
-                    SDL_OpenURL(url.c_str());
+                const bool pressed = ImGui::InvisibleButton("##pill", size);
+                hover = Animate(ImGui::GetItemID(), ImGui::IsItemHovered(), 12.0f);
+                const std::string url = std::string("https://github.com/") + names[i];
                 if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", url.c_str());
-                ImGui::PopID();
+                if (pressed) SDL_OpenURL(url.c_str());
             }
+            else ImGui::Dummy(size);
+            ImGui::PopID();
+            const ImVec2 max{at.x + size.x, at.y + size.y};
+            draw->AddRectFilled(at, max, Col(Mix(color::field, color::border, 0.5f * hover)), height * 0.5f);
+            draw->AddRect(at, max, Col(Mix(color::border, color::accent, 0.5f * hover)), height * 0.5f, 0, Dp(1));
+            const ImU32 ink = Col(Mix(color::text, color::accent_hi, 0.4f * hover));
+            DrawLabel(draw, fonts.body, {at.x + Dp(16), at.y + (height - label.y) * 0.5f}, ink, names[i]);
+            if (links)
+                DrawIcon(draw, Icon::Link, {max.x - Dp(16) - Dp(6), at.y + height * 0.5f}, Dp(12),
+                         Col(Mix(color::muted, color::accent_hi, hover)));
+            at.x += size.x + gap;
         }
-        EndCard();
+        ImGui::SetCursorScreenPos({left, at.y + height});
+        ImGui::Dummy({0, 0});
+        ImGui::PopID();
+    }
 
-        BeginCard("##licenses", "Credits & licenses", nullptr, Icon::Check);
-        TextWrappedColored(CurrentFonts().caption, color::muted,
-            "Recharged's original code, tools and documentation: CC0 1.0. Header artwork: SteamGridDB hero 8926 by Jiquita. "
-            "Font: Roboto (Apache 2.0). Built with SDL3 (zlib), Dear ImGui (MIT), Aurora (MIT), Dawn (BSD), "
+    void AboutThanks()
+    {
+        const auto& fonts = CurrentFonts();
+        BeginCard("##thanks", "Thank you", "Recharged is shaped by the people who play it.", Icon::Heart);
+
+        AboutOverline("SPECIAL THANKS");
+        TextWrappedColored(fonts.body, color::text, "For intense testing, build after build.");
+        ImGui::Dummy({0, Dp(4)});
+        {
+            const float gap = Dp(12);
+            const float available = ImGui::GetContentRegionAvail().x;
+            const bool side_by_side = available >= Dp(460);
+            const float width = side_by_side ? (available - gap) * 0.5f : available;
+            ThanksTile("einbirnenbaum", width, "E", Icon::None, color::accent, "einBirnenbaum", "Tester");
+            if (side_by_side) ImGui::SameLine(0, gap);
+            else ImGui::Dummy({0, gap - ImGui::GetStyle().ItemSpacing.y});
+            ThanksTile("goldcobra", width, "G", Icon::None, color::warning, "GoldCobra", "Tester");
+        }
+
+
+        AboutDivider();
+        AboutOverline("ISSUE REPORTERS");
+        TextWrappedColored(fonts.body, color::text,
+            "Everyone who reported a problem or asked for a feature on GitHub. Every issue makes Recharged better: "
+            "this is how we roll!");
+        ImGui::Dummy({0, Dp(4)});
+        NamePills("##reporters", kIssueReporters, std::size(kIssueReporters), false);
+        ImGui::Dummy({0, Dp(6)});
+        const BuildIdentity identity = updates_ ? updates_->Build() : CurrentBuild();
+        const std::string issues = "https://github.com/" + identity.repository + "/issues/new";
+        const ImVec2 button = Dp(200, 40);
+        FlowNext(true, button.x);
+        if (SecondaryButton("report_problem", "Report a problem", button, true, Icon::Bug))
+            SDL_OpenURL((issues + "/choose").c_str());
+        FlowNext(false, button.x);
+        if (SecondaryButton("suggest_feature", "Suggest a feature", button, true, Icon::Bulb))
+            SDL_OpenURL((issues + "?template=feature_request.yml").c_str());
+
+        AboutDivider();
+        AboutOverline("DECOMPILATION");
+        TextWrappedColored(fonts.body, color::text,
+            "To the contributors of the decompilation, who helped bring it over the last miles.");
+        ImGui::Dummy({0, Dp(4)});
+        static constexpr const char* contributors[] = {"Jasu14", "vZylev", "GoldenPalazzo"};
+        NamePills("##contributors", contributors, std::size(contributors), true);
+        EndCard();
+    }
+
+    // The Mario Strikers community's Discord server: what it is, a thank you
+    // and the way in. Drawn like a card, with Discord's colour.
+    void AboutCommunity()
+    {
+        const auto& fonts = CurrentFonts();
+        auto* draw = ImGui::GetWindowDrawList();
+        const char* invite = "https://discord.gg/de2YaWg";
+        const char* about = "The central hub of Mario Strikers players: tournaments, matchmaking and league play "
+                            "across the series, with fans, competitors and creators from around the world.";
+        const char* thanks = "Thank you for the matches, the feedback and all the enthusiasm!";
+        const ImVec2 pos = ImGui::GetCursorScreenPos();
+        const float width = ImGui::GetContentRegionAvail().x;
+        const float pad = Dp(22), badge = Dp(52), button_height = Dp(40);
+        const float text_x = pos.x + pad + badge + Dp(18);
+        const float wrap = std::max(Dp(120), pos.x + width - pad - text_x);
+        const auto text_height = [&](const char* text) {
+            return fonts.body->CalcTextSizeA(FontSize(fonts.body), FLT_MAX, wrap, text).y;
+        };
+        const float height = pad + FontSize(fonts.caption) + Dp(4) + FontSize(fonts.heading) + Dp(8)
+            + text_height(about) + Dp(4) + text_height(thanks) + Dp(16) + button_height + pad;
+        const ImVec2 max{pos.x + width, pos.y + height};
+        const float rounding = Dp(16);
+        FillGradient(draw, pos, max, Col(Mix(color::card, color::discord, 0.20f)), Col(color::card), rounding, true);
+        draw->AddRect(pos, max, Col(Mix(color::border, color::discord, 0.45f)), rounding, 0, Dp(1));
+        // The badge: Discord's logo on a round blurple badge with a halo.
+        const ImVec2 center{pos.x + pad + badge * 0.5f, pos.y + pad + badge * 0.5f};
+        draw->AddCircleFilled(center, badge * 0.5f + Dp(5), Col(color::discord, 0.16f), 48);
+        const ImVec4 lighter = Mix(color::discord, color::text, 0.25f);
+        const int start = draw->VtxBuffer.Size;
+        draw->AddCircleFilled(center, badge * 0.5f, IM_COL32_WHITE, 48);
+        ImGui::ShadeVertsLinearColorGradientKeepAlpha(draw, start, draw->VtxBuffer.Size,
+                                                     {center.x, center.y - badge * 0.5f},
+                                                     {center.x, center.y + badge * 0.5f}, Col(lighter),
+                                                     Col(color::discord));
+        DrawDiscordMark(draw, center, badge * 0.56f, IM_COL32_WHITE, Col(Mix(lighter, color::discord, 0.5f)));
+
+        float y = pos.y + pad;
+        DrawTracked(draw, fonts.caption, {text_x, y}, Col(Mix(color::discord, color::text, 0.45f)), "COMMUNITY", Dp(1.8f));
+        y += FontSize(fonts.caption) + Dp(4);
+        DrawLabel(draw, fonts.heading, {text_x, y}, Col(color::text), "Mario Strikers on Discord");
+        y += FontSize(fonts.heading) + Dp(8);
+        draw->AddText(fonts.body, FontSize(fonts.body), {text_x, y}, Col(color::muted), about, nullptr, wrap);
+        y += text_height(about) + Dp(4);
+        draw->AddText(fonts.body, FontSize(fonts.body), {text_x, y}, Col(color::text), thanks, nullptr, wrap);
+        y += text_height(thanks) + Dp(16);
+        ImGui::SetCursorScreenPos({text_x, y});
+        if (DiscordButton("join_discord", "Join on Discord", {Dp(200), button_height})) SDL_OpenURL(invite);
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", invite);
+
+        ImGui::SetCursorScreenPos(pos);
+        ImGui::Dummy({width, height});
+        ImGui::Dummy({0, Dp(8)});
+    }
+
+    // What Recharged is built on: the decompilation and Aurora, side by side when they fit.
+    void AboutFoundations()
+    {
+        const auto& fonts = CurrentFonts();
+        BeginCard("##foundations", "Built on", nullptr, Icon::Layers);
+        const float title = Dp(30);
+        auto decomp_heading = [&] {
+            const ImVec2 pos = ImGui::GetCursorScreenPos();
+            auto* draw = ImGui::GetWindowDrawList();
+            draw->AddRectFilled(pos, {pos.x + title, pos.y + title}, Col(color::accent, 0.12f), Dp(8));
+            DrawIcon(draw, Icon::Disc, {pos.x + title * 0.5f, pos.y + title * 0.5f}, Dp(16), Col(color::accent));
+            DrawLabel(draw, fonts.label, {pos.x + title + Dp(12), pos.y + (title - FontSize(fonts.label)) * 0.5f},
+                      Col(color::text), "The decompilation");
+            ImGui::Dummy({title, title + Dp(4)});
+        };
+        auto aurora_heading = [&] {
+            if (!aurora_logo_)
+            {
+                TextColored(fonts.label, color::text, "Aurora");
+                return;
+            }
+            const float height = Dp(22);
+            const ImVec2 pos = ImGui::GetCursorScreenPos();
+            ImGui::SetCursorScreenPos({pos.x, pos.y + (title - height) * 0.5f});
+            ImGui::Image(static_cast<ImTextureID>(reinterpret_cast<std::uintptr_t>(aurora_logo_)),
+                         {height * aurora_logo_width_ / aurora_logo_height_, height});
+            ImGui::SetCursorScreenPos(pos);
+            ImGui::Dummy({0, title + Dp(4)});
+        };
+        const char* decomp_text =
+            "Recharged compiles the reconstructed C/C++ source of Mario Strikers Charged to native code. The "
+            "original game logic runs unchanged; Recharged provides the platform underneath it: graphics, audio, "
+            "input, files and timing.";
+        const char* aurora_text =
+            "Aurora by Luke Street provides the GameCube/Wii platform layer the game runs on: GX graphics on "
+            "modern GPUs, plus windowing, input and system services.";
+        auto text = [&](const char* body) {
+            TextWrappedColored(fonts.body, color::muted, body);
+            ImGui::Dummy({0, Dp(6)});
+        };
+        auto link = [&](const char* id, const char* label, const char* url) {
+            if (SecondaryButton(id, label, {ImGui::GetContentRegionAvail().x, Dp(40)}, true, Icon::GitHub))
+                SDL_OpenURL(url);
+            if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", url);
+        };
+        const char* decomp_url = "https://github.com/yannicksuter/mscharged-decomp";
+        const char* aurora_url = "https://github.com/encounter/aurora";
+        if (ImGui::GetContentRegionAvail().x < Dp(600))
+        {
+            decomp_heading();
+            text(decomp_text);
+            link("decomp_link", "Decompilation on GitHub", decomp_url);
+            ImGui::Dummy({0, Dp(14)});
+            aurora_heading();
+            text(aurora_text);
+            link("aurora_link", "Aurora on GitHub", aurora_url);
+        }
+        else
+        {
+            // Side by side, one table row per part, so the texts and the buttons line up.
+            ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, Dp(0, 0));
+            if (ImGui::BeginTable("##foundation_table", 3, ImGuiTableFlags_None))
+            {
+                ImGui::TableSetupColumn("decomp", ImGuiTableColumnFlags_WidthStretch);
+                ImGui::TableSetupColumn("gap", ImGuiTableColumnFlags_WidthFixed, Dp(28));
+                ImGui::TableSetupColumn("aurora", ImGuiTableColumnFlags_WidthStretch);
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                decomp_heading();
+                ImGui::TableSetColumnIndex(2);
+                aurora_heading();
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                text(decomp_text);
+                ImGui::TableSetColumnIndex(2);
+                text(aurora_text);
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                link("decomp_link", "Decompilation on GitHub", decomp_url);
+                ImGui::TableSetColumnIndex(2);
+                link("aurora_link", "Aurora on GitHub", aurora_url);
+                ImGui::EndTable();
+            }
+            ImGui::PopStyleVar();
+        }
+        AboutDivider();
+        TextWrappedColored(fonts.caption, color::muted,
+            "Unofficial project, not affiliated with Nintendo or Next Level Games. You need your own copy of the game.");
+        ImGui::Dummy({0, Dp(2)});
+        TextWrappedColored(fonts.caption, color::dim,
+            "Recharged's original code, tools and documentation: CC0 1.0. Header artwork: SteamGridDB hero 8926 by "
+            "Jiquita. Font: Roboto (Apache 2.0). Built with SDL3 (zlib), Dear ImGui (MIT), Aurora (MIT), Dawn (BSD), "
             "nod and its Rust dependencies, and other libraries listed in LICENSES. Each keeps its own license.");
+        EndCard();
+    }
+
+    // Facts about this build in a grid, and what a bug report needs: a copy of
+    // them and the log.
+    void AboutBuild()
+    {
+        const auto& fonts = CurrentFonts();
+        const BuildIdentity identity = updates_ ? updates_->Build() : CurrentBuild();
+        std::vector<std::pair<const char*, std::string>> facts;
+        facts.emplace_back("Version", build::version);
+        facts.emplace_back("Origin", DescribeOrigin(identity));
+        if (identity.built) facts.emplace_back("Built", LocalTime(identity.built));
+        else if (identity.commit_time) facts.emplace_back("Commit time", LocalTime(identity.commit_time));
+        facts.emplace_back("Commit", identity.commit.substr(0, 12));
+        const int sdl = SDL_GetVersion();
+        facts.emplace_back("Platform", std::string(SDL_GetPlatform()) + ", SDL " + std::to_string(SDL_VERSIONNUM_MAJOR(sdl))
+            + "." + std::to_string(SDL_VERSIONNUM_MINOR(sdl)) + "." + std::to_string(SDL_VERSIONNUM_MICRO(sdl)));
+        const char* renderer = SDL_GetRendererName(renderer_);
+        char display[96];
+        std::snprintf(display, sizeof display, "%s, interface x%.2f, pixel density x%.2f",
+                      renderer ? renderer : "unknown renderer", metrics_.ui, metrics_.density);
+        facts.emplace_back("Launcher display", display);
+#ifdef MSCHARGED_HAS_ORIGINAL_FRONTEND
+        facts.emplace_back("Game runtime", "Included");
+#else
+        facts.emplace_back("Game runtime", "Not included (launcher-only build)");
+#endif
+        facts.emplace_back("Configuration", MSCHARGED_BUILD_CONFIG);
+
+        BeginCard("##build", "This build", "For a bug report: copy these details and attach the log.", Icon::Info);
+        const int columns = ImGui::GetContentRegionAvail().x >= Dp(600) ? 3 : 2;
+        ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, Dp(0, 7));
+        if (ImGui::BeginTable("##build_facts", columns, ImGuiTableFlags_SizingStretchSame))
+        {
+            for (const auto& [label, value] : facts)
+            {
+                ImGui::TableNextColumn();
+                ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x - Dp(16));
+                TextColored(fonts.caption, color::dim, label);
+                ImGui::SetCursorPosY(ImGui::GetCursorPosY() - Dp(4));
+                TextWrappedColored(fonts.body, color::text, value.c_str());
+                ImGui::PopTextWrapPos();
+            }
+            ImGui::EndTable();
+        }
+        ImGui::PopStyleVar();
+        ImGui::Dummy({0, Dp(4)});
+
+        const ImVec2 button = Dp(200, 40);
+        FlowNext(true, button.x);
+        if (SecondaryButton("copy_build", "Copy build details", button, true, Icon::Copy))
+        {
+            std::string text = "Recharged\n";
+            for (const auto& [label, value] : facts) text += std::string(label) + ": " + value + "\n";
+            if (SDL_SetClipboardText(text.c_str())) Notice("Build details copied to the clipboard.", NoticeKind::Success);
+        }
+        FlowNext(false, button.x);
+        if (SecondaryButton("open_logs", "Open logs folder", button, true, Icon::Folder))
+        {
+            const fs::path log = platform::SessionLogPath();
+            const fs::path folder = log.empty() ? base_ / "logs" : log.parent_path();
+            std::error_code error;
+            fs::create_directories(folder, error);
+            OpenPath(folder);
+        }
+        FlowNext(false, button.x);
+        const char* notes = identity.origin == BuildOrigin::Test ? "Pull request"
+                          : identity.origin == BuildOrigin::Release ? "Release notes"
+                                                                   : "All releases";
+        if (SecondaryButton("build_notes", notes, button, true, Icon::GitHub)) SDL_OpenURL(BuildNotesUrl(identity).c_str());
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", BuildNotesUrl(identity).c_str());
         EndCard();
     }
 
