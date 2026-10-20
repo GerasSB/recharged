@@ -6584,24 +6584,23 @@ private:
     void AboutPage()
     {
         AboutBanner();
+        AboutDevelopers();
         AboutThanks();
         AboutCommunity();
         AboutFoundations();
         AboutBuild();
     }
 
-    // The page's banner: the name, what it is and which version this is.
+    // The page's banner: the name and what it is (the version is in the sidebar).
     void AboutBanner()
     {
         const auto& fonts = CurrentFonts();
         auto* draw = ImGui::GetWindowDrawList();
-        const BuildIdentity identity = updates_ ? updates_->Build() : CurrentBuild();
         const ImVec2 pos = ImGui::GetCursorScreenPos();
         const float width = ImGui::GetContentRegionAvail().x;
         const float pad = Dp(30);
         const float wordmark = Dp(50); // the hero font, drawn smaller
-        const float height = pad + FontSize(fonts.caption) + Dp(6) + wordmark + Dp(6) + FontSize(fonts.heading) + Dp(20)
-            + Dp(26) + pad;
+        const float height = pad + FontSize(fonts.caption) + Dp(6) + wordmark + Dp(6) + FontSize(fonts.heading) + pad;
         const ImVec2 max{pos.x + width, pos.y + height};
         const float rounding = Dp(16);
 
@@ -6644,15 +6643,6 @@ private:
         DrawLabel(draw, fonts.heading, {x, y}, Col(color::text), game);
         DrawLabel(draw, fonts.heading, {x + TextSize(fonts.heading, game).x, y}, Col(color::text, 0.72f),
                   ", natively on your PC");
-        y += FontSize(fonts.heading) + Dp(20);
-
-        ImGui::SetCursorScreenPos({x, y});
-        Chip(("Version " + VersionNumber(ParsePortVersion(identity.version))).c_str(), color::text, Icon::Tag);
-        ImGui::SameLine(0, Dp(8));
-        if (identity.origin == BuildOrigin::Release) Chip("Official release", color::accent, Icon::Check);
-        else if (identity.origin == BuildOrigin::Test)
-            Chip(("Test build #" + std::to_string(identity.pull_request)).c_str(), color::warning, Icon::Flask);
-        else Chip(identity.run ? "Development build" : "Local build", color::muted, Icon::Gear);
 
         ImGui::SetCursorScreenPos(pos);
         ImGui::Dummy({width, height});
@@ -6685,17 +6675,25 @@ private:
             ImGui::SameLine(0, gap);
     }
 
-    // A person or a group: a round badge (a letter or an icon), the name and a line under it.
-    void ThanksTile(const char* id, float width, const char* letter, Icon icon, const ImVec4& tint, const char* name,
-                    const char* line)
+    struct Person
+    {
+        const char* name;
+        const char* line; // under the name: what they do
+        ImVec4 tint;
+    };
+
+    // A person: a round badge with the name's first letter, the name and a line under it.
+    void PersonTile(const Person& person, float width)
     {
         const auto& fonts = CurrentFonts();
         auto* draw = ImGui::GetWindowDrawList();
         const ImVec2 pos = ImGui::GetCursorScreenPos();
+        const ImVec4& tint = person.tint;
+        const char letter[] = {char(std::toupper(static_cast<unsigned char>(person.name[0]))), '\0'};
         const float badge = Dp(46);
         const float text_x = Dp(18) + badge + Dp(14);
         const float wrap = width - text_x - Dp(16);
-        const float line_height = fonts.caption->CalcTextSizeA(FontSize(fonts.caption), FLT_MAX, wrap, line).y;
+        const float line_height = fonts.caption->CalcTextSizeA(FontSize(fonts.caption), FLT_MAX, wrap, person.line).y;
         const float height = std::max(badge + Dp(28), FontSize(fonts.label) + Dp(2) + line_height + Dp(28));
         const ImVec2 max{pos.x + width, pos.y + height};
         draw->AddRectFilled(pos, max, Col(color::field), Dp(14));
@@ -6708,23 +6706,28 @@ private:
                                                      {center.x, center.y - badge * 0.5f},
                                                      {center.x, center.y + badge * 0.5f},
                                                      Col(Mix(tint, color::text, 0.35f)), Col(tint));
-        const ImU32 ink = Col(Mix(tint, color::window, 0.85f));
-        if (letter)
-        {
-            const ImVec2 size = TextSize(fonts.title, letter);
-            DrawLabel(draw, fonts.title, {center.x - size.x * 0.5f, center.y - size.y * 0.5f}, ink, letter);
-        }
-        else DrawIcon(draw, icon, center, Dp(22), ink);
+        const ImVec2 size = TextSize(fonts.title, letter);
+        DrawLabel(draw, fonts.title, {center.x - size.x * 0.5f, center.y - size.y * 0.5f},
+                  Col(Mix(tint, color::window, 0.85f)), letter);
         const float text_y = pos.y + (height - (FontSize(fonts.label) + Dp(2) + line_height)) * 0.5f;
-        DrawLabel(draw, fonts.label, {pos.x + text_x, text_y}, Col(color::text), name);
-        ImGui::SetCursorScreenPos({pos.x + text_x, text_y + FontSize(fonts.label) + Dp(2)});
-        ImGui::PushTextWrapPos(pos.x + text_x + wrap - ImGui::GetWindowPos().x);
-        TextWrappedColored(fonts.caption, color::muted, line);
-        ImGui::PopTextWrapPos();
-        ImGui::SetCursorScreenPos(pos);
-        ImGui::PushID(id);
+        DrawLabel(draw, fonts.label, {pos.x + text_x, text_y}, Col(color::text), person.name);
+        // Drawn here, wrapped in the tile (TextWrappedColored wraps at the window's edge).
+        draw->AddText(fonts.caption, FontSize(fonts.caption), {pos.x + text_x, text_y + FontSize(fonts.label) + Dp(2)},
+                      Col(color::muted), person.line, nullptr, wrap);
         ImGui::Dummy({width, height});
-        ImGui::PopID();
+    }
+
+    // Two people side by side when they fit, else one under the other.
+    void PeopleTiles(const Person& first, const Person& second)
+    {
+        const float gap = Dp(12);
+        const float available = ImGui::GetContentRegionAvail().x;
+        const bool side_by_side = available >= Dp(460);
+        const float width = side_by_side ? (available - gap) * 0.5f : available;
+        PersonTile(first, width);
+        if (side_by_side) ImGui::SameLine(0, gap);
+        else ImGui::Dummy({0, gap - ImGui::GetStyle().ItemSpacing.y});
+        PersonTile(second, width);
     }
 
     // Names as pills, flowing over as many lines as they need. With `links`
@@ -6774,6 +6777,16 @@ private:
         ImGui::PopID();
     }
 
+    // Who writes Recharged, as the commits show. tools/update_issue_reporters.py
+    // leaves the developers and the special thanks out of the issue reporters.
+    void AboutDevelopers()
+    {
+        BeginCard("##developers", "Developers", "The people who build Recharged.", Icon::Code);
+        PeopleTiles({"Yannick Suter", "Decompilation, native port and launcher", color::accent_hi},
+                    {"GoldenPalazzo", "Networking and gameplay fixes", color::info});
+        EndCard();
+    }
+
     void AboutThanks()
     {
         const auto& fonts = CurrentFonts();
@@ -6782,17 +6795,7 @@ private:
         AboutOverline("SPECIAL THANKS");
         TextWrappedColored(fonts.body, color::text, "For intense testing, build after build.");
         ImGui::Dummy({0, Dp(4)});
-        {
-            const float gap = Dp(12);
-            const float available = ImGui::GetContentRegionAvail().x;
-            const bool side_by_side = available >= Dp(460);
-            const float width = side_by_side ? (available - gap) * 0.5f : available;
-            ThanksTile("einbirnenbaum", width, "E", Icon::None, color::accent, "einBirnenbaum", "Tester");
-            if (side_by_side) ImGui::SameLine(0, gap);
-            else ImGui::Dummy({0, gap - ImGui::GetStyle().ItemSpacing.y});
-            ThanksTile("goldcobra", width, "G", Icon::None, color::warning, "GoldCobra", "Tester");
-        }
-
+        PeopleTiles({"einBirnenbaum", "Tester", color::accent}, {"GoldCobra", "Tester", color::warning});
 
         AboutDivider();
         AboutOverline("ISSUE REPORTERS");

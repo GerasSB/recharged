@@ -402,6 +402,16 @@ void DrawIcon(ImDrawList* draw, Icon icon, ImVec2 c, float s, ImU32 color)
         }
         break;
     }
+    case Icon::Code:
+    {
+        // "</>" (the people who write the code).
+        const ImVec2 left[] = {p(-0.17f, -0.27f), p(-0.46f, 0.0f), p(-0.17f, 0.27f)};
+        const ImVec2 right[] = {p(0.17f, -0.27f), p(0.46f, 0.0f), p(0.17f, 0.27f)};
+        draw->AddPolyline(left, 3, color, 0, t * 1.3f);
+        draw->AddPolyline(right, 3, color, 0, t * 1.3f);
+        draw->AddLine(p(0.08f, -0.40f), p(-0.08f, 0.40f), color, t * 1.3f);
+        break;
+    }
     case Icon::Up:
     case Icon::Down:
     {
