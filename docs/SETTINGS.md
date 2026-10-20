@@ -103,12 +103,34 @@ holds any rate to the display's. The game keeps its own speed; movies and
 everything else timed by the Wii's video signal stay at their real rate. The
 log's `Frame rate:` line shows how frames are paced.
 
-**Picture.** *Sharp* (default) and *clean* fill the window with the game's
-picture; *soft* keeps the look of the Wii's TV signal, with its empty border.
-The 3D scene renders at the window's resolution by default, or at the Wii's
-640 x 448 or 2x-4x of it (Display → 3D resolution, `[display] resolution`).
-The layout is 16:9 by default, or 4:3; resizing keeps it and fills unused
-space with bars.
+**Aspect ratio** (Display → Aspect ratio, `[display] aspect`). **16:9** (the
+default) is the game's widescreen layout and **4:3** its original one; both
+keep their shape. A window keeps that shape when you resize it, so the picture
+fills it; a display of another shape (16:10, 21:9) shows bars beside or above
+and below the picture. **Stretch** (`stretch`) fills the whole window or
+display, changing the picture's shape: it uses the 16:9 layout, or 4:3 on
+screens closer to that shape. **F** switches between the stretched picture and
+its own shape while playing, for that run. The Display page tells what each
+choice does on your display.
+
+**3D resolution** (Display → 3D resolution, `[display] resolution`). **Window**
+(the default) draws the game at the size of its picture in the window, the
+sharpest. **Native** is the Wii's 640 x 448 and **2x-4x** its multiples, for
+slower graphics cards. **Page Up** and **Page Down** change it while playing, for
+that run.
+
+**Picture style** (Display → Picture style, `[display] picture`). **Modern**
+draws the game's picture crisp, straight into the window; when the 3D
+resolution is not Window, **Upscaling** scales it to the window smoothly
+(`clean`) or with square pixels (`sharp`, the default). **Original TV**
+(`soft`) adds the Wii's flicker filter and a TV's softness. **TV border**
+(`tv_border = true`) also shows the empty border a Wii sends around its
+picture, which a TV hides.
+
+**Window size** (Display → Window size, `[display] width` and `height`). The
+game window opens at the size and place you leave it at
+(`remember_window = false` turns that off; the place is `position`). Wayland
+desktops place windows themselves.
 
 **Fullscreen** (Display → Mode, `[display] fullscreen`) covers the whole
 display at its own resolution. **Alt+Enter** (Option+Return on a Mac) switches
@@ -257,9 +279,14 @@ the gyro pointer when it is on.
 The built-in Default always uses the defaults; changing it makes your own copy.
 
 **Hotkeys** (Controls → Hotkeys, `[hotkeys]`) work in the game window whoever
-plays: **P** saves a screenshot (`screenshot`) and **H** shows or hides the HUD
-in a match (`hud`). Click a key to change it; a hotkey cannot be Shift, Ctrl,
-Alt or the system key, nor a key of keyboard & mouse. With **Show the HUD
+plays: **P** saves a screenshot (`screenshot`), **H** shows or hides the HUD in
+a match (`hud`), **F** stretches the picture over the window or gives it back
+its shape (`stretch`), and **Page Up** and **Page Down** raise and lower the 3D
+resolution (`resolution_up`, `resolution_down`); these three last for the run.
+Click a key to change it; a hotkey cannot be Shift, Ctrl, Alt or the system
+key, nor a key of keyboard & mouse, and `none` leaves it unused. A settings
+file whose keyboard & mouse keys already use F, Page Up or Page Down keeps
+them, with that hotkey unused. With **Show the HUD
 when a match starts** off (`show_hud = false`), every match starts without the
 scoreboard, player markers and captions, for clean recordings; the HUD key
 shows them, and the Mega Strike meter stays. **Alt+Enter** (Option+Return on a Mac) cannot be
@@ -391,7 +418,7 @@ These options override the INI for one run, without saving:
 | `--disc FILE` (or `--disk`) | Start the game with this disc image |
 | `--window`, `--fullscreen` | Window or fullscreen |
 | `--size WIDTHxHEIGHT` | Window size, e.g. `--size 1280x720` |
-| `--aspect auto\|4:3\|16:9` | Layout |
+| `--aspect 16:9\|4:3\|stretch\|auto` | Aspect ratio (`auto`: 16:9 or 4:3, whichever is closer to the screen's shape) |
 | `--frame-rate original\|display\|unlimited\|FPS` | Frame rate |
 | `--no-tweaks` | All `[gameplay]` tweaks off (the bug fixes stay) |
 | `--config FILE` | Use another INI file |
