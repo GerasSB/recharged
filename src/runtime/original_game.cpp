@@ -603,6 +603,7 @@ int mscharged::RunOriginalGame(int argc, char** argv,
         wpad.remote_speaker=launch.settings.speaker_volume>0;
         // Original WPADControlSpeaker ON: 0x80 in the American game, 0x08 in the European one.
         wpad.remote_speaker_reg01=release->code==mscharged::GameCode::Usa ? 0x80 : 0x08;
+        wpad.bluetooth_search=launch.settings.bluetooth_search;
         mscharged::platform::InitializeNativeHardwareInput(host.window,wpad,
             mscharged::platform::GetNativeSTMInput(), desktop, players);
         {

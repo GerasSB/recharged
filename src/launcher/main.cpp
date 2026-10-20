@@ -4388,21 +4388,41 @@ private:
         return model + " (Bluetooth " + (address.size() > 8 ? address.substr(address.size() - 8) : address) + ")";
     }
 
-    // Windows: connect Wii Remotes over Bluetooth with 1+2 or SYNC.
-    void BluetoothSearchRow()
+    // Windows: connect and pair Wii Remotes over Bluetooth (wiimote_bluetooth.h).
+    void BluetoothRows()
     {
         const auto search = bluetooth_search_.Status();
-        if (!search.supported || !BeginRows("##bluetooth_search_rows")) return;
-        std::string description = !draft_.bluetooth_search
-            ? "Off: pair Wii Remotes in the Windows Bluetooth settings instead."
-            : !search.adapter ? "No Bluetooth adapter found."
-            : "Press 1+2 / SYNC on a Wii Remote to connect it.";
-        if (draft_.bluetooth_search && !search.last.empty()) description += " Last: " + search.last + ".";
-        Row("Connect Wii Remotes", description.c_str());
+        if (!search.supported || !BeginRows("##bluetooth_rows")) return;
+        Row("Continuous scanning", !search.adapter ? "No Bluetooth adapter found."
+                                   : draft_.bluetooth_search
+                                       ? "Press 1+2 on a Wii Remote to connect it, here and when a player's Remote "
+                                         "drops out of a game."
+                                       : "Off: after 1+2 press Refresh, or pair the Remote with Sync.");
         if (Toggle("##bluetooth_search", &draft_.bluetooth_search)) dirty_ = true;
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip("Searching can briefly disturb other Bluetooth devices, such as headphones.\n"
-                              "Wii Remotes Windows remembers but can't reconnect are removed, so 1+2 works again.");
+                              "In a game it searches only while a player's Wii Remote is missing.");
+        std::string text = search.syncing ? "Syncing: press the red SYNC button under the Remote's battery cover now."
+                           : search.resetting ? "Forgetting the paired Wii Remotes..."
+                           : "Sync pairs a Remote for good: press Sync, then the red SYNC button under its battery "
+                             "cover. It then connects with any button.";
+        if (!search.syncing && !search.resetting && !search.last.empty()) text += " Last: " + search.last + ".";
+        Row("Bluetooth pairing", text.c_str());
+        const bool idle = !search.syncing && !search.resetting;
+        const float gap = Dp(8), width = (ImGui::GetContentRegionAvail().x - 2 * gap) / 3;
+        if (SecondaryButton("##bluetooth_refresh", "Refresh", {width, Dp(36)}, idle)) bluetooth_search_.Refresh();
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Search once (4 s): press 1+2 on the Remote first.");
+        ImGui::SameLine(0, gap);
+        if (SecondaryButton("##bluetooth_sync", search.syncing ? "Syncing..." : "Sync", {width, Dp(36)}, idle))
+            bluetooth_search_.Sync();
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Pair Wii Remotes for good (about 12 s), as on a Wii.\n"
+                              "A paired Remote connects with any button, also in a game.");
+        ImGui::SameLine(0, gap);
+        if (SecondaryButton("##bluetooth_reset", "Reset", {width, Dp(36)}, idle)) bluetooth_search_.Reset();
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Forget every Wii Remote Windows remembers, for one that no longer connects\n"
+                              "(for example after it was synced with a Wii again). Sync it again afterwards.");
         EndRows();
     }
 
@@ -4595,7 +4615,7 @@ private:
             if (Toggle("##mouse_pointer", &draft_.mouse_pointer)) dirty_ = true;
             EndRows();
         }
-        BluetoothSearchRow();
+        BluetoothRows();
         if (status.no_permission && BeginRows("##wiimote_access_rows"))
         {
 #if defined(__linux__)
@@ -7070,7 +7090,7 @@ private:
     bool pad_capture_release_ = false;
     // Wii Remote / DolphinBar detection for the Controls and Play pages (non-blocking).
     platform::WiimoteHidProbe wii_probe_;
-    // Windows: connects Wii Remotes over Bluetooth while Controls is open.
+    // Windows: Bluetooth Wii Remotes; scans continuously while Controls is open.
     platform::WiimoteBluetoothSearch bluetooth_search_;
     platform::WiimoteHidStatus wii_status_{};
     std::set<std::string> wii_held_; // remotes kept through one missed status answer

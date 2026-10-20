@@ -170,10 +170,20 @@ extensions are not supported.
 
 - **DolphinBar:** press SYNC on the bar, then SYNC under the Remote's battery
   cover.
-- **Bluetooth on Windows:** while the launcher's **Controls** page is open, it
-  connects Remotes by itself: press 1+2 or the SYNC button on the Remote (some
-  connect more easily with SYNC). `[controls] bluetooth_search = false` turns
-  this off.
+- **Bluetooth on Windows:** the launcher's **Controls** page connects and
+  pairs Remotes itself, without the Windows Bluetooth settings:
+  - **Sync** pairs a Remote for good, as on a Wii: press Sync, then the red
+    SYNC button under the Remote's battery cover. From then on any button
+    connects it, in the launcher and in the game.
+  - **Continuous scanning** (`[controls] bluetooth_search`, on by default)
+    connects a Remote when you press 1+2 while the Controls page is open, and
+    during a game while a player's Remote has dropped out. Such a connection
+    lasts until the Remote turns off. **Refresh** searches once.
+  - **Reset** forgets every Wii Remote Windows remembers, for one that no
+    longer connects (for example after it was synced with a Wii again); sync
+    it again afterwards.
+
+  Searching can briefly disturb other Bluetooth devices such as headphones.
 - **Bluetooth elsewhere:** press SYNC and connect "Nintendo RVL-CNT-01" in
   your system's Bluetooth settings (no PIN).
 

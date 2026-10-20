@@ -101,8 +101,10 @@ player4 = off
 # When player 1 is a Wii Remote or gamepad and plays alone, the mouse also
 # points for it (left click A, right click B); the controller keeps working.
 mouse_pointer = true
-# Windows: while the launcher's Controls page is open it connects Wii Remotes
-# over Bluetooth when you press 1+2 or the SYNC button on them.
+# Windows, continuous scanning: connect a Wii Remote over Bluetooth when you
+# press 1+2 on it, while the launcher's Controls page is open and during a game
+# while a player's Remote has dropped out. (Sync on the Controls page pairs a
+# Remote for good: it then connects with any button.)
 bluetooth_search = true
 # Rumble on Wii Remotes and gamepads; how strongly gamepads rumble (0-100).
 rumble = true

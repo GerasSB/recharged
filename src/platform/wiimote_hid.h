@@ -37,6 +37,10 @@ struct WiimoteHidSettings {
     // remote plays, DolphinBar slots first.
     bool fixed_players = false;
     std::map<std::string, int> channels;
+    // Continuous scanning (controls.bluetooth_search, Windows): while a
+    // player's directly connected remote is missing, scan over Bluetooth so
+    // 1+2 connects it again (wiimote_bluetooth.h).
+    bool bluetooth_search = false;
 };
 
 struct WiimoteHidRemote {

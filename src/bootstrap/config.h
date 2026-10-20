@@ -150,8 +150,9 @@ struct Settings
     int speaker_volume = 70;
     // The mouse also points for player 1 on a Wii Remote or gamepad playing alone.
     bool mouse_pointer = true;
-    // controls.bluetooth_search: on Windows the launcher's Controls page
-    // connects Wii Remotes over Bluetooth when 1+2 or SYNC is pressed.
+    // controls.bluetooth_search (continuous scanning): on Windows the
+    // launcher's Controls page, and a game while a player's Remote is missing,
+    // connect Wii Remotes over Bluetooth when 1+2 or SYNC is pressed.
     bool bluetooth_search = true;
     std::string sensor_bar = "bottom"; // controls.sensor_bar: bottom | top (sensor bar / DolphinBar position)
     // Host presentation and diagnostics (never game behaviour).

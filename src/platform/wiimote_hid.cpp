@@ -1,6 +1,7 @@
 #include "platform/wiimote_hid.h"
 #include "platform/desktop_dpd.h"
 #include "platform/desktop_nunchuk.h"
+#include "platform/wiimote_bluetooth.h"
 #include "platform/wpad_sdl.h"
 
 #include <SDL3/SDL.h>
@@ -160,6 +161,10 @@ struct Driver {
     unsigned scans = 0;
     Clock::time_point next_open_retry{};
     bool reported_other_mode = false;
+    // Windows: scans over Bluetooth while a player's remote is missing.
+    std::unique_ptr<mscharged::platform::WiimoteBluetoothSearch> bluetooth;
+    bool bluetooth_active = false;
+    Clock::time_point next_bluetooth_check{};
 };
 Driver& State() { static Driver driver; return driver; }
 
@@ -879,6 +884,30 @@ void ServiceRemote(Remote& remote, Clock::time_point now) {
     ReportSpeaker(remote, now);
 }
 
+// Continuous scanning in the game (WiimoteHidSettings::bluetooth_search):
+// scans while a player's directly connected remote is gone, so 1+2 brings it
+// back; a remote paired with Sync comes back with any button anyway. Checked
+// once a second; the scan runs on its own thread.
+void UpdateBluetoothSearch(Driver& driver, Clock::time_point now) {
+    if (!driver.settings.bluetooth_search || now < driver.next_bluetooth_check) return;
+    driver.next_bluetooth_check = now + 1s;
+    std::string missing;
+    for (const auto& [id, channel] : driver.settings.channels) {
+        if (channel < 0 || mscharged::platform::WiimoteDolphinBarSlot(id) >= 0) continue;
+        const bool ready = std::any_of(driver.remotes.begin(), driver.remotes.end(),
+                                       [&](const auto& remote) { return remote->ready && remote->id == id; });
+        if (!ready) missing += (missing.empty() ? "" : ", ") + std::to_string(channel + 1);
+    }
+    const bool search = !missing.empty();
+    if (search == driver.bluetooth_active) return;
+    if (!driver.bluetooth) driver.bluetooth = std::make_unique<mscharged::platform::WiimoteBluetoothSearch>();
+    if (!driver.bluetooth->Status().supported) return;
+    driver.bluetooth_active = search;
+    driver.bluetooth->SetActive(search);
+    if (search) SDL_Log("Wii Remote: scanning over Bluetooth for player %s (press 1+2 on the Remote)", missing.c_str());
+    else SDL_Log("Wii Remote: every player's Remote is connected; Bluetooth scanning stopped");
+}
+
 void RequireOwner() {
     if (State().owner != std::this_thread::get_id())
         throw std::logic_error("Wii Remote HID driver requires its input owner thread");
@@ -941,6 +970,7 @@ void ServiceWiimoteHid() {
             if (!remote->hid) Open(*remote);
     }
     for (auto& remote : driver.remotes) ServiceRemote(*remote, now);
+    UpdateBluetoothSearch(driver, now);
 }
 
 void SetWiimoteHidChannels(std::map<std::string, int> channels) {
@@ -967,6 +997,8 @@ void ShutdownWiimoteHid() {
         CloseHid(*remote, true);
     }
     driver.remotes.clear();
+    driver.bluetooth.reset();
+    driver.bluetooth_active = false;
     driver.initialized = false;
     driver.owner = {};
     SDL_hid_exit();
