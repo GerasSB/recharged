@@ -52,7 +52,10 @@ gpu = auto
 # shape (a window keeps it when resized; other displays show bars), stretch
 # (fills the window or display with the 16:9 layout, or 4:3 on screens closer
 # to that shape) or auto (16:9 or 4:3 by the screen's shape, keeping it).
+# wider_view: with 16:9, a screen of another shape shows more of the stadium
+# in matches instead of bars, the HUD in the 16:9 middle; menus keep 16:9.
 aspect = 16:9
+wider_view = false
 # Picture: sharp or clean (Modern: the game's picture drawn straight into the
 # window; a 3D resolution other than window reaches the window's size with
 # square pixels or smoothly), or soft (Original TV: the Wii's flicker filter and

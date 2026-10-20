@@ -109,9 +109,13 @@ keep their shape. A window keeps that shape when you resize it, so the picture
 fills it; a display of another shape (16:10, 21:9) shows bars beside or above
 and below the picture. **Stretch** (`stretch`) fills the whole window or
 display, changing the picture's shape: it uses the 16:9 layout, or 4:3 on
-screens closer to that shape. **F** switches between the stretched picture and
-its own shape while playing, for that run. The Display page tells what each
-choice does on your display.
+screens closer to that shape. **Wider view** (`wider_view = true`, with 16:9)
+fills a screen of another shape in matches without stretching: the game shows
+more of the stadium at the sides of a wider screen (21:9) or above and below a
+taller one (16:10, the Steam Deck), with the HUD in the 16:9 middle. Menus keep
+their 16:9 picture. **F** switches the stretched picture or the wider view on
+and off while playing, for that run. The Display page
+tells what each choice does on your display.
 
 **3D resolution** (Display → 3D resolution, `[display] resolution`). **Window**
 (the default) draws the game at the size of its picture in the window, the

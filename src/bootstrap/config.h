@@ -59,6 +59,10 @@ struct Settings
     // display.tv_border: soft shows the TV signal's blank border around the
     // picture, as a Wii sends it; off shows only the picture, as a TV does.
     bool tv_border = false;
+    // display.wider_view: with the 16:9 layout, a screen of another shape
+    // shows more of the stadium in matches instead of bars, the HUD in its
+    // 16:9 middle; menus keep 16:9 (a game-module option, off by default).
+    bool wider_view = false;
     // display.remember_window: the window reopens at the size and position it
     // was left at (display.width, display.height, display.position).
     bool remember_window = true;

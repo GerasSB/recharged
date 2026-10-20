@@ -92,7 +92,9 @@ play.
   window reopens at the size and place you left it at.
 - **16:9** (the game's widescreen layout) or **4:3**, both keeping their shape:
   the window keeps it when resized, so the picture fills it without bars.
-  **Stretch** fills any window or display instead; F switches while playing.
+  **Stretch** fills any window or display instead, and the optional **wider
+  view** fills it in matches without stretching by showing more of the
+  stadium; F switches while playing.
 - **3D at your window's resolution** (default) instead of the Wii's 640 x 448,
   or fixed 2x-4x for slower graphics cards; Page Up and Page Down change it
   while playing. Menus and the HUD keep their original artwork.

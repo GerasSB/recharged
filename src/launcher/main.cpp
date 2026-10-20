@@ -3854,6 +3854,14 @@ private:
             if (Segmented("##aspect", &aspect, {"16:9", "4:3", "Stretch"}, ImGui::GetContentRegionAvail().x))
             { draft_.aspect = values[aspect]; dirty_ = true; }
             AspectNote(aspect < 0);
+            if (draft_.aspect == "16:9")
+            {
+                BeginSubRows();
+                Row("Wider view", "In matches on a screen wider or taller than 16:9, shows more of the stadium "
+                    "instead of bars, with the HUD in the 16:9 middle. Menus keep their 16:9 picture.");
+                if (Toggle("##wider_view", &draft_.wider_view)) dirty_ = true;
+                EndSubRows();
+            }
 
             std::string resolution_note = "Window draws the game at the size of its picture in the window, the "
                 "sharpest. Native is the Wii's 640 x 448; 2x-4x are its multiples, for slower graphics cards.";
@@ -3930,6 +3938,13 @@ private:
         EndCard();
     }
 
+    // Whether the game's picture fills its window or display: stretched, or
+    // with the wider view.
+    bool PictureFills() const
+    {
+        return draft_.aspect == "stretch" || (draft_.aspect == "16:9" && draft_.wider_view);
+    }
+
     // The screen the game's picture fills: the display (fullscreen) or the
     // window, in pixels of its shape; {} when unknown.
     ShapeSize PictureScreen() const
@@ -3970,6 +3985,15 @@ private:
                     + std::to_string(std::abs(percent)) + "% " + (percent > 0 ? "wider" : "narrower") + " than "
                     + shape + ".";
         }
+        else if (PictureFills() && !draft_.fullscreen)
+            note = "The window can take any shape: in matches the wider view fills it with more of the stadium.";
+        else if (PictureFills())
+        {
+            const auto bars = BarsAround(screen.width, screen.height, aw, ah);
+            note = bars.size <= 1 || screen.width <= 0 ? "Fills the display."
+                : "In matches, fills this " + size + " display with more of the stadium "
+                    + (bars.sides ? "at the sides." : "above and below.") + " Menus keep 16:9.";
+        }
         else if (!draft_.fullscreen)
             note = "The window keeps the " + shape + " shape when you resize it, so the picture fills it. "
                 "Maximized on a screen of another shape, it shows bars.";
@@ -3978,7 +4002,8 @@ private:
             const auto bars = BarsAround(screen.width, screen.height, aw, ah);
             note = bars.size <= 1 ? "Fills this " + size + " display exactly."
                 : "On this " + size + " display: bars of " + std::to_string(bars.size) + " pixels "
-                    + (bars.sides ? "left and right." : "above and below.") + " Stretch fills it.";
+                    + (bars.sides ? "left and right." : "above and below.")
+                    + (wide ? " Stretch or the wider view fills it." : " Stretch fills it.");
         }
         if (!note.empty())
             TextWrappedColored(CurrentFonts().caption, unknown ? color::warning : color::muted, note.c_str());
@@ -3990,8 +4015,7 @@ private:
         const auto screen = PictureScreen();
         if (screen.width <= 0 || screen.height <= 0) return;
         const bool wide = WidescreenLayout(draft_.aspect, screen.width, screen.height);
-        const auto picture = PictureSize(screen.width, screen.height, wide ? 16 : 4, wide ? 9 : 3,
-                                         draft_.aspect == "stretch");
+        const auto picture = PictureSize(screen.width, screen.height, wide ? 16 : 4, wide ? 9 : 3, PictureFills());
         const int width = RenderWidth(draft_.resolution, picture.width);
         const int height = RenderHeight(draft_.resolution, picture.height);
         const std::string where = draft_.fullscreen ? "this display" : "this window";
@@ -4257,15 +4281,16 @@ private:
         // Sizes are logical units like the game window's (points on a Retina
         // Mac), so only those that fit the chosen display are offered. A
         // window keeping the picture's shape takes that shape, so the list
-        // offers that shape's sizes; a stretched picture fits any shape.
+        // offers that shape's sizes; a picture filling the window (stretched
+        // or the wider view) fits any shape.
         struct Group { const char* title; std::vector<std::array<int, 2>> sizes; };
         static const Group wide{"16:9", {{1280, 720}, {1600, 900}, {1920, 1080}, {2560, 1440}, {3840, 2160}}};
         static const Group wider{"16:10", {{1280, 800}, {1440, 900}, {1680, 1050}, {1920, 1200}, {2560, 1600}}};
         static const Group standard{"4:3", {{800, 600}, {1024, 768}, {1440, 1080}, {1600, 1200}, {1920, 1440}}};
-        const bool stretch = draft_.aspect == "stretch";
+        const bool any_shape = PictureFills();
         const bool four_three = draft_.aspect == "4:3";
         std::vector<const Group*> groups;
-        if (stretch) groups = {&wide, &wider, &standard};
+        if (any_shape) groups = {&wide, &wider, &standard};
         else groups = {four_three ? &standard : &wide};
         SDL_DisplayID display = SDL_GetPrimaryDisplay();
         if (draft_.monitor > 0 && draft_.monitor <= int(display_ids_.size())) display = display_ids_[size_t(draft_.monitor - 1)];
@@ -4276,9 +4301,9 @@ private:
             const auto fit = platform::FitWindowSize(w, h, usable.w, usable.h);
             return fit.width == w && fit.height == h;
         };
-        // The largest window of the picture's shape (any shape when stretched).
+        // The largest window of the picture's shape (any shape when it fills it).
         const auto largest = !known ? platform::WindowSize{1280, 720}
-            : stretch ? platform::FitWindowSize(usable.w * 4, usable.h * 4, usable.w, usable.h)
+            : any_shape ? platform::FitWindowSize(usable.w * 4, usable.h * 4, usable.w, usable.h)
                       : platform::FitWindowSize(16000, four_three ? 12000 : 9000, usable.w, usable.h);
         auto aspect = [](int w, int h) {
             const double ratio = double(w) / h;
@@ -4332,7 +4357,7 @@ private:
                 + " x " + std::to_string(shrunk.height) + ".";
             TextWrappedColored(CurrentFonts().caption, color::warning, note.c_str());
         }
-        else if (!stretch)
+        else if (!any_shape)
         {
             // The game gives the window the picture's shape: the same width.
             const auto shaped = SnapToShape(draft_.width, draft_.height, four_three ? 4 : 16, four_three ? 3 : 9);

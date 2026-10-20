@@ -61,6 +61,7 @@ Values Encode(const Settings& s)
             {"display.vsync", s.vsync ? "true" : "false"}, {"display.frame_rate", s.frame_rate},
             {"display.backend", s.backend}, {"display.gpu", s.gpu}, {"display.aspect", s.aspect},
             {"display.picture", s.picture}, {"display.tv_border", s.tv_border ? "true" : "false"},
+            {"display.wider_view", s.wider_view ? "true" : "false"},
             {"display.remember_window", s.remember_window ? "true" : "false"}, {"display.position", s.position},
             {"display.performance_mode", s.performance_mode ? "true" : "false"},
             {"display.antialiasing", s.antialiasing}, {"display.resolution", s.resolution},
@@ -198,6 +199,7 @@ Settings Decode(const Values& values)
     choice("display.aspect", s.aspect, {"auto", "4:3", "16:9", "stretch", "16:10", "21:9"});
     choice("display.picture", s.picture, {"soft", "clean", "sharp"});
     boolean("display.tv_border", s.tv_border);
+    boolean("display.wider_view", s.wider_view);
     boolean("display.remember_window", s.remember_window);
     if (const auto it = values.find("display.position"); it != values.end())
     {

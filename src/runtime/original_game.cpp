@@ -312,11 +312,20 @@ int mscharged::RunOriginalGame(int argc, char** argv,
         // Stage a Wii system preference. Original main queries SC and selects
         // its projection and authored scene; resizing only scales that image.
         // auto and stretch take the shape closer to the screen's, known once
-        // the window is on its display (below). stretch fills the window with
-        // the picture; the stretch hotkey switches it while playing (#91).
+        // the window is on its display (below). The picture fills the window
+        // (fill) stretched, or with display.wider_view and the 16:9 layout by
+        // showing more of the stadium while a match's stadium is drawn (the
+        // menus keep the game's own 16:9 picture); the stretch hotkey switches
+        // either (issue #91).
         bool widescreen=aspect!="4:3";
         unsigned aspectWidth=widescreen?16u:4u, aspectHeight=widescreen?9u:3u;
-        bool stretch=aspect=="stretch";
+        bool stretch=aspect=="stretch", widerView=false, widerOn=false, fill=stretch;
+        // Wider view: the module entries, the shape it draws and the last frame
+        // the match's stadium was drawn (frames counts the loop's frames).
+        void (*setViewShape)(float)=nullptr;
+        bool (*takeMatchView)()=nullptr;
+        float viewShape=1.0f;
+        unsigned matchViewFrame=0;
         // advanced.verbose_console: development traces and the game's debug output.
         mscharged::platform::SetVerboseConsole(launch.settings.verbose_console);
         // advanced.log_window: the separate log window, when the launcher has not opened it.
@@ -451,10 +460,11 @@ int mscharged::RunOriginalGame(int argc, char** argv,
             }
             widescreen=mscharged::WidescreenLayout(aspect,shapeWidth,shapeHeight);
             aspectWidth=widescreen?16u:4u; aspectHeight=widescreen?9u:3u;
+            widerView=widerOn=launch.settings.wider_view && widescreen && aspect!="stretch";
             mscharged::platform::SessionLogLine(std::string("Startup: game layout ")+(widescreen?"16:9":"4:3")
-                +(stretch?", stretched to fill the window":""));
+                +(widerView?", wider view in matches":stretch?", stretched to fill the window":""));
             // A window keeping the picture's shape takes that shape: no bars.
-            if(!launch.settings.fullscreen && !stretch) {
+            if(!launch.settings.fullscreen && !stretch && !widerOn) {
                 const auto snapped=mscharged::SnapToShape(int(windowWidth),int(windowHeight),
                     int(aspectWidth),int(aspectHeight));
                 windowWidth=unsigned(snapped.width); windowHeight=unsigned(snapped.height);
@@ -493,13 +503,13 @@ int mscharged::RunOriginalGame(int argc, char** argv,
             if(!launch.settings.fullscreen && launch.settings.remember_window &&
                mscharged::runtime::RestoreWindowPosition(host.window,launch.settings.position,launch.settings.monitor))
                 mscharged::platform::SessionLogLine("Startup: window at its last position "+launch.settings.position);
-            mscharged::runtime::LockWindowShape(host.window,!launch.settings.fullscreen && !stretch,
+            mscharged::runtime::LockWindowShape(host.window,!launch.settings.fullscreen && !stretch && !widerOn,
                 aspectWidth,aspectHeight);
             // display.resolution: the source EFB's render size. Viewport, scissor,
             // copies and pixel accesses map the game's 640x448 coordinates onto it.
             efbScale=mscharged::RenderScale(launch.settings.resolution);
             // window: one EFB pixel per window pixel of the displayed 4:3/16:9
-            // picture (the whole window when stretched). Locked for every
+            // picture (the whole window when it fills it). Locked for every
             // resolution: the 3D resolution hotkeys can switch to it.
             VILockAspectRatio(int(aspectWidth),int(aspectHeight));
             VISetFrameBufferScale(efbScale);
@@ -561,13 +571,13 @@ int mscharged::RunOriginalGame(int argc, char** argv,
         if(nativeSend) {
             // display.picture: host desktop presentation of the original XFB,
             // with display.antialiasing's FXAA, display.tv_border's TV frame
-            // and the stretched picture of display.aspect = stretch.
+            // and a picture filling the window (stretched or wider view).
             mscharged::platform::ConfigureNativeVideoOutputHardware(settings,
                 launch.settings.picture=="sharp" ? mscharged::platform::NativeDesktopPicture::Sharp
                 : launch.settings.picture=="clean" ? mscharged::platform::NativeDesktopPicture::Clean
                                                    : mscharged::platform::NativeDesktopPicture::Signal,
                 mscharged::FindAntialiasing(launch.settings.antialiasing).fxaa,
-                launch.settings.tv_border, stretch);
+                launch.settings.tv_border, fill);
             // Arm source-owned recording before original constructors/commands.
             // This mode never uses diagnostic aurora_begin/end_frame.
             aurora_configure_native_gx_hardware();
@@ -719,6 +729,21 @@ int mscharged::RunOriginalGame(int argc, char** argv,
             // No HUD (issue #58): the HUD key shows or hides the match HUD, whatever show_hud says.
             mscharged::platform::SetHudKey(reinterpret_cast<void(*)()>(
                 mscharged::platform::FindNativeModuleSymbol(module,"charged_toggle_hud")));
+            // display.wider_view: the module tells when the match's stadium is
+            // drawn and draws the shape of the window's picture.
+            if(widerView) {
+                setViewShape=reinterpret_cast<void(*)(float)>(
+                    mscharged::platform::FindNativeModuleSymbol(module,"charged_set_view_shape"));
+                takeMatchView=reinterpret_cast<bool(*)()>(
+                    mscharged::platform::FindNativeModuleSymbol(module,"charged_take_match_view"));
+                if(!setViewShape || !takeMatchView) {
+                    widerView=widerOn=false; setViewShape=nullptr; takeMatchView=nullptr;
+                    mscharged::runtime::LockWindowShape(host.window,!launch.settings.fullscreen,aspectWidth,
+                        aspectHeight);
+                }
+                mscharged::platform::SessionLogLine(widerView ? "Wider view: on (in matches)"
+                    : "Wider view: off (this build's game module has no wider view)");
+            }
             // Robot goalies: the map that lays the disc's unused robot goalie
             // texture onto Charged's goalie. The module keeps a view of it.
             if(tweaks & mscharged::GameTweakBit(mscharged::GameTweak::RobotGoalies)) {
@@ -1108,7 +1133,7 @@ int mscharged::RunOriginalGame(int argc, char** argv,
             case mscharged::platform::FullscreenSwitch::Windowed:
                 mscharged::platform::SessionLogLine(std::string("Display: windowed (")
                     +mscharged::platform::kFullscreenShortcut+")");
-                mscharged::runtime::LockWindowShape(host.window,!stretch,aspectWidth,aspectHeight); break;
+                mscharged::runtime::LockWindowShape(host.window,!stretch && !widerOn,aspectWidth,aspectHeight); break;
             case mscharged::platform::FullscreenSwitch::Failed:
                 mscharged::platform::SessionLogLine(std::string("Display: ")+mscharged::platform::kFullscreenShortcut
                     +" could not switch: "+SDL_GetError()); break;
@@ -1119,21 +1144,32 @@ int mscharged::RunOriginalGame(int argc, char** argv,
                 const auto presses=mscharged::platform::TakeDisplayHotkeyPresses();
                 const auto clock=std::chrono::steady_clock::now();
                 if(presses.stretch_toggles%2) {
-                    stretch=!stretch;
-                    aurora_set_video_output_stretch(stretch);
+                    // With the wider view set up, F switches it; else stretching.
+                    if(widerView) widerOn=!widerOn;
+                    else stretch=!stretch;
                     const bool windowed=!(SDL_GetWindowFlags(host.window)&SDL_WINDOW_FULLSCREEN);
-                    mscharged::runtime::LockWindowShape(host.window,windowed && !stretch,aspectWidth,aspectHeight);
+                    mscharged::runtime::LockWindowShape(host.window,windowed && !stretch && !widerOn,
+                        aspectWidth,aspectHeight);
                     const std::string shape=widescreen?"16:9":"4:3";
-                    const std::string text=stretch?"Picture stretched to fill the window"
-                                                  :"Picture keeps its "+shape+" shape";
+                    const std::string text=widerOn?"Wider view: more of the stadium in matches"
+                        :stretch?"Picture stretched to fill the window":"Picture keeps its "+shape+" shape";
                     mscharged::platform::SessionLogLine("Display: "+text+" (stretch hotkey)");
                     if(hostOverlay) hostOverlay->ShowMessage(text,clock);
+                }
+                // The picture fills the window stretched, or with the wider view
+                // while the match's stadium is drawn (and a few frames after, so
+                // one frame without it does not switch the picture).
+                if(takeMatchView && takeMatchView()) matchViewFrame=frames+1;
+                const bool wantFill=stretch || (widerOn && matchViewFrame && frames<matchViewFrame+3);
+                if(wantFill!=fill) {
+                    fill=wantFill;
+                    aurora_set_video_output_stretch(fill);
                 }
                 if(presses.resolution_steps) {
                     // Steps by the heights each 3D resolution draws at on this window's picture.
                     const auto size=aurora_get_window_size();
                     const auto picture=mscharged::PictureSize(int(size.native_fb_width),int(size.native_fb_height),
-                        int(aspectWidth),int(aspectHeight),stretch);
+                        int(aspectWidth),int(aspectHeight),fill);
                     const std::string next(mscharged::StepRenderResolution(renderResolution,presses.resolution_steps,
                         picture.height));
                     std::string text;
@@ -1149,6 +1185,19 @@ int mscharged::RunOriginalGame(int argc, char** argv,
                     }
                     mscharged::platform::SessionLogLine("Display: "+text+" (3D resolution hotkeys)");
                     if(hostOverlay) hostOverlay->ShowMessage(text,clock);
+                }
+                // Wider view: the window's picture shape against 16:9, while it fills the window.
+                if(setViewShape) {
+                    const auto size=aurora_get_window_size();
+                    float shape=1.0f;
+                    if(fill && size.native_fb_width && size.native_fb_height)
+                        shape=float(size.native_fb_width)*9.0f/(float(size.native_fb_height)*16.0f);
+                    if(std::abs(shape-1.0f)<0.002f) shape=1.0f;
+                    if(shape!=viewShape) {
+                        viewShape=shape;
+                        setViewShape(shape);
+                        mscharged::platform::SetPresentedPointerShape(shape);
+                    }
                 }
             }
             mscharged::diagnostic::ServiceMovieHardware();
