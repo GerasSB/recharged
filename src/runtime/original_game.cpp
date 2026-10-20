@@ -1,6 +1,6 @@
 #include "platform/graphics_stats.h"
 #include "platform/app_icon.h"
-#include "platform/fullscreen_hotkey.h"
+#include "platform/hotkey_filter.h"
 #include "platform/screenshot_hotkey.h"
 #include "platform/window_fit.h"
 #include "runtime/original_game.h"
@@ -659,7 +659,7 @@ int mscharged::RunOriginalGame(int argc, char** argv,
             mscharged::platform::SessionLogLine("Hotkeys: screenshot "+key(mscharged::HotkeyScreenshot)
                 +", HUD "+key(mscharged::HotkeyHud)+" (matches start with the HUD "+(s.show_hud ? "shown)" : "hidden)")
                 +", stretch "+key(mscharged::HotkeyStretch)+", 3D resolution "+key(mscharged::HotkeyResolutionUp)
-                +"/"+key(mscharged::HotkeyResolutionDown));
+                +"/"+key(mscharged::HotkeyResolutionDown)+", fullscreen "+key(mscharged::HotkeyFullscreen));
             for (const auto& device : s.players) {
                 if (device.rfind("gamepad", 0) != 0) continue;
                 const std::size_t pad = std::size_t(device.back() - '1');
@@ -1124,19 +1124,17 @@ int mscharged::RunOriginalGame(int argc, char** argv,
                 exit=true;
             }
             if(exit)break;
-            // Alt+Enter (Option+Return on a Mac): fullscreen or a window, for this run (issue #77).
+            // The fullscreen hotkey (Alt+Return unless set otherwise): fullscreen or a window, for this run (issue #77).
             switch(mscharged::platform::ServiceFullscreenHotkey()) {
             case mscharged::platform::FullscreenSwitch::Fullscreen:
-                mscharged::platform::SessionLogLine(std::string("Display: fullscreen (")
-                    +mscharged::platform::kFullscreenShortcut+")");
+                mscharged::platform::SessionLogLine("Display: fullscreen (fullscreen hotkey)");
                 mscharged::runtime::LockWindowShape(host.window,false,aspectWidth,aspectHeight); break;
             case mscharged::platform::FullscreenSwitch::Windowed:
-                mscharged::platform::SessionLogLine(std::string("Display: windowed (")
-                    +mscharged::platform::kFullscreenShortcut+")");
+                mscharged::platform::SessionLogLine("Display: windowed (fullscreen hotkey)");
                 mscharged::runtime::LockWindowShape(host.window,!stretch && !widerOn,aspectWidth,aspectHeight); break;
             case mscharged::platform::FullscreenSwitch::Failed:
-                mscharged::platform::SessionLogLine(std::string("Display: ")+mscharged::platform::kFullscreenShortcut
-                    +" could not switch: "+SDL_GetError()); break;
+                mscharged::platform::SessionLogLine(std::string("Display: the fullscreen hotkey could not switch: ")
+                    +SDL_GetError()); break;
             case mscharged::platform::FullscreenSwitch::None: break;
             }
             // The display hotkeys (issue #91), for this run.

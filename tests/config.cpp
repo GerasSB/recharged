@@ -547,7 +547,8 @@ int main()
         // [hotkeys]: the screenshot and HUD keys and No HUD's start state,
         // which an old [gameplay] no_hud still sets until the next save.
         {
-            Require(defaults.hotkeys == std::array<std::string, HotkeyCount>{"P", "H", "F", "PageUp", "PageDown"}
+            Require(defaults.hotkeys
+                        == std::array<std::string, HotkeyCount>{"P", "H", "F", "PageUp", "PageDown", "Alt+Return"}
                     && defaults.show_hud && defaults.ModuleTweakMask() == defaults.GameTweakMask(), "Hotkey defaults");
             Require(GameTweakIndex(GameTweak::NoHud) == kGameTweaks.size(), "No HUD is listed as a tweak");
             std::ofstream(path) << "[game]\ndisc = game.rvz\n[gameplay]\nno_hud = true\nskip_intro = true\n";
@@ -559,10 +560,13 @@ int main()
             auto changed = old.settings;
             changed.hotkeys[HotkeyScreenshot] = "F12";
             changed.hotkeys[HotkeyHud] = "G";
+            changed.hotkeys[HotkeyFullscreen] = "Ctrl+Shift+F11";
             SaveConfig(old, changed);
             const auto saved = LoadConfig(path);
             Require(!saved.settings.show_hud && saved.settings.hotkeys[HotkeyScreenshot] == "F12"
                     && saved.settings.hotkeys[HotkeyHud] == "G" && saved.contents.find("stretch = F") != std::string::npos
+                    && saved.settings.hotkeys[HotkeyFullscreen] == "Ctrl+Shift+F11"
+                    && saved.contents.find("fullscreen = Ctrl+Shift+F11") != std::string::npos
                     && saved.contents.find("no_hud") == std::string::npos
                     && saved.contents.find("[hotkeys]") != std::string::npos
                     && saved.contents.find("show_hud = false") != std::string::npos
@@ -579,7 +583,8 @@ int main()
             const auto older = LoadConfig(path).settings;
             Require(older.hotkeys[HotkeyStretch] == kNoHotkey && older.hotkeys[HotkeyResolutionDown] == kNoHotkey
                     && older.hotkeys[HotkeyResolutionUp] == "PageUp" && older.hotkeys[HotkeyScreenshot] == "P"
-                    && older.hotkeys[HotkeyHud] == "H", "A new hotkey took an older INI's keyboard key");
+                    && older.hotkeys[HotkeyHud] == "H" && older.hotkeys[HotkeyFullscreen] == "Alt+Return",
+                    "A new hotkey took an older INI's keyboard key");
             std::ofstream(path) << "[keyboard]\nc = F\n[hotkeys]\nstretch = F\nresolution_up = none\n";
             const auto named = LoadConfig(path).settings;
             Require(named.hotkeys[HotkeyStretch] == "F" && named.hotkeys[HotkeyResolutionUp] == kNoHotkey,

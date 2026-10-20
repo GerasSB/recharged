@@ -243,8 +243,9 @@ Settings Decode(const Values& values)
     };
     for (std::size_t n = 0; n < KeyActionCount; ++n)
         names(std::string("keyboard.") + kKeyActions[n].key, s.keys[n], "key names");
-    // [hotkeys]: one key name each, or none. A hotkey an older INI does not
-    // name yet stays unused when a [keyboard] action has its default key.
+    // [hotkeys]: one key name each, after the Ctrl+, Shift+ and Alt+ it is
+    // pressed with, or none. A hotkey an older INI does not name yet stays
+    // unused when a [keyboard] action has its default key.
     for (std::size_t n = 0; n < HotkeyCount; ++n)
     {
         const auto key = std::string("hotkeys.") + kHotkeys[n].key;
@@ -256,7 +257,8 @@ Settings Decode(const Values& values)
             continue;
         }
         if (it->second.empty() || it->second.find('|') != std::string::npos)
-            throw std::runtime_error("Invalid configuration: " + key + " must be one key name or none");
+            throw std::runtime_error("Invalid configuration: " + key
+                + " must be one key name, after Ctrl+, Shift+ or Alt+ if needed, or none");
         s.hotkeys[n] = it->second;
     }
     // No HUD was the [gameplay] tweak no_hud until it moved beside its key.

@@ -41,7 +41,6 @@
 #include "platform/session_log.h"
 #include "platform/gamepad_bindings.h"
 #include "platform/graphics_cards.h"
-#include "platform/fullscreen_hotkey.h"
 #include "platform/gyro_pointer.h"
 #include "platform/key_bindings.h"
 #include "platform/launcher_reopen.h"
@@ -470,7 +469,9 @@ public:
             SDL_Event event;
             while (SDL_PollEvent(&event))
             {
-                ImGui_ImplSDL3_ProcessEvent(&event);
+                const bool capturing = capture_action_ >= 0 || hotkey_capture_ >= 0;
+                if (!capturing || (event.type != SDL_EVENT_KEY_DOWN && event.type != SDL_EVENT_TEXT_INPUT))
+                    ImGui_ImplSDL3_ProcessEvent(&event);
                 if (event.type == SDL_EVENT_QUIT || (event.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED
                     && event.window.windowID == SDL_GetWindowID(window_)))
                     close_requested_ = true;
@@ -486,7 +487,7 @@ public:
                 if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat && capture_action_ >= 0)
                     CaptureKey(event.key.scancode);
                 if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat && hotkey_capture_ >= 0)
-                    CaptureHotkey(event.key.scancode);
+                    CaptureHotkey(event.key.scancode, event.key.mod);
                 // Middle and side mouse buttons can take a key's place (#62).
                 if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN && capture_action_ >= 0
                     && platform::MouseKeyInput(event.button.button) != platform::kKeyNone)
@@ -2804,8 +2805,8 @@ private:
         if (s.performance_mode) detail += "  -  Performance mode";
         if (!s.show_hud)
         {
-            const auto hud = platform::ParseHotkeys(s.hotkeys)[HotkeyHud];
-            detail += "  -  HUD hidden" + (hud ? " (" + platform::KeyInputName(hud) + ")" : std::string());
+            const auto hud = platform::HotkeyLabel(platform::ParseHotkeys(s.hotkeys)[HotkeyHud]);
+            detail += "  -  HUD hidden" + (hud.empty() ? std::string() : " (" + hud + ")");
         }
         return {s.fullscreen ? "Fullscreen" : std::to_string(s.width) + " x " + std::to_string(s.height) + " window",
                 detail, color::info};
@@ -3810,15 +3811,16 @@ private:
             ImGui::Dummy({0, Dp(2)});
         }
         const auto hotkeys = DraftHotkeys();
-        const auto key = [&](HotkeyIndex hotkey) { return platform::KeyInputName(hotkeys[hotkey]); };
+        const auto key = [&](HotkeyIndex hotkey) { return platform::HotkeyLabel(hotkeys[hotkey]); };
 
         BeginCard("##window", "Screen", nullptr, Icon::Display);
         if (BeginRows("##window_rows"))
         {
             const std::string native = FullscreenResolution();
             const std::string mode_note = "Fullscreen covers the whole display at its own resolution, "
-                + (native.empty() ? std::string() : native + " here, ") + "without a mode change. "
-                + platform::kFullscreenShortcut + " switches while playing.";
+                + (native.empty() ? std::string() : native + " here, ") + "without a mode change."
+                + (hotkeys[HotkeyFullscreen].key ? " " + key(HotkeyFullscreen) + " switches while playing."
+                                                 : std::string());
             Row("Mode", mode_note.c_str());
             int mode = draft_.fullscreen ? 1 : 0;
             if (Segmented("##mode", &mode, {"Windowed", "Fullscreen"}, ImGui::GetContentRegionAvail().x))
@@ -3847,7 +3849,7 @@ private:
         {
             const std::string aspect_note = "16:9 is the game's widescreen layout and 4:3 its original one; both keep "
                 "their shape. Stretch fills the whole screen."
-                + (hotkeys[HotkeyStretch] ? " " + key(HotkeyStretch) + " switches while playing." : std::string());
+                + (hotkeys[HotkeyStretch].key ? " " + key(HotkeyStretch) + " switches while playing." : std::string());
             Row("Aspect ratio", aspect_note.c_str());
             const char* values[] = {"16:9", "4:3", "stretch"};
             int aspect = -1;
@@ -3864,9 +3866,9 @@ private:
 
             std::string resolution_note = "Window draws the game at the size of its picture in the window, the "
                 "sharpest. Native is the Wii's 640 x 448; 2x-4x are its multiples, for slower graphics cards.";
-            if (hotkeys[HotkeyResolutionUp] || hotkeys[HotkeyResolutionDown])
-                resolution_note += " " + key(hotkeys[HotkeyResolutionUp] ? HotkeyResolutionUp : HotkeyResolutionDown)
-                    + (hotkeys[HotkeyResolutionUp] && hotkeys[HotkeyResolutionDown]
+            if (hotkeys[HotkeyResolutionUp].key || hotkeys[HotkeyResolutionDown].key)
+                resolution_note += " " + key(hotkeys[HotkeyResolutionUp].key ? HotkeyResolutionUp : HotkeyResolutionDown)
+                    + (hotkeys[HotkeyResolutionUp].key && hotkeys[HotkeyResolutionDown].key
                            ? " and " + key(HotkeyResolutionDown) + " change it" : std::string(" changes it"))
                     + " while playing.";
             Row("3D resolution", resolution_note.c_str());
@@ -4932,11 +4934,12 @@ private:
         auto names = Settings::DefaultHotkeys();
         for (std::size_t n = 0; n < HotkeyCount; ++n)
         {
-            const platform::KeyInput key = SDL_GetScancodeFromName(kHotkeys[n].defaults);
+            const auto hotkey = platform::ParseHotkey(kHotkeys[n].defaults);
+            if (hotkey.modifiers != SDL_KMOD_NONE) continue;
             for (const auto& text : draft_.keys)
             {
                 const auto binding = platform::ParseKeyBinding(text);
-                if (key != platform::kKeyNone && (binding[0] == key || binding[1] == key)) names[n] = kNoHotkey;
+                if (binding[0] == hotkey.key || binding[1] == hotkey.key) names[n] = kNoHotkey;
             }
         }
         return names;
@@ -4990,79 +4993,105 @@ private:
                NoticeKind::Info);
     }
 
-    // A key pressed while a hotkey's keycap waits (hotkey_capture_: its
-    // HotkeyIndex). Another hotkey's key, a modifier or a keyboard & mouse key
-    // is refused.
-    void CaptureHotkey(platform::KeyInput code)
+    // A key pressed while a hotkey's keycaps wait (hotkey_capture_: its
+    // HotkeyIndex), with the Ctrl, Shift and Alt held (`mod`): Escape stops
+    // waiting, Backspace or Delete leaves the hotkey unused, a modifier waits
+    // for the key it goes with. The same keys as another hotkey, the Windows
+    // or Command key, or a keyboard & mouse key pressed alone are refused.
+    void CaptureHotkey(SDL_Scancode code, SDL_Keymod mod)
     {
         const int which = hotkey_capture_;
+        if (which < 0 || which >= int(HotkeyCount)) return;
+        if (code >= SDL_SCANCODE_LCTRL && code <= SDL_SCANCODE_RGUI) return;
         hotkey_capture_ = -1;
-        const std::string name = platform::KeyInputName(code);
-        if (which < 0 || which >= int(HotkeyCount) || name.empty()) return;
-        if (!platform::HotkeyAllowed(code))
+        const char* label = kHotkeys[std::size_t(which)].label;
+        const platform::Hotkey hotkey{code, platform::HotkeyModifiers(mod)};
+        if (hotkey.modifiers == SDL_KMOD_NONE && !(mod & SDL_KMOD_GUI))
         {
-            Notice(name + " cannot be a hotkey: Shift, Ctrl, Alt and the system key stay free for shortcuts.",
-                   NoticeKind::Warning);
-            return;
-        }
-        const auto taken = DraftHotkeys().Find(code);
-        if (taken == HotkeyIndex(which)) return;
-        if (taken != HotkeyCount)
-        {
-            Notice(name + " is already the hotkey " + kHotkeys[taken].label + ".", NoticeKind::Warning);
-            return;
-        }
-        const auto bindings = DraftBindings();
-        for (std::size_t action = 0; action < KeyActionCount; ++action)
-            if (bindings[action][0] == code || bindings[action][1] == code)
+            if (code == SDL_SCANCODE_ESCAPE) return;
+            if (code == SDL_SCANCODE_BACKSPACE || code == SDL_SCANCODE_DELETE)
             {
-                Notice(name + " presses " + kKeyActions[action].label
-                           + " for keyboard & mouse. Give that action another key first.",
-                       NoticeKind::Warning);
+                if (draft_.hotkeys[std::size_t(which)] == kNoHotkey) return;
+                draft_.hotkeys[std::size_t(which)] = kNoHotkey;
+                dirty_ = true;
+                Notice(std::string(label) + " has no hotkey now.", NoticeKind::Info);
                 return;
             }
-        draft_.hotkeys[std::size_t(which)] = name;
+        }
+        if (mod & SDL_KMOD_GUI)
+        {
+            Notice("Combinations with the Windows or Command key stay with the system.", NoticeKind::Warning);
+            return;
+        }
+        const std::string name = platform::HotkeyLabel(hotkey);
+        if (!platform::HotkeyAllowed(hotkey) || name.empty()) return;
+        const auto hotkeys = DraftHotkeys();
+        for (std::size_t other = 0; other < HotkeyCount; ++other)
+            if (hotkeys.keys[other] == hotkey)
+            {
+                if (int(other) != which)
+                    Notice(name + " is already the hotkey " + kHotkeys[other].label + ".", NoticeKind::Warning);
+                return;
+            }
+        // A key pressed alone would also press its keyboard & mouse action.
+        if (hotkey.modifiers == SDL_KMOD_NONE)
+        {
+            const auto bindings = DraftBindings();
+            for (std::size_t action = 0; action < KeyActionCount; ++action)
+                if (bindings[action][0] == code || bindings[action][1] == code)
+                {
+                    Notice(name + " presses " + kKeyActions[action].label + " for keyboard & mouse. Give that action "
+                               "another key first, or hold Ctrl, Shift or Alt with it.",
+                           NoticeKind::Warning);
+                    return;
+                }
+        }
+        draft_.hotkeys[std::size_t(which)] = platform::HotkeyName(hotkey);
         dirty_ = true;
-        Notice(name + " is now the hotkey " + kHotkeys[std::size_t(which)].label + ".", NoticeKind::Info);
+        Notice(name + " is now the hotkey " + label + ".", NoticeKind::Info);
     }
 
-    // [hotkeys]: keys of the game window, whoever plays. Each key can be
-    // changed; Alt+Enter cannot. No HUD sits with its key.
+    // [hotkeys]: keys of the game window, whoever plays, each a key alone or
+    // with Ctrl, Shift or Alt. No HUD sits with its key.
     void HotkeysCard()
     {
-        BeginCard("##hotkeys", "Hotkeys", "Keys of the game window, whoever plays. Click a key, then press the new one.",
+        BeginCard("##hotkeys", "Hotkeys", "Keys of the game window, whoever plays. Click a hotkey, then press the new "
+                  "key, alone or with Ctrl, Shift or Alt. Escape cancels; Backspace or Delete leaves it unused.",
                   Icon::Keyboard);
         const auto hotkeys = DraftHotkeys();
         bool clicked = false;
         const auto hotkey = [&](HotkeyIndex which) {
             Row(kHotkeys[which].label, kHotkeys[which].note);
             const bool waiting = hotkey_capture_ == int(which);
-            const std::string name = waiting ? std::string("Press a key...")
-                : hotkeys[which] ? platform::KeyInputName(hotkeys[which]) : std::string("Not set");
+            std::vector<std::string> keys;
+            if (waiting)
+            {
+                // The modifiers held so far, then the key still to come.
+                const SDL_Keymod held = platform::HotkeyModifiers(SDL_GetModState());
+                keys = platform::HotkeyKeys({SDL_SCANCODE_A, held});
+                keys.back() = keys.size() > 1 ? "..." : "Press keys...";
+            }
+            else if (hotkeys[which].key) keys = platform::HotkeyKeys(hotkeys[which]);
+            else keys = {"Not set"};
             ImGui::PushID(int(which));
-            if (KeyCapButton("##hotkey", name.c_str(), waiting))
+            if (KeyComboButton("##hotkey", keys, waiting))
             {
                 clicked = true;
                 hotkey_capture_ = waiting ? -1 : int(which);
             }
-            if (ImGui::IsItemHovered() && !waiting) ImGui::SetTooltip("Click, then press the new key");
+            if (ImGui::IsItemHovered() && !waiting) ImGui::SetTooltip("Click, then press the new keys");
             ImGui::PopID();
         };
         if (BeginRows("##hotkey_rows"))
         {
             hotkey(HotkeyScreenshot);
-            Row("Fullscreen or window", "For this run.");
-#if defined(__APPLE__)
-            KeyCaps({"Option", "Return"}, true);
-#else
-            KeyCaps({"Alt", "Enter"}, true);
-#endif
+            hotkey(HotkeyFullscreen);
             hotkey(HotkeyStretch);
             hotkey(HotkeyResolutionUp);
             hotkey(HotkeyResolutionDown);
             hotkey(HotkeyHud);
-            const std::string key = hotkeys[HotkeyHud] ? platform::KeyInputName(hotkeys[HotkeyHud])
-                                                       : std::string("its hotkey");
+            const std::string key = hotkeys[HotkeyHud].key ? platform::HotkeyLabel(hotkeys[HotkeyHud])
+                                                           : std::string("its hotkey");
             const std::string note = "The scoreboard, player markers and captions. Off starts matches without them, "
                 "for clean recordings; " + key + " shows them. The Mega Strike meter and its defence always stay.";
             Row("Show the HUD when a match starts", note.c_str());
@@ -5077,7 +5106,7 @@ private:
             dirty_ = true;
         }
         EndCard();
-        // A click anywhere else stops waiting for a key.
+        // A click anywhere else stops waiting for keys.
         if (hotkey_capture_ >= 0 && !clicked && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) hotkey_capture_ = -1;
     }
 

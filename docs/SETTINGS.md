@@ -139,9 +139,9 @@ you leave it at (`remember_window = false` turns that off; the place is
 `position`). Wayland desktops place windows themselves.
 
 **Fullscreen** (Display → Mode, `[display] fullscreen`) covers the whole
-display at its own resolution. **Alt+Enter** (Option+Return on a Mac) switches
-between fullscreen and a window while playing, for that run only; that Enter
-never presses A.
+display at its own resolution. **Alt+Enter** (Option+Return on a Mac, the
+`fullscreen` hotkey) switches between fullscreen and a window while playing,
+for that run only; that Enter never presses A.
 
 **Antialiasing** (Display → Antialiasing, `[display] antialiasing`) smooths
 jagged edges. **4x MSAA** (`4x`, the default) smooths the edges of 3D shapes.
@@ -287,16 +287,20 @@ The built-in Default always uses the defaults; changing it makes your own copy.
 **Hotkeys** (Controls → Hotkeys, `[hotkeys]`) work in the game window whoever
 plays: **P** saves a screenshot (`screenshot`), **H** shows or hides the HUD in
 a match (`hud`), **F** stretches the picture over the window or gives it back
-its shape (`stretch`), and **Page Up** and **Page Down** raise and lower the 3D
-resolution (`resolution_up`, `resolution_down`); these three last for the run.
-Click a key to change it; a hotkey cannot be Shift, Ctrl, Alt or the system
-key, nor a key of keyboard & mouse, and `none` leaves it unused. A settings
-file whose keyboard & mouse keys already use F, Page Up or Page Down keeps
-them, with that hotkey unused. With **Show the HUD
-when a match starts** off (`show_hud = false`), every match starts without the
-scoreboard, player markers and captions, for clean recordings; the HUD key
-shows them, and the Mega Strike meter stays. **Alt+Enter** (Option+Return on a Mac) cannot be
-changed.
+its shape (`stretch`), **Page Up** and **Page Down** raise and lower the 3D
+resolution (`resolution_up`, `resolution_down`), and **Alt+Enter**
+(Option+Return on a Mac) switches between fullscreen and a window
+(`fullscreen`); the last four last for the run. Click a hotkey, then press the
+new key, alone or with Ctrl, Shift or Alt (Control or Option on a Mac); Escape
+cancels and Backspace or Delete leaves it unused. In the file a hotkey is a key
+name after the `Ctrl+`, `Shift+` and `Alt+` it needs (`Ctrl+Shift+F12`), or
+`none`. A hotkey's key does not reach the game, so a key pressed alone cannot
+be a key of keyboard & mouse too; with Ctrl, Shift or Alt it can. The Windows
+and Command keys stay with the system. A settings file whose keyboard & mouse
+keys already use F, Page Up or Page Down keeps them, with that hotkey unused.
+With **Show the HUD when a match starts** off (`show_hud = false`), every match
+starts without the scoreboard, player markers and captions, for clean
+recordings; the HUD key shows them, and the Mega Strike meter stays.
 
 **Linux permissions.** If a Remote is connected but cannot be opened, the
 Controls page says so and copies these commands. Run them once, then
