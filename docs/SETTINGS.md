@@ -131,10 +131,12 @@ resolution is not Window, **Upscaling** scales it to the window smoothly
 (`tv_border = true`) also shows the empty border a Wii sends around its
 picture, which a TV hides.
 
-**Window size** (Display → Window size, `[display] width` and `height`). The
-game window opens at the size and place you leave it at
-(`remember_window = false` turns that off; the place is `position`). Wayland
-desktops place windows themselves.
+**Window size** (Display → Window size, `[display] width` and `height`) lists
+the sizes your graphics card offers for the display, of the picture's shape
+while the window keeps it. A size larger than a window can take there opens as
+the largest window that fits. The game window also opens at the size and place
+you leave it at (`remember_window = false` turns that off; the place is
+`position`). Wayland desktops place windows themselves.
 
 **Fullscreen** (Display → Mode, `[display] fullscreen`) covers the whole
 display at its own resolution. **Alt+Enter** (Option+Return on a Mac) switches

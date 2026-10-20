@@ -3827,8 +3827,9 @@ private:
             if (!draft_.fullscreen)
             {
                 Row("Window size", draft_.remember_window
-                    ? "The window opens at the size and place you leave it at."
-                    : "You can still resize the window while playing.");
+                    ? "The sizes your graphics card offers for this display. The game also keeps the size and "
+                      "place you leave its window at."
+                    : "The sizes your graphics card offers for this display.");
                 WindowSizeControl();
             }
 
@@ -3856,11 +3857,9 @@ private:
             AspectNote(aspect < 0);
             if (draft_.aspect == "16:9")
             {
-                BeginSubRows();
                 Row("Wider view", "In matches on a screen wider or taller than 16:9, shows more of the stadium "
                     "instead of bars, with the HUD in the 16:9 middle. Menus keep their 16:9 picture.");
                 if (Toggle("##wider_view", &draft_.wider_view)) dirty_ = true;
-                EndSubRows();
             }
 
             std::string resolution_note = "Window draws the game at the size of its picture in the window, the "
@@ -4278,20 +4277,17 @@ private:
 
     void WindowSizeControl()
     {
-        // Sizes are logical units like the game window's (points on a Retina
-        // Mac), so only those that fit the chosen display are offered. A
-        // window keeping the picture's shape takes that shape, so the list
-        // offers that shape's sizes; a picture filling the window (stretched
-        // or the wider view) fits any shape.
-        struct Group { const char* title; std::vector<std::array<int, 2>> sizes; };
-        static const Group wide{"16:9", {{1280, 720}, {1600, 900}, {1920, 1080}, {2560, 1440}, {3840, 2160}}};
-        static const Group wider{"16:10", {{1280, 800}, {1440, 900}, {1680, 1050}, {1920, 1200}, {2560, 1600}}};
-        static const Group standard{"4:3", {{800, 600}, {1024, 768}, {1440, 1080}, {1600, 1200}, {1920, 1440}}};
+        // The sizes the graphics card offers for the chosen display (its
+        // display modes, as games list them), up to its largest: while the
+        // window keeps the picture's shape, those of that shape (a picture
+        // filling the window, stretched or the wider view, fits any). A size
+        // larger than the display's usable area opens as the largest window
+        // that fits. Sizes are logical units like the game window's (points
+        // on a Retina Mac). A size the game kept from a resized window stays
+        // listed as the current one.
         const bool any_shape = PictureFills();
         const bool four_three = draft_.aspect == "4:3";
-        std::vector<const Group*> groups;
-        if (any_shape) groups = {&wide, &wider, &standard};
-        else groups = {four_three ? &standard : &wide};
+        const int shape_w = four_three ? 4 : 16, shape_h = four_three ? 3 : 9;
         SDL_DisplayID display = SDL_GetPrimaryDisplay();
         if (draft_.monitor > 0 && draft_.monitor <= int(display_ids_.size())) display = display_ids_[size_t(draft_.monitor - 1)];
         SDL_Rect usable{};
@@ -4301,66 +4297,69 @@ private:
             const auto fit = platform::FitWindowSize(w, h, usable.w, usable.h);
             return fit.width == w && fit.height == h;
         };
-        // The largest window of the picture's shape (any shape when it fills it).
-        const auto largest = !known ? platform::WindowSize{1280, 720}
-            : any_shape ? platform::FitWindowSize(usable.w * 4, usable.h * 4, usable.w, usable.h)
-                      : platform::FitWindowSize(16000, four_three ? 12000 : 9000, usable.w, usable.h);
-        auto aspect = [](int w, int h) {
-            const double ratio = double(w) / h;
-            return std::abs(ratio - 16.0 / 9) < 0.01 ? "   (16:9)" : std::abs(ratio - 16.0 / 10) < 0.01 ? "   (16:10)"
-                 : std::abs(ratio - 4.0 / 3) < 0.01 ? "   (4:3)" : "";
+        auto offered = [&](int w, int h) {
+            return w > 0 && h > 0 && (any_shape || std::abs(double(w) * shape_h / (double(h) * shape_w) - 1.0) < 0.01);
         };
-        auto selected = [&](int w, int h) { return draft_.width == w && draft_.height == h; };
-
-        const float width = ImGui::GetContentRegionAvail().x;
-        bool custom = !selected(largest.width, largest.height);
-        for (const auto* group : groups)
-            for (const auto& size : group->sizes) if (selected(size[0], size[1])) custom = false;
-        std::string preview = std::to_string(draft_.width) + " x " + std::to_string(draft_.height)
-            + aspect(draft_.width, draft_.height) + (custom ? "  (custom)" : "");
-        ImGui::SetNextItemWidth(width);
+        std::vector<std::array<int, 2>> sizes;
+        auto offer = [&](int w, int h) {
+            const std::array<int, 2> size{w, h};
+            if (offered(w, h) && std::find(sizes.begin(), sizes.end(), size) == sizes.end()) sizes.push_back(size);
+        };
+        int count = 0;
+        if (SDL_DisplayMode** modes = display ? SDL_GetFullscreenDisplayModes(display, &count) : nullptr)
+        {
+            for (int i = 0; i < count; ++i) offer(modes[i]->w, modes[i]->h);
+            SDL_free(modes);
+        }
+        // A display that reports no mode of the shape (a Wayland compositor
+        // without scaling): the common sizes up to the display's own.
+        if (sizes.empty())
+        {
+            static const std::array<int, 2> common[] = {{3840, 2160}, {2560, 1600}, {2560, 1440}, {1920, 1440},
+                {1920, 1200}, {1920, 1080}, {1680, 1050}, {1600, 1200}, {1600, 900}, {1440, 1080}, {1440, 900},
+                {1280, 800}, {1280, 720}, {1024, 768}, {800, 600}};
+            SDL_Rect bounds{};
+            const bool bounded = display && SDL_GetDisplayBounds(display, &bounds);
+            for (const auto& size : common)
+                if (!bounded || (size[0] <= bounds.w && size[1] <= bounds.h)) offer(size[0], size[1]);
+        }
+        std::sort(sizes.begin(), sizes.end(), [](const auto& a, const auto& b) {
+            return a[0] != b[0] ? a[0] > b[0] : a[1] > b[1];
+        });
+        auto label = [&](int w, int h) {
+            std::string text = std::to_string(w) + " x " + std::to_string(h);
+            if (!any_shape) return text;
+            static const struct { double ratio; const char* name; } shapes[] = {{16.0 / 9, "16:9"},
+                {16.0 / 10, "16:10"}, {4.0 / 3, "4:3"}, {5.0 / 4, "5:4"}, {3.0 / 2, "3:2"}, {32.0 / 9, "32:9"}};
+            const double ratio = double(w) / h;
+            for (const auto& shape : shapes)
+                if (std::abs(ratio / shape.ratio - 1.0) < 0.01) return text + "   (" + shape.name + ")";
+            // Ultrawide displays (2560 x 1080, 3440 x 1440, 3840 x 1600) are all sold as 21:9.
+            return ratio > 2.3 && ratio < 2.42 ? text + "   (21:9)" : text;
+        };
+        const std::array<int, 2> current{draft_.width, draft_.height};
+        const bool listed = std::find(sizes.begin(), sizes.end(), current) != sizes.end();
+        const std::string preview = label(draft_.width, draft_.height) + (listed ? "" : "  (current)");
+        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
         if (ImGui::BeginCombo("##size", preview.c_str(), ImGuiComboFlags_HeightLarge))
         {
-            const std::string fill = "Largest that fits: " + std::to_string(largest.width) + " x "
-                + std::to_string(largest.height);
-            if (ImGui::Selectable(fill.c_str(), selected(largest.width, largest.height)))
-            { draft_.width = largest.width; draft_.height = largest.height; dirty_ = true; }
-            for (const auto* group : groups)
-            {
-                bool any = false;
-                for (const auto& size : group->sizes) any |= fits(size[0], size[1]);
-                if (!any) continue;
-                ImGui::SeparatorText(group->title);
-                for (const auto& size : group->sizes)
-                {
-                    if (!fits(size[0], size[1])) continue;
-                    const std::string label = std::to_string(size[0]) + " x " + std::to_string(size[1])
-                        + aspect(size[0], size[1]) + "##" + group->title;
-                    if (ImGui::Selectable(label.c_str(), selected(size[0], size[1])))
-                    { draft_.width = size[0]; draft_.height = size[1]; dirty_ = true; }
-                }
-            }
+            if (!listed) ImGui::Selectable(preview.c_str(), true);
+            for (const auto& size : sizes)
+                if (ImGui::Selectable(label(size[0], size[1]).c_str(), size == current))
+                { draft_.width = size[0]; draft_.height = size[1]; dirty_ = true; }
             ImGui::EndCombo();
-        }
-        int dimensions[] = {draft_.width, draft_.height};
-        ImGui::SetNextItemWidth(width);
-        if (ImGui::InputInt2("##custom_size", dimensions))
-        {
-            draft_.width = std::clamp(dimensions[0], 320, 16384);
-            draft_.height = std::clamp(dimensions[1], 240, 16384);
-            dirty_ = true;
         }
         if (!fits(draft_.width, draft_.height))
         {
             const auto shrunk = platform::FitWindowSize(draft_.width, draft_.height, usable.w, usable.h);
-            const std::string note = "Larger than this display; the game opens it at " + std::to_string(shrunk.width)
-                + " x " + std::to_string(shrunk.height) + ".";
-            TextWrappedColored(CurrentFonts().caption, color::warning, note.c_str());
+            const std::string note = "More than a window can take on this display: the game opens it at "
+                + std::to_string(shrunk.width) + " x " + std::to_string(shrunk.height) + ", the largest that fits.";
+            TextWrappedColored(CurrentFonts().caption, color::muted, note.c_str());
         }
         else if (!any_shape)
         {
             // The game gives the window the picture's shape: the same width.
-            const auto shaped = SnapToShape(draft_.width, draft_.height, four_three ? 4 : 16, four_three ? 3 : 9);
+            const auto shaped = SnapToShape(draft_.width, draft_.height, shape_w, shape_h);
             if (shaped.height != draft_.height)
             {
                 const std::string note = "Not " + std::string(four_three ? "4:3" : "16:9") + ": the game opens it at "
