@@ -304,7 +304,7 @@ int mscharged::RunOriginalGame(int argc, char** argv,
         auto launch=suppliedLaunch ? *suppliedLaunch :
             mscharged::LoadLaunch(launchOptions,executableDirectory);
         mscharged::ApplyGameModeDisplay(launch,mscharged::UnderGamescope());
-        disc=mscharged::PathUtf8(launch.disc_path);
+        disc=launch.disc_path;
         windowWidth=launch.settings.width;windowHeight=launch.settings.height;
         const auto& aspect = launch.settings.aspect;
         Check(aspect=="auto" || aspect=="4:3" || aspect=="16:9" || aspect=="stretch",
@@ -367,7 +367,8 @@ int mscharged::RunOriginalGame(int argc, char** argv,
         const auto dataDirectory = std::filesystem::absolute(mscharged::DataFolder(executableDirectory));
         mscharged::platform::SessionLogLine("Data: "+mscharged::PathUtf8(dataDirectory));
         std::filesystem::create_directories(dataDirectory);
-        const auto dataPath = dataDirectory.string();
+        // Aurora reads its paths as UTF-8; string() would give Windows' ANSI code page (#97).
+        const auto dataPath = mscharged::PathUtf8(dataDirectory);
         AuroraConfig config{};
         // Window title: the port's name and build, then the diagnostic scene.
         const std::string appTitle=title ? title : "Recharged";
