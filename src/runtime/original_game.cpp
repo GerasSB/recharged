@@ -304,7 +304,7 @@ int mscharged::RunOriginalGame(int argc, char** argv,
         auto launch=suppliedLaunch ? *suppliedLaunch :
             mscharged::LoadLaunch(launchOptions,executableDirectory);
         mscharged::ApplyGameModeDisplay(launch,mscharged::UnderGamescope());
-        disc=mscharged::PathUtf8(launch.disc_path);
+        disc=launch.disc_path;
         windowWidth=launch.settings.width;windowHeight=launch.settings.height;
         const auto& aspect = launch.settings.aspect;
         Check(aspect=="auto" || aspect=="4:3" || aspect=="16:9" || aspect=="stretch",
@@ -367,7 +367,8 @@ int mscharged::RunOriginalGame(int argc, char** argv,
         const auto dataDirectory = std::filesystem::absolute(mscharged::DataFolder(executableDirectory));
         mscharged::platform::SessionLogLine("Data: "+mscharged::PathUtf8(dataDirectory));
         std::filesystem::create_directories(dataDirectory);
-        const auto dataPath = dataDirectory.string();
+        // Aurora reads its paths as UTF-8; string() would give Windows' ANSI code page (#97).
+        const auto dataPath = mscharged::PathUtf8(dataDirectory);
         AuroraConfig config{};
         // Window title: the port's name and build, then the diagnostic scene.
         const std::string appTitle=title ? title : "Recharged";
@@ -457,11 +458,19 @@ int mscharged::RunOriginalGame(int argc, char** argv,
             const SDL_DisplayID display=SDL_GetDisplayForWindow(host.window);
             // display.fullscreen_resolution: fullscreen (at start, and with the
             // fullscreen hotkey) switches the display to that mode while the
-            // game runs; desktop keeps the display's own resolution.
+            // game runs; desktop keeps the display's own resolution. A Retina
+            // screen keeps its sharpness: the size at the highest pixel density
+            // the display offers for it (issue #99).
+#if defined(__APPLE__)
+            constexpr bool highDensityModes=true;
+#else
+            constexpr bool highDensityModes=false;
+#endif
             SDL_DisplayMode fullscreenMode{};
             if(const auto wanted=mscharged::ParseResolution(launch.settings.fullscreen_resolution); wanted.width) {
                 const std::string name=mscharged::FormatResolution(wanted.width,wanted.height);
-                if(display && SDL_GetClosestFullscreenDisplayMode(display,wanted.width,wanted.height,0.0f,false,&fullscreenMode)
+                if(display && SDL_GetClosestFullscreenDisplayMode(display,wanted.width,wanted.height,0.0f,
+                       highDensityModes,&fullscreenMode)
                    && fullscreenMode.w==wanted.width && fullscreenMode.h==wanted.height
                    && SDL_SetWindowFullscreenMode(host.window,&fullscreenMode))
                     mscharged::platform::SessionLogLine("Startup: fullscreen resolution "+name);
@@ -519,8 +528,17 @@ int mscharged::RunOriginalGame(int argc, char** argv,
             // Existing Aurora policy fixes the internal source EFB at 1x.
             // Original SC/VI signal aspect controls independent desktop output.
             Check(SDL_SetWindowMinimumSize(host.window,1,1), "SDL window minimum rejected");
-            Check(SDL_SetWindowSize(host.window,static_cast<int>(windowWidth),static_cast<int>(windowHeight)),
-                  "Requested window size rejected");
+            // On macOS fullscreen keeps the window's created size for the
+            // fullscreen hotkey: a fullscreen window at a chosen resolution is
+            // a borderless window there, which a resize would shrink (issue #99).
+#if defined(__APPLE__)
+            const bool setWindowSize=!launch.settings.fullscreen;
+#else
+            const bool setWindowSize=true;
+#endif
+            if(setWindowSize)
+                Check(SDL_SetWindowSize(host.window,static_cast<int>(windowWidth),static_cast<int>(windowHeight)),
+                      "Requested window size rejected");
             // display.remember_window: the window opens where it was left.
             if(!launch.settings.fullscreen && launch.settings.remember_window &&
                mscharged::runtime::RestoreWindowPosition(host.window,launch.settings.position,launch.settings.monitor))
@@ -537,6 +555,9 @@ int mscharged::RunOriginalGame(int argc, char** argv,
             VISetFrameBufferScale(efbScale);
             AuroraSetViewportPolicy(AURORA_VIEWPORT_FIT);
         }
+        // After the window's size limits: on macOS the minimum size above gives
+        // a fullscreen window at a chosen resolution its windowed size (issue #99).
+        if(launch.settings.fullscreen) mscharged::runtime::PlaceFullscreenWindow(host.window);
         // Warm the actual selected GPU/backend before any original module
         // constructors, clocks or input/audio owners. The helper pumps resize
         // events before preparing the final targets and keeps the window live.
@@ -953,7 +974,16 @@ int mscharged::RunOriginalGame(int argc, char** argv,
         if(!entry)throw std::runtime_error("Original source main export unavailable");
         mscharged::platform::Trace("Entering actual source main with real Aurora %s/FIFO owner and native PI_VI under temporary MAIN_BOOTSTRAP; flow remains incomplete.\n",
                      graphics->label);
+#if defined(_WIN32)
+        // Its own base unless something had taken that place (#98).
+        char moduleBase[24];
+        std::snprintf(moduleBase,sizeof(moduleBase),"0x%llx",
+                      static_cast<unsigned long long>(reinterpret_cast<std::uintptr_t>(module)));
+        mscharged::platform::SessionLogLine(std::string("Startup: game module loaded at ")+moduleBase
+            +", entering the game");
+#else
         mscharged::platform::SessionLogLine("Startup: game module loaded, entering the game");
+#endif
         std::fflush(nullptr);
         const int result=entry();
         Check(result==85, "Original main selected scene did not complete checkpoint 85");
@@ -1150,6 +1180,7 @@ int mscharged::RunOriginalGame(int argc, char** argv,
             switch(mscharged::platform::ServiceFullscreenHotkey()) {
             case mscharged::platform::FullscreenSwitch::Fullscreen:
                 mscharged::platform::SessionLogLine("Display: fullscreen (fullscreen hotkey)");
+                mscharged::runtime::PlaceFullscreenWindow(host.window);
                 mscharged::runtime::LockWindowShape(host.window,false,aspectWidth,aspectHeight); break;
             case mscharged::platform::FullscreenSwitch::Windowed:
                 mscharged::platform::SessionLogLine("Display: windowed (fullscreen hotkey)");
