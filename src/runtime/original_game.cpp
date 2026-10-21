@@ -520,8 +520,12 @@ int mscharged::RunOriginalGame(int argc, char** argv,
             // Existing Aurora policy fixes the internal source EFB at 1x.
             // Original SC/VI signal aspect controls independent desktop output.
             Check(SDL_SetWindowMinimumSize(host.window,1,1), "SDL window minimum rejected");
-            Check(SDL_SetWindowSize(host.window,static_cast<int>(windowWidth),static_cast<int>(windowHeight)),
-                  "Requested window size rejected");
+            // Fullscreen keeps the window's created size for the fullscreen
+            // hotkey: macOS shows a fullscreen window at a chosen resolution as
+            // a borderless window, which a resize would shrink (issue #99).
+            if(!launch.settings.fullscreen)
+                Check(SDL_SetWindowSize(host.window,static_cast<int>(windowWidth),static_cast<int>(windowHeight)),
+                      "Requested window size rejected");
             // display.remember_window: the window opens where it was left.
             if(!launch.settings.fullscreen && launch.settings.remember_window &&
                mscharged::runtime::RestoreWindowPosition(host.window,launch.settings.position,launch.settings.monitor))
