@@ -954,7 +954,16 @@ int mscharged::RunOriginalGame(int argc, char** argv,
         if(!entry)throw std::runtime_error("Original source main export unavailable");
         mscharged::platform::Trace("Entering actual source main with real Aurora %s/FIFO owner and native PI_VI under temporary MAIN_BOOTSTRAP; flow remains incomplete.\n",
                      graphics->label);
+#if defined(_WIN32)
+        // Its own base unless something had taken that place (#98).
+        char moduleBase[24];
+        std::snprintf(moduleBase,sizeof(moduleBase),"0x%llx",
+                      static_cast<unsigned long long>(reinterpret_cast<std::uintptr_t>(module)));
+        mscharged::platform::SessionLogLine(std::string("Startup: game module loaded at ")+moduleBase
+            +", entering the game");
+#else
         mscharged::platform::SessionLogLine("Startup: game module loaded, entering the game");
+#endif
         std::fflush(nullptr);
         const int result=entry();
         Check(result==85, "Original main selected scene did not complete checkpoint 85");
