@@ -394,6 +394,9 @@ function(mscharged_link_original_game target)
         # main holds the game module's base from the start (#98).
         target_compile_definitions(${target} PRIVATE
             MSCHARGED_WINDOWS_GAME_MODULE_BASE=${MSCHARGED_WINDOWS_GAME_MODULE_BASE})
+    elseif(NINTENDO_SWITCH)
+        # One program with the game images linked in: nothing binds to it later.
+        target_link_options(${target} PRIVATE -Wl,--gc-sections)
     else()
         if(MSCHARGED_DIAGNOSTIC_FRONTEND_RESET)
             set(_host_exports original_main_reset_host_exports.map)
