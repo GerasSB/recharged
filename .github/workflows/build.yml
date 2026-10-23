@@ -344,16 +344,20 @@ jobs:
           retention-days: 7
 
   switch:
-    # Nintendo Switch homebrew, built in the pinned devkitPro image
-    # (tools/switch/devkitpro.sh) as on a developer's machine. The program's
-    # host is not ported yet, so this builds the two game images
-    # (cmake/SwitchGameImages.cmake); the .nro package follows with the host.
+    # Nintendo Switch homebrew, built like new-coke's Strikers port: devkitPro
+    # in Docker (tools/switch/devkitpro.sh), the SDL3 API through sdl3on2, Dawn
+    # on the NVK driver (tools/switch/build-nvk.sh, cached by its inputs) and the
+    # game modules linked into the .nro. Packaged for the SD card (docs/SWITCH.md).
     name: switch-aarch64
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    timeout-minutes: 240
     defaults:
       run:
         shell: bash
+    env:
+      CCACHE_BASEDIR: ${{ github.workspace }}
+      CCACHE_NOHASHDIR: 'true'
+      CCACHE_MAXSIZE: 3G
     steps:
       - uses: actions/checkout@v6
         with:
@@ -361,43 +365,74 @@ jobs:
           fetch-depth: 1
           submodules: false
           persist-credentials: false
+      # Dawn, the driver's build image and Mesa need more than the runner leaves free.
+      - name: Free disk space
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
       - name: Prepare pinned dependencies
         run: python3 tools/setup_dependencies.py --switch --shallow
-      - name: Pull the pinned devkitPro image
+      - name: Read the Vulkan driver's inputs
+        id: nvk-inputs
+        run: echo "mesa=$(git ls-files --stage extern/mesa-switch | cut -d' ' -f2)" >> "$GITHUB_OUTPUT"
+      - name: Restore the Vulkan driver
+        id: nvk
+        uses: actions/cache/restore@v4
+        with:
+          path: build/nvk-switch
+          key: nvk-switch-${{ steps.nvk-inputs.outputs.mesa }}-${{ hashFiles('tools/switch/build-nvk.sh', 'tools/switch/package-nvk.sh', 'tools/switch/toolchain.env', 'patches/mesa-switch/*') }}
+      - name: Build the Vulkan driver
+        if: steps.nvk.outputs.cache-hit != 'true'
         run: |
-          . tools/switch/toolchain.env
-          docker pull --quiet "$DEVKITPRO_IMAGE"
-      - name: Build the game images
-        run: tools/switch/devkitpro.sh env CMAKE_BUILD_PARALLEL_LEVEL=4 cmake --workflow --preset switch
-      # The link (tools/link_static_game_image.py) already checks each image's
-      # sections and exports; these are the program's AArch64 inputs.
-      - name: Check the game images
-        run: |
-          for image in us eu; do
-            file="build/switch/recharged_game_$image.o"
-            tools/switch/devkitpro.sh aarch64-none-elf-readelf -h "$file" > "$RUNNER_TEMP/header.txt"
-            grep -Eq 'Type: +REL ' "$RUNNER_TEMP/header.txt"
-            grep -Eq 'Machine: +AArch64' "$RUNNER_TEMP/header.txt"
-            imports=$(tools/switch/devkitpro.sh aarch64-none-elf-nm -u "$file" | wc -l)
-            echo "recharged_game_$image.o: $imports imports"
-            tools/switch/devkitpro.sh aarch64-none-elf-size -A "$file" \
-              | awk -v prefix="charged_image_${image}_" 'index($1, prefix) == 1 { printf "  %-24s %9d bytes\n", $1, $2 }'
-          done
-      # The game code built for the Switch, without debug information (10 MB
-      # instead of 130 MB each). Not a package: no Switch program loads the
-      # images until the host is ported, so they stay out of the test build.
-      - name: Collect the game images
-        run: |
-          mkdir -p build/artifacts
-          for image in us eu; do
-            tools/switch/devkitpro.sh aarch64-none-elf-objcopy --strip-debug \
-              "build/switch/recharged_game_$image.o" "build/artifacts/recharged_game_$image.o"
-          done
-      - name: Upload the game images
+          tools/switch/build-nvk.sh
+          # Its build tree and image are no longer needed.
+          rm -rf build/nvk
+          docker image prune -af
+      # Its own step, so a built driver is kept even if a later step fails.
+      - name: Save the Vulkan driver
+        if: steps.nvk.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: build/nvk-switch
+          key: ${{ steps.nvk.outputs.cache-primary-key }}
+      # Inside the checkout's ignored build folder: the build container sees it.
+      - name: Restore compiler cache
+        id: ccache
+        uses: actions/cache/restore@v4
+        with:
+          path: build/.ccache
+          key: ccache-switch-aarch64-${{ github.sha }}
+          restore-keys: ccache-switch-aarch64-
+      - name: Configure the Switch build
+        run: >-
+          tools/switch/devkitpro.sh env CCACHE_DIR="$PWD/build/.ccache" cmake --preset switch
+          -DMSCHARGED_BUILD_CHANNEL=${{ github.event_name == 'pull_request' && 'test' || github.event_name == 'push' && 'release' || 'dev' }}
+          -DMSCHARGED_BUILD_REPOSITORY=${{ github.repository }}
+          -DMSCHARGED_BUILD_PULL_REQUEST=${{ github.event.pull_request.number || 0 }}
+          -DMSCHARGED_BUILD_RUN=${{ github.run_id }}
+          -DMSCHARGED_BUILD_TIME=$(date -u +%s)
+          -DCMAKE_C_COMPILER_LAUNCHER=ccache
+          -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+      - name: Build the Switch program
+        run: >-
+          tools/switch/devkitpro.sh env CCACHE_DIR="$PWD/build/.ccache" CCACHE_BASEDIR="$CCACHE_BASEDIR"
+          CCACHE_NOHASHDIR="$CCACHE_NOHASHDIR" CCACHE_MAXSIZE="$CCACHE_MAXSIZE" CMAKE_BUILD_PARALLEL_LEVEL=4
+          cmake --build --preset switch
+      - name: Compiler cache statistics
+        if: always()
+        run: tools/switch/devkitpro.sh env CCACHE_DIR="$PWD/build/.ccache" ccache --show-stats || true
+      # Also after a failed or timed-out build: the next run resumes from it.
+      - name: Save compiler cache
+        if: always() && steps.ccache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: build/.ccache
+          key: ${{ steps.ccache.outputs.cache-primary-key }}
+      - name: Package for the SD card
+        run: tools/switch/devkitpro.sh python3 -B tools/package_build.py --switch --build-dir build/switch --output-dir build/artifacts
+      - name: Upload the package
         uses: actions/upload-artifact@v7
         with:
-          name: switch-game-images-${{ github.event.pull_request.head.sha || github.sha }}
-          path: build/artifacts/recharged_game_*.o
+          path: build/artifacts/*.zip
+          archive: false
           if-no-files-found: error
           retention-days: ${{ github.event_name == 'pull_request' && 7 || 14 }}
       - name: Upload configure diagnostics on failure
@@ -466,7 +501,7 @@ jobs:
     # released (tag v<version> on that commit); publish it after a review.
     name: draft release
     if: github.event_name == 'push' && github.ref == 'refs/heads/stable'
-    needs: [build, windows-game]
+    needs: [build, windows-game, switch]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -507,7 +542,7 @@ jobs:
         working-directory: release
         run: |
           ls -la
-          test "$(ls *.tar.gz *.zip | wc -l)" -eq 5
+          test "$(ls *.tar.gz *.zip | wc -l)" -eq 6
           sha256sum *.tar.gz *.zip > SHA256SUMS
           cat SHA256SUMS
       # Generated notes, then a short pointer for players who land on the
@@ -540,7 +575,7 @@ jobs:
     if: >-
       github.event_name == 'pull_request'
       && github.event.pull_request.head.repo.full_name == github.repository
-    needs: [build, windows-game]
+    needs: [build, windows-game, switch]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -562,7 +597,7 @@ jobs:
         working-directory: test-build
         run: |
           ls -la
-          test "$(ls *.tar.gz *.zip | wc -l)" -eq 5
+          test "$(ls *.tar.gz *.zip | wc -l)" -eq 6
           sha256sum *.tar.gz *.zip > SHA256SUMS
       - name: Publish the prerelease
         run: |
