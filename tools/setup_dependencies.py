@@ -20,9 +20,13 @@ RUNTIME = LAUNCHER + (
     "extern/tracy", "extern/zlib-ng", "extern/libpng", "extern/freetype",
     "extern/sqlite", "extern/zstd",
 )
-# The Nintendo Switch build: so far the game images, compiled against Aurora's
-# SDK headers (cmake/SwitchGameImages.cmake).
-SWITCH = ("extern/mscharged-decomp", "extern/aurora")
+# The Nintendo Switch build: the game runtime without nod and SDL3, with
+# sdl3on2 for SDL and mesa-switch for the NVK driver (tools/switch/build-nvk.sh).
+SWITCH = (
+    "extern/mscharged-decomp", "extern/aurora", "extern/dawn", "extern/fmt", "extern/xxhash",
+    "extern/tracy", "extern/zlib-ng", "extern/libpng", "extern/freetype", "extern/sqlite",
+    "extern/zstd", "extern/imgui", "extern/sdl3on2", "extern/mesa-switch",
+)
 DAWN_COMMON = (
     "third_party/abseil-cpp", "third_party/jinja2", "third_party/markupsafe",
     "third_party/spirv-headers/src",
@@ -54,7 +58,7 @@ def git(repo: Path, *args: str) -> str:
 
 def plan(launcher: bool, system: str, switch: bool = False):
     if switch:
-        return SWITCH, ()
+        return SWITCH, (("extern/dawn", DAWN_COMMON + DAWN_VULKAN), ("extern/freetype", ("subprojects/dlg",)))
     if launcher:
         return LAUNCHER, ()
     if system not in ("Linux", "Darwin"):
