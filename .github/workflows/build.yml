@@ -95,6 +95,10 @@ jobs:
           # linking; the runner's newer CMake in /usr/local/bin comes first.
           cmake --version
           "g++-$GCC_VERSION" --version
+      # The Switch's link mode (static game images) on a small module and program.
+      - name: Check static game image linking
+        if: matrix.platform == 'linux-x86_64'
+        run: python -B tests/test_static_game_image.py "$CXX" ld objcopy nm readelf
       - name: Install macOS tools
         if: runner.os == 'macOS'
         env:
@@ -327,6 +331,56 @@ jobs:
           path: |
             build/windows/CMakeFiles/CMakeConfigureLog.yaml
             build/windows/sqlite-generation.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+  switch:
+    # Nintendo Switch homebrew, built in the pinned devkitPro image
+    # (tools/switch/devkitpro.sh) as on a developer's machine. The program's
+    # host is not ported yet, so this builds the two game images
+    # (cmake/SwitchGameImages.cmake); the .nro package follows with the host.
+    name: switch-aarch64
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+          submodules: false
+          persist-credentials: false
+      - name: Prepare pinned dependencies
+        run: python3 tools/setup_dependencies.py --switch --shallow
+      - name: Pull the pinned devkitPro image
+        run: |
+          . tools/switch/toolchain.env
+          docker pull --quiet "$DEVKITPRO_IMAGE"
+      - name: Build the game images
+        run: tools/switch/devkitpro.sh env CMAKE_BUILD_PARALLEL_LEVEL=4 cmake --workflow --preset switch
+      # The link (tools/link_static_game_image.py) already checks each image's
+      # sections and exports; these are the program's AArch64 inputs. Nothing
+      # is uploaded yet: there is no program to package them with.
+      - name: Check the game images
+        run: |
+          for image in us eu; do
+            file="build/switch/recharged_game_$image.o"
+            tools/switch/devkitpro.sh aarch64-none-elf-readelf -h "$file" > "$RUNNER_TEMP/header.txt"
+            grep -Eq 'Type: +REL ' "$RUNNER_TEMP/header.txt"
+            grep -Eq 'Machine: +AArch64' "$RUNNER_TEMP/header.txt"
+            imports=$(tools/switch/devkitpro.sh aarch64-none-elf-nm -u "$file" | wc -l)
+            echo "recharged_game_$image.o: $imports imports"
+            tools/switch/devkitpro.sh aarch64-none-elf-size -A "$file" \
+              | awk -v prefix="charged_image_${image}_" 'index($1, prefix) == 1 { printf "  %-24s %9d bytes\n", $1, $2 }'
+          done
+      - name: Upload configure diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: configure-switch-aarch64-${{ github.sha }}
+          path: build/switch/CMakeFiles/CMakeConfigureLog.yaml
           if-no-files-found: ignore
           retention-days: 7
 
