@@ -4,8 +4,8 @@
 > are for its test builds.
 
 **You need:** a Switch running Atmosphère with the Homebrew Menu, and your own
-Mario Strikers Charged disc image (`.iso`, `.rvz` or `.wbfs`; the same versions
-as on PC, see [Install](INSTALL.md)).
+Mario Strikers Charged disc image as `.iso` or `.wbfs` (the same versions as
+on PC, see [Install](INSTALL.md)). RVZ images do not work on the Switch yet.
 
 ## Install
 
@@ -13,17 +13,20 @@ as on PC, see [Install](INSTALL.md)).
 2. Unpack it to the root of the SD card. This creates `/switch/recharged/`
    with `recharged.nro`.
 3. Copy the disc image to `/switch/recharged/game/`. A FAT32 card holds no
-   file over 4 GB: use the `.rvz`, or an exFAT card for the `.iso`.
+   file over 4 GB: use an exFAT card for the `.iso`, or a `.wbfs` split into
+   `.wbfs` and `.wbf1` (as Wii Backup Manager makes them).
 
 ## Start
 
 Hold **R** while starting any game from the HOME Menu, then pick **Recharged**
 in the Homebrew Menu. Started from the Album, it does not get enough memory.
 
-The first start prepares the graphics shaders, which takes a while.
+The first start prepares the graphics shaders, which takes a while. The
+controllers play in the console's player order.
 
 ## Settings and saves
 
 All in `/switch/recharged/`: settings in `recharged.ini` (edit it on a PC; the
 keys are in [Settings](SETTINGS.md)), saves in `data/`, the log in
-`logs/recharged.log`.
+`logs/recharged.log`. After a crash, attach that log and Atmosphère's report
+from `/atmosphere/crash_reports/` to the bug report.
