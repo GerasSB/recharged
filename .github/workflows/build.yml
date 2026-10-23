@@ -171,6 +171,15 @@ jobs:
         with:
           path: ${{ runner.temp }}/ccache
           key: ${{ steps.ccache.outputs.cache-primary-key }}
+      # The Switch's disc reader, in place of nod there, on generated Wii images;
+      # its copy of nod.h must match the prepared one.
+      - name: Check the Wii disc reader
+        if: matrix.platform == 'linux-x86_64'
+        run: |
+          "$CXX" -std=c++17 -O2 -Isrc -Isrc/platform/wii_disc/include tests/wii_disc_reader.cpp \
+            src/platform/wii_disc/*.cpp -o build/wii_disc_reader_tests -pthread
+          build/wii_disc_reader_tests build/wii-disc-reader src/platform/wii_disc/include/nod.h \
+            build/release/prepared/nod/source/nod-ffi/include/nod.h
       - name: Check executable
         env:
           MACOS_ARCH: ${{ matrix.arch }}
