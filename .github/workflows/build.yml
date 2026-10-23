@@ -361,8 +361,7 @@ jobs:
       - name: Build the game images
         run: tools/switch/devkitpro.sh env CMAKE_BUILD_PARALLEL_LEVEL=4 cmake --workflow --preset switch
       # The link (tools/link_static_game_image.py) already checks each image's
-      # sections and exports; these are the program's AArch64 inputs. Nothing
-      # is uploaded yet: there is no program to package them with.
+      # sections and exports; these are the program's AArch64 inputs.
       - name: Check the game images
         run: |
           for image in us eu; do
@@ -375,6 +374,23 @@ jobs:
             tools/switch/devkitpro.sh aarch64-none-elf-size -A "$file" \
               | awk -v prefix="charged_image_${image}_" 'index($1, prefix) == 1 { printf "  %-24s %9d bytes\n", $1, $2 }'
           done
+      # The game code built for the Switch, without debug information (10 MB
+      # instead of 130 MB each). Not a package: no Switch program loads the
+      # images until the host is ported, so they stay out of the test build.
+      - name: Collect the game images
+        run: |
+          mkdir -p build/artifacts
+          for image in us eu; do
+            tools/switch/devkitpro.sh aarch64-none-elf-objcopy --strip-debug \
+              "build/switch/recharged_game_$image.o" "build/artifacts/recharged_game_$image.o"
+          done
+      - name: Upload the game images
+        uses: actions/upload-artifact@v7
+        with:
+          name: switch-game-images-${{ github.event.pull_request.head.sha || github.sha }}
+          path: build/artifacts/recharged_game_*.o
+          if-no-files-found: error
+          retention-days: ${{ github.event_name == 'pull_request' && 7 || 14 }}
       - name: Upload configure diagnostics on failure
         if: failure()
         uses: actions/upload-artifact@v4
