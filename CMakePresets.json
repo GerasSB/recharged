@@ -141,12 +141,11 @@
     {
       "name": "switch",
       "inherits": "frontend-runtime",
-      "displayName": "Nintendo Switch game images (Release, no program yet; run in tools/switch/devkitpro.sh)",
+      "displayName": "Nintendo Switch homebrew (Release; run in tools/switch/devkitpro.sh)",
       "toolchainFile": "${sourceDir}/cmake/toolchains/NintendoSwitch.cmake",
       "cacheVariables": {
         "BUILD_TESTING": false,
         "MSCHARGED_BUILD_LAUNCHER": false,
-        "MSCHARGED_BUILD_GX_CHECK": false,
         "MSCHARGED_BUILD_ORIGINAL_LOADING_DIAGNOSTIC": false,
         "MSCHARGED_STATIC_GAME": true
       }
@@ -195,8 +194,7 @@
       "name": "switch",
       "configurePreset": "switch",
       "targets": [
-        "mscharged_original_frontend_module_us",
-        "mscharged_original_frontend_module_eu"
+        "mscharged_nro"
       ]
     }
   ],
