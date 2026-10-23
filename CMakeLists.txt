@@ -76,7 +76,8 @@ option(MSCHARGED_NATIVE_VIDEO "Enable original-source native VI hardware (output
 option(MSCHARGED_BUILD_GX_CHECK "Build the standalone Aurora GX diagnostic" OFF)
 option(MSCHARGED_BUILD_SCENE_PREVIEW "Build the experimental static Wii asset preview (not a game scene)" OFF)
 option(MSCHARGED_BUILD_ORIGINAL_FRONTEND_DIAGNOSTIC "Build the original game runtime (the game modules)" OFF)
-if(MSCHARGED_BUILD_ORIGINAL_FRONTEND_DIAGNOSTIC)
+# The Switch build has no host yet to render with (cmake/SwitchGameImages.cmake).
+if(MSCHARGED_BUILD_ORIGINAL_FRONTEND_DIAGNOSTIC AND NOT NINTENDO_SWITCH)
     set(MSCHARGED_BUILD_GX_CHECK ON)
 endif()
 if(MSCHARGED_BUILD_SCENE_PREVIEW)
@@ -207,8 +208,11 @@ function(mscharged_prepare_dependency name output)
 endfunction()
 
 mscharged_prepare_dependency(mscharged-decomp MSCHARGED_PREPARED)
-mscharged_prepare_dependency(nod MSCHARGED_NOD_PREPARED)
-mscharged_prepare_dependency(corrosion MSCHARGED_CORROSION_PREPARED)
+# nod is Rust, which has no standard library for the Switch.
+if(NOT NINTENDO_SWITCH)
+    mscharged_prepare_dependency(nod MSCHARGED_NOD_PREPARED)
+    mscharged_prepare_dependency(corrosion MSCHARGED_CORROSION_PREPARED)
+endif()
 file(READ "${MSCHARGED_PATCHES}/base" MSCHARGED_DECOMP_REVISION)
 string(STRIP "${MSCHARGED_DECOMP_REVISION}" MSCHARGED_DECOMP_REVISION)
 
@@ -223,9 +227,11 @@ function(mscharged_add_nod)
     include(cmake/MacOSLinkLibraries.cmake)
     mscharged_remove_macos_implicit_system_library(nod-static)
 endfunction()
-mscharged_add_nod()
-add_dependencies(_cargo-build_nod verify_prepared)
-include(cmake/NodLifecycle.cmake)
+if(NOT NINTENDO_SWITCH)
+    mscharged_add_nod()
+    add_dependencies(_cargo-build_nod verify_prepared)
+    include(cmake/NodLifecycle.cmake)
+endif()
 
 # This list deliberately covers only currently available, independently linked
 # source. The incomplete decomp is not yet a complete native game target.
@@ -284,6 +290,9 @@ target_compile_definitions(mscharged_build_info INTERFACE
     MSCHARGED_DECOMP_REVISION="${MSCHARGED_DECOMP_REVISION}")
 target_link_libraries(mscharged-bootstrap PRIVATE mscharged_build_info)
 
+if(NINTENDO_SWITCH)
+    include(cmake/SwitchGameImages.cmake)
+endif()
 if(MSCHARGED_BUILD_LAUNCHER OR MSCHARGED_BUILD_AURORA_HOST)
     include(cmake/SDL.cmake)
     include(cmake/AppIcon.cmake)

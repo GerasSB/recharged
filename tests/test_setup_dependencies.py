@@ -13,7 +13,7 @@ import unittest
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
-from setup_dependencies import DAWN_COMMON, DAWN_VULKAN, LAUNCHER, RETRY_DELAYS, RUNTIME, SetupError, setup
+from setup_dependencies import DAWN_COMMON, DAWN_VULKAN, LAUNCHER, RETRY_DELAYS, RUNTIME, SWITCH, SetupError, setup
 
 
 class DependencySetupTests(unittest.TestCase):
@@ -126,6 +126,13 @@ class DependencySetupTests(unittest.TestCase):
         self.assertTrue(all(self.initialized(path) for path in LAUNCHER))
         self.assertTrue(all(not self.initialized(path) for path in RUNTIME if path not in LAUNCHER))
         self.assertFalse(self.initialized("extern/qtbase"))
+
+    def test_switch_initializes_only_the_game_and_sdk_sources(self):
+        self.run_setup(switch=True, system="Linux", shallow=True)
+        for path in SWITCH:
+            self.assert_leaf_pin(path)
+        self.assertTrue(all(not self.initialized(path) for path in RUNTIME if path not in SWITCH))
+        self.assertFalse(self.initialized("extern/dawn/third_party/abseil-cpp"))
 
     def take_sources_offline(self):
         offline = self.base / "leaf-offline"

@@ -3,10 +3,10 @@ include_guard(GLOBAL)
 # The original game runtime. One source module owns original main,
 # FE/font/resources, handlers and rendering; the host supplies one actual SDK
 # and window/device services before original construction.
-if(NOT CMAKE_SYSTEM_NAME MATCHES "^(Linux|Darwin|Windows)$" OR NOT CMAKE_SIZEOF_VOID_P EQUAL 8
+if(NOT CMAKE_SYSTEM_NAME MATCHES "^(Linux|Darwin|Windows|NintendoSwitch)$" OR NOT CMAKE_SIZEOF_VOID_P EQUAL 8
         OR NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU" OR MSVC
         OR (WIN32 AND NOT (MINGW AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")))
-    message(FATAL_ERROR "The original-main source diagnostic requires 64-bit Linux, macOS or Windows (LLVM-MinGW) with GCC or Clang")
+    message(FATAL_ERROR "The original-main source diagnostic requires 64-bit Linux, macOS, Windows (LLVM-MinGW) or Nintendo Switch with GCC or Clang")
 endif()
 include(cmake/OriginalModuleLinkage.cmake)
 include(cmake/StaticGameImages.cmake)

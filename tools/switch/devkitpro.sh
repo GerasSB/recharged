@@ -4,8 +4,7 @@
 # The checkout (and its Git directory, for source preparation) is mounted at
 # the same path, so build directories and logs work inside and outside.
 #
-#   tools/switch/devkitpro.sh cmake --preset switch
-#   tools/switch/devkitpro.sh cmake --build build/switch
+#   tools/switch/devkitpro.sh cmake --workflow --preset switch
 set -eu
 here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 root=$(CDPATH= cd -- "$here/../.." && pwd)
