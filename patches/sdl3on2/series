@@ -3,3 +3,4 @@
 0003-map-joysticks-gamepads-and-hid.patch
 0004-map-events-hints-logging-and-locales.patch
 0005-map-display-and-window-modes.patch
+0006-make-virtual-joysticks-the-layers-own.patch
