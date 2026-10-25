@@ -2727,7 +2727,10 @@ private:
     {
         const auto& fonts = CurrentFonts();
         auto* draw = ImGui::GetWindowDrawList();
-        const float hero = std::clamp(size.y * 0.58f, Dp(250), Dp(440));
+        // From the bottom up: the summary cards a margin above the bottom bar, the
+        // Play button a gap above them, overlapping the artwork's last 30.
+        const float margin = Dp(42), gap = Dp(30), button = Dp(62), card = Dp(118);
+        const float hero = std::clamp(size.y - margin - card - gap - (button - Dp(30)), Dp(250), Dp(440));
         hero_ = {origin.x, origin.y, size.x, hero};
         hero_visible_ = true;
         const ImVec2 hero_max{origin.x + size.x, origin.y + hero};
@@ -2740,16 +2743,19 @@ private:
                                       Col(color::window, 0.45f), Col(color::window, 0.0f), Col(color::window, 0.0f));
 
         const float pad = Dp(44);
-        // The title: the logo, its lightning reaching a little into the margin.
-        const float logo = std::clamp(hero * 0.44f, Dp(110), Dp(190));
-        float y = origin.y + std::max(Dp(24), hero * 0.08f);
-        DrawLogo(draw, {origin.x + pad - Dp(8), y}, logo);
-        y += logo + Dp(8);
-        // The subtitle: the game in white, the rest softer; two lines in a narrow window.
+        // The title, the logo with its lightning reaching a little into the margin,
+        // and the subtitle under it: the game in white, the rest softer, on two
+        // lines in a narrow window. Both centred between the top and the button.
         const char* game = "Mario Strikers Charged";
         const char* rest = ", rebuilt to run natively on your PC.";
         const float game_width = TextSize(fonts.heading, game).x;
         const bool one_line = game_width + TextSize(fonts.heading, rest).x <= size.x * 0.75f - pad;
+        const float logo = std::clamp(hero * 0.44f, Dp(110), Dp(190));
+        const float subtitle = one_line ? FontSize(fonts.heading) : FontSize(fonts.heading) * 2 + Dp(2);
+        const float band = hero - Dp(30) - gap - Dp(24);
+        float y = origin.y + Dp(24) + std::max(0.0f, (band - logo - Dp(8) - subtitle) * 0.5f);
+        DrawLogo(draw, {origin.x + pad - Dp(8), y}, logo);
+        y += logo + Dp(8);
         DrawLabelShadowed(draw, fonts.heading, {origin.x + pad, y}, IM_COL32_WHITE, game, 1.2f);
         if (one_line)
             DrawLabelShadowed(draw, fonts.heading, {origin.x + pad + game_width, y}, Col(color::text, 0.86f), rest, 1.2f);
@@ -2766,7 +2772,7 @@ private:
         const float button_y = hero_max.y - Dp(30);
         ImGui::SetCursorScreenPos({origin.x + pad, button_y});
         const bool menu_open = ImGui::IsPopupOpen("play_options_menu");
-        const auto play = SplitPrimaryButton("play", "PLAY", Dp(230, 62),
+        const auto play = SplitPrimaryButton("play", "PLAY", {Dp(230), button},
                                              {Dp(58), Icon::Gear, menu_open, draft_.performance_mode},
                                              blocker.empty(), Icon::Play, true);
         if (play.button) Play(quit);
@@ -2776,10 +2782,11 @@ private:
         DrawPlayOptionsMenu({origin.x + pad + Dp(230), button_y});
         DrawPlayStatus(blocker, {origin.x + pad + Dp(230 + 58 + 24), button_y + Dp(31)});
 
-        // Summary cards.
-        const float cards_y = button_y + Dp(62) + Dp(30);
-        const float footer = Dp(30);
-        if (cards_y + Dp(118) + footer + Dp(12) <= origin.y + size.y)
+        // Summary cards: the margin above the bottom bar, but at most 64 below the
+        // button where the artwork has reached its full height.
+        const float below = button_y + button;
+        const float cards_y = std::clamp(origin.y + size.y - margin - card, below + gap, below + Dp(64));
+        if (cards_y + card + margin <= origin.y + size.y)
         {
             const float gap = Dp(16);
             const float width = (size.x - pad * 2 - gap * 2) / 3.0f;
@@ -3030,13 +3037,14 @@ private:
     // (or the nearest folder above it that is still there).
     void Locate() { Browse(ExistingFolder(PathFromUtf8(DiscSelection()).parent_path())); }
 
+    // A summary card's icon takes the accent, or amber or red for a problem.
     struct Summary { std::string value; std::string detail; ImVec4 tint; };
 
     // The pinned image: its region and revision first.
     Summary DiscSummary() const
     {
-        if (searching_) return {"Looking...", "Searching for your game image", color::info};
-        if (pending_) return {"Checking...", "Reading the image's header", color::info};
+        if (searching_) return {"Looking...", "Searching for your game image", color::accent};
+        if (pending_) return {"Checking...", "Reading the image's header", color::accent};
         if (DiscSelection().empty()) return {"No image chosen", "Choose one on the Game page", color::warning};
         const std::string name = PathUtf8(PathFromUtf8(DiscSelection()).filename());
         if (!PinnedMissing().empty())
@@ -3049,10 +3057,10 @@ private:
         {
             const auto& info = *check_.info;
             return {RegionRevision(info), info.game_id + "  \xC2\xB7  " + info.format + "  \xC2\xB7  " + name,
-                    SupportedRelease(info) ? color::success : color::warning};
+                    SupportedRelease(info) ? color::accent : color::warning};
         }
         if (!check_.error.empty()) return {"Image problem", check_.error, color::danger};
-        return {name, "Not checked yet", color::muted};
+        return {name, "Not checked yet", color::accent};
     }
 
     Summary DisplaySummary() const
@@ -3068,7 +3076,7 @@ private:
             detail += "  -  HUD hidden" + (hud.empty() ? std::string() : " (" + hud + ")");
         }
         return {s.fullscreen ? "Fullscreen" : std::to_string(s.width) + " x " + std::to_string(s.height) + " window",
-                detail, color::info};
+                detail, color::accent};
     }
 
     Summary LanguageSummary() const
@@ -3079,7 +3087,7 @@ private:
                                                       : std::string(choice.language->label);
         std::string audio = s.mute ? "Audio muted" : "Volume " + std::to_string(s.master_volume) + "%";
         if (!s.mute && s.sound_volumes != DefaultSoundVolumes()) audio += "  -  Custom sound levels";
-        return {language + " text", audio, color::info};
+        return {language + " text", audio, color::accent};
     }
 
     void SummaryCard(const char* id, const char* title, Icon icon, float width, int page, const Summary& summary)
