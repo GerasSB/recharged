@@ -8281,8 +8281,8 @@ private:
             "Unofficial project, not affiliated with Nintendo or Next Level Games. You need your own copy of the game.");
         ImGui::Dummy({0, Dp(2)});
         TextWrappedColored(fonts.caption, color::dim,
-            "Recharged's original code, tools and documentation: CC0 1.0. Header artwork: the game's key art "
-            "(Nintendo). Font: Roboto (Apache 2.0). Built with SDL3 (zlib), Dear ImGui (MIT), Aurora (MIT), Dawn "
+            "Recharged's original code, tools and documentation: CC0 1.0. Header artwork: the game's artwork of "
+            "Mario (Nintendo). Font: Roboto (Apache 2.0). Built with SDL3 (zlib), Dear ImGui (MIT), Aurora (MIT), Dawn "
             "(BSD), nod and its Rust dependencies, and other libraries listed in LICENSES. Each keeps its own "
             "license.");
         EndCard();

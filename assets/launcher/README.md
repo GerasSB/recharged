@@ -2,23 +2,24 @@
 
 ## Header
 
-`header.png` is made from the key art of Mario Strikers Charged, the picture on
-its Japanese and European covers (`MSC_Scene.jpg`, 3500 x 4700): its upper part,
-Bowser and his claws in the storm over the stadium, mirrored so that he roars
-beside the launcher's logo instead of behind it, scaled to 1920 x 960 and given
-a little more light and colour by `tools/launcher_art.py header MSC_Scene.jpg`.
-Preserve its aspect ratio when displaying it.
+`header.png` is made from the game's artwork of Mario volleying the ball
+(`MarioStrikers2j.jpg`, 3800 x 3500, on white) by
+`tools/launcher_art.py header MarioStrikers2j.jpg`: the white page and the gaps
+in the brush stroke behind Mario are cut away, the stroke turns deep blue and
+the fire and the golden ball the logo's electric blue, while Mario keeps his
+colours; it is placed beside the logo on a night-blue background with a glow
+behind the ball (1920 x 960). Preserve its aspect ratio when displaying it.
 
-- Source: [File:MSC_Scene.jpg](https://www.mariowiki.com/File:MSC_Scene.jpg) on the Super Mario Wiki.
-- Image: [original JPEG](https://www.mariowiki.com/images/2/29/MSC_Scene.jpg).
+- Source: [File:MarioStrikers2j.jpg](https://www.mariowiki.com/File:MarioStrikers2j.jpg) on the Super Mario Wiki.
+- Image: [original JPEG](https://www.mariowiki.com/images/5/55/MarioStrikers2j.jpg).
 - Downloaded: 2026-10-25.
-- SHA-256 of the original: `7c961f3e3d5cadab2fe68e69f0a02e355f5e082d2ccbecd17ee279f0b16edad0`.
+- SHA-256 of the original: `096d6cd0ba9abd223630318500df35e81b43b136277ba74896542c6390367ba1`.
 
 This artwork is Nintendo's and outside the project's CC0 dedication. The wiki
 publishes it as fair-use artwork; no license for redistribution is given, and
 rights remain with the respective owners. (Until 2026-10-25 the header was
 [SteamGridDB hero 8926](https://www.steamgriddb.com/hero/8926) by Jiquita, a
-crop of Mario from the same key art.)
+crop of the game's key art.)
 
 CMake copies the image into `assets/launcher/header.png` beside the `recharged`
 executable. The launcher preserves its proportions and crops it to fit the
