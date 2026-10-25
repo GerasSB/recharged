@@ -2613,23 +2613,23 @@ private:
         y += FontSize(fonts.caption) + Dp(28);
 
         // Miis, Teams and Matches are the Online play group: its row opens the
-        // last of them shown, and their rows appear while one of them is.
+        // last of them shown, and it shows their rows while one of them is open.
         const auto online = [](int page) { return page == PageMiis || page == PageTeams || page == PageMatches; };
         if (online(page_)) online_page_ = page_;
         ImGui::SetCursorPos({Dp(12), y});
         for (int i = 0; i < PageCount; ++i)
         {
             ImGui::SetCursorPosX(Dp(12));
-            if (i == PageMiis)
-            {
-                if (NavGroup("Online play", Icon::Globe, online(page_), width - Dp(24))) page_ = online_page_;
-                ImGui::SetCursorPosY(ImGui::GetCursorPosY() - ImGui::GetStyle().ItemSpacing.y + Dp(4));
-                ImGui::SetCursorPosX(Dp(12));
-            }
             if (online(i))
             {
-                if (!online(page_)) continue;
-                if (NavSubItem(page_names[i], page_ == i, i == PageMatches, width - Dp(24))) page_ = i;
+                if (i != PageMiis) continue;
+                const int clicked = NavGroup("Online play", Icon::Globe, online(page_),
+                                             {{page_names[PageMiis], page_icons[PageMiis], page_ == PageMiis},
+                                              {page_names[PageTeams], page_icons[PageTeams], page_ == PageTeams},
+                                              {page_names[PageMatches], page_icons[PageMatches], page_ == PageMatches}},
+                                             width - Dp(24));
+                if (clicked == 0) page_ = online_page_;
+                if (clicked > 0) page_ = PageMiis + clicked - 1;
             }
             else if (NavItem(page_names[i], page_icons[i], page_ == i, width - Dp(24))) page_ = i;
             ImGui::SetCursorPosY(ImGui::GetCursorPosY() - ImGui::GetStyle().ItemSpacing.y + Dp(4));

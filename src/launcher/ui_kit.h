@@ -85,10 +85,16 @@ void FillGradient(ImDrawList* draw, ImVec2 min, ImVec2 max, ImU32 top_left, ImU3
                   float rounding, bool horizontal);
 
 bool NavItem(const char* label, Icon icon, bool selected, float width);
-// A sidebar row for a group of pages, open while one of them is shown; its
-// pages follow as NavSubItem rows, `last` ending the group's guide line.
-bool NavGroup(const char* label, Icon icon, bool open, float width);
-bool NavSubItem(const char* label, bool selected, bool last, float width);
+struct NavPage
+{
+    const char* label;
+    Icon icon;
+    bool selected;
+};
+// A sidebar group of pages, open while one of them is shown: its row, and a
+// raised panel with the pages on branches from its icon. Returns 0 for a click
+// on the group's row, 1 and up for one on a page, -1 for none.
+int NavGroup(const char* label, Icon icon, bool open, std::initializer_list<NavPage> pages, float width);
 bool PrimaryButton(const char* id, const char* label, ImVec2 size, bool enabled, Icon icon = Icon::None,
                    bool glow = false);
 bool SecondaryButton(const char* id, const char* label, ImVec2 size, bool enabled = true,

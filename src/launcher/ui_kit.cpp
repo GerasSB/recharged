@@ -712,51 +712,110 @@ bool NavItem(const char* label, Icon icon, bool selected, float width)
     return pressed;
 }
 
-bool NavGroup(const char* label, Icon icon, bool open, float width)
+int NavGroup(const char* label, Icon icon, bool open, std::initializer_list<NavPage> pages, float width)
 {
     ImGui::PushID(label);
-    const ImVec2 pos = ImGui::GetCursorScreenPos();
-    const ImVec2 size{width, Dp(44)};
-    const bool pressed = ImGui::InvisibleButton("##nav", size);
-    const float hover = Animate(ImGui::GetID("##hover"), ImGui::IsItemHovered(), 12.0f);
-    const float active = Animate(ImGui::GetID("##active"), open, 12.0f);
     auto* draw = ImGui::GetWindowDrawList();
-    if (hover > 0.0f) draw->AddRectFilled(pos, Add(pos, size), Col(color::field, hover), Dp(10));
-    const ImVec4 tint = Mix(color::muted, open ? color::accent : color::text, std::max(hover * 0.75f, active));
-    DrawIcon(draw, icon, {pos.x + Dp(28), pos.y + size.y * 0.5f}, Dp(19), Col(tint));
     const auto& fonts = CurrentFonts();
-    DrawLabel(draw, fonts.label, {pos.x + Dp(50), pos.y + (size.y - FontSize(fonts.label)) * 0.5f},
-              Col(Mix(color::muted, color::text, std::max(hover, active))), label);
-    DrawIcon(draw, open ? Icon::Up : Icon::Down, {pos.x + size.x - Dp(20), pos.y + size.y * 0.5f}, Dp(13),
-             Col(Mix(color::dim, color::muted, std::max(hover, active))));
-    ImGui::PopID();
-    return pressed;
-}
+    const ImVec2 pos = ImGui::GetCursorScreenPos();
+    const float row = Dp(44), page_row = Dp(36), step = Dp(38), top = Dp(4), bottom = Dp(10);
+    const float shown = Animate(ImGui::GetID("##open"), open, 11.0f);
+    const float height = row + (top + step * float(pages.size()) - (step - page_row) + bottom) * shown;
+    const ImVec2 max{pos.x + width, pos.y + height};
+    int clicked = -1;
 
-bool NavSubItem(const char* label, bool selected, bool last, float width)
-{
-    ImGui::PushID(label);
-    const ImVec2 pos = ImGui::GetCursorScreenPos();
-    const ImVec2 size{width, Dp(36)};
-    const bool pressed = ImGui::InvisibleButton("##nav", size);
-    const bool hovered = ImGui::IsItemHovered();
-    const float hover = Animate(ImGui::GetID("##hover"), hovered || selected, 12.0f);
-    const float active = Animate(ImGui::GetID("##active"), selected, 12.0f);
-    auto* draw = ImGui::GetWindowDrawList();
-    // The guide line runs down from the group's icon (a filled rectangle: thin
-    // lines break up in the software renderer); a dot marks the page shown.
-    const float guide = pos.x + Dp(28), middle = pos.y + size.y * 0.5f;
-    draw->AddRectFilled({guide - Dp(0.75f), pos.y - Dp(8)}, {guide + Dp(0.75f), last ? middle : pos.y + size.y},
-                        Col(color::border));
-    if (hover > 0.0f)
-        draw->AddRectFilled({pos.x + Dp(40), pos.y}, Add(pos, size),
-                            Col(selected ? Mix(color::field, color::accent, 0.10f) : color::field, hover), Dp(9));
-    if (active > 0.0f) draw->AddCircleFilled({guide, middle}, Dp(4), Col(color::accent, active));
-    const auto& fonts = CurrentFonts();
-    DrawLabel(draw, fonts.body, {pos.x + Dp(52), pos.y + (size.y - FontSize(fonts.body)) * 0.5f},
-              Col(Mix(color::muted, color::text, std::max(hover, active))), label);
+    // The open group's raised panel, lit along its top edge like the About banner.
+    if (shown > 0.0f)
+    {
+        draw->AddRectFilled(pos, max, Col(Mix(color::sidebar, color::card, 0.9f), shown), Dp(12));
+        draw->AddRect(pos, max, Col(color::border, 0.6f * shown), Dp(12), 0, Dp(1));
+        const float middle = pos.x + width * 0.5f;
+        const ImU32 clear = Col(color::accent_hi, 0.0f), bright = Col(color::accent_hi, 0.35f * shown);
+        draw->AddRectFilledMultiColor({pos.x + Dp(14), pos.y}, {middle, pos.y + Dp(1)}, clear, bright, bright, clear);
+        draw->AddRectFilledMultiColor({middle, pos.y}, {max.x - Dp(14), pos.y + Dp(1)}, bright, clear, clear, bright);
+    }
+
+    // The group's row: its icon on a badge, tinted while open, and a chevron that turns.
+    if (ImGui::InvisibleButton("##group", {width, row})) clicked = 0;
+    const float hover = Animate(ImGui::GetID("##hover"), ImGui::IsItemHovered(), 12.0f);
+    if (hover > 0.0f && shown < 1.0f)
+        draw->AddRectFilled(pos, {max.x, pos.y + row}, Col(color::field, hover * (1.0f - shown)), Dp(10));
+    const ImVec2 badge{pos.x + Dp(28), pos.y + row * 0.5f};
+    const float half = Dp(14);
+    draw->AddRectFilled({badge.x - half, badge.y - half}, {badge.x + half, badge.y + half},
+                        Col(Mix(Mix(color::field, color::border, 0.5f * hover), Mix(color::field, color::accent, 0.22f),
+                                shown)),
+                        Dp(8));
+    DrawIcon(draw, icon, badge, Dp(17), Col(Mix(Mix(color::muted, color::text, hover), color::accent, shown)));
+    DrawLabel(draw, fonts.label, {pos.x + Dp(54), pos.y + (row - FontSize(fonts.label)) * 0.5f},
+              Col(Mix(Mix(color::muted, color::text, hover), ImVec4{1, 1, 1, 1}, shown)), label);
+    {
+        const float turn = 3.14159265f * shown, c = std::cos(turn), s = std::sin(turn), size = Dp(12);
+        const ImVec2 at{max.x - Dp(20), pos.y + row * 0.5f};
+        auto point = [&](float x, float y) {
+            return ImVec2{at.x + (x * c - y * s) * size, at.y + (x * s + y * c) * size};
+        };
+        const ImVec2 chevron[] = {point(-0.32f, -0.16f), point(0.0f, 0.16f), point(0.32f, -0.16f)};
+        draw->AddPolyline(chevron, 3, Col(Mix(color::dim, color::muted, std::max(hover, shown))), 0, Dp(1.8f));
+    }
+
+    // The pages, on branches from the badge; the way to the page shown is lit.
+    if (shown > 0.01f)
+    {
+        draw->PushClipRect(pos, max, true);
+        const float spine = badge.x, radius = Dp(9), thickness = Dp(1.5f);
+        const float spine_top = badge.y + half + Dp(4);
+        float lit = 0.0f; // where the lit spine ends
+        int n = 0;
+        for (const NavPage& page : pages)
+        {
+            ++n;
+            const float y = pos.y + row + top + step * float(n - 1), middle = y + page_row * 0.5f;
+            ImGui::SetCursorScreenPos({pos.x, y});
+            ImGui::PushID(n);
+            if (ImGui::InvisibleButton("##page", {width, page_row})) clicked = n;
+            const float over = Animate(ImGui::GetID("##hover"), ImGui::IsItemHovered() || page.selected, 12.0f);
+            const float active = Animate(ImGui::GetID("##active"), page.selected, 12.0f);
+            ImGui::PopID();
+            // Its branch: a rounded elbow off the spine into the row.
+            const float end = pos.x + Dp(50);
+            draw->PathArcTo({spine + radius, middle - radius}, radius, 3.14159265f, 1.5707963f);
+            draw->PathLineTo({end, middle});
+            draw->PathStroke(Col(Mix(color::border, color::accent, active), shown), 0, thickness);
+            if (active > 0.0f)
+            {
+                lit = std::max(lit, middle - radius);
+                draw->AddCircleFilled({end, middle}, Dp(6), Col(color::accent, 0.18f * active * shown));
+                draw->AddCircleFilled({end, middle}, Dp(2.5f), Col(color::accent_hi, active * shown));
+            }
+            // A pill behind the row: an accent glow fading to the right for the page shown.
+            const ImVec2 pill{pos.x + Dp(58), y + Dp(2)}, pill_max{max.x - Dp(8), y + page_row - Dp(2)};
+            if (over > 0.0f)
+            {
+                if (page.selected)
+                    FillGradient(draw, pill, pill_max, Col(Mix(color::field, color::accent, 0.30f), over * shown),
+                                 Col(color::field, 0.25f * over * shown), Dp(9), true);
+                else
+                    draw->AddRectFilled(pill, pill_max, Col(color::field, over * shown), Dp(9));
+            }
+            const ImU32 ink = Col(Mix(Mix(color::muted, color::text, over), ImVec4{1, 1, 1, 1}, active), shown);
+            DrawIcon(draw, page.icon, {pos.x + Dp(76), middle}, Dp(15),
+                     Col(Mix(Mix(color::dim, color::muted, over), color::accent, active), shown));
+            DrawLabel(draw, fonts.body, {pos.x + Dp(94), middle - FontSize(fonts.body) * 0.5f}, ink, page.label);
+        }
+        // The spine, from the badge to the last elbow, lit down to the page shown.
+        const float last = pos.y + row + top + step * float(n - 1) + page_row * 0.5f - radius;
+        draw->AddRectFilled({spine - thickness * 0.5f, spine_top}, {spine + thickness * 0.5f, last},
+                            Col(color::border, shown));
+        if (lit > spine_top)
+            draw->AddRectFilled({spine - thickness * 0.5f, spine_top}, {spine + thickness * 0.5f, lit},
+                                Col(color::accent, shown));
+        draw->PopClipRect();
+    }
+    ImGui::SetCursorScreenPos(pos);
+    ImGui::Dummy({width, height});
     ImGui::PopID();
-    return pressed;
+    return clicked;
 }
 
 bool PrimaryButton(const char* id, const char* label, ImVec2 size, bool enabled, Icon icon, bool glow)
