@@ -63,7 +63,6 @@ Fonts LoadFonts(const std::string& ttf, float font_raster, float density)
     fonts.title = add(30.0f);
     fonts.button = add(22.0f);
     fonts.overline = add(21.0f);
-    fonts.hero = add(62.0f);
     io.FontDefault = fonts.body;
     io.FontGlobalScale = 1.0f / density;
     g_fonts = fonts;
@@ -750,7 +749,7 @@ bool PrimaryButton(const char* id, const char* label, ImVec2 size, bool enabled,
     const float icon_size = icon == Icon::None ? 0.0f : FontSize(font) * 0.82f;
     const float gap = icon == Icon::None ? 0.0f : Dp(10);
     const float left = pos.x + (size.x - (text.x + icon_size + gap)) * 0.5f;
-    const ImU32 ink = enabled ? IM_COL32(6, 33, 15, 255) : Col(color::dim);
+    const ImU32 ink = enabled ? Col(color::accent_ink) : Col(color::dim);
     if (icon != Icon::None)
         DrawIcon(draw, icon, {left + icon_size * 0.5f, pos.y + size.y * 0.5f}, icon_size, ink);
     DrawLabel(draw, font, {left + icon_size + gap, pos.y + (size.y - text.y) * 0.5f}, ink, label);
@@ -828,7 +827,7 @@ SplitPress SplitPrimaryButton(const char* id, const char* label, ImVec2 size, co
     const float icon_size = icon == Icon::None ? 0.0f : FontSize(font) * 0.82f;
     const float gap = icon == Icon::None ? 0.0f : Dp(10);
     const float left = pos.x + (size.x - (text.x + icon_size + gap)) * 0.5f;
-    const ImU32 ink = enabled ? IM_COL32(6, 33, 15, 255) : Col(color::dim);
+    const ImU32 ink = enabled ? Col(color::accent_ink) : Col(color::dim);
     if (icon != Icon::None)
         DrawIcon(draw, icon, {left + icon_size * 0.5f, pos.y + size.y * 0.5f}, icon_size, ink);
     DrawLabel(draw, font, {left + icon_size + gap, pos.y + (size.y - text.y) * 0.5f}, ink, label);
@@ -1176,7 +1175,7 @@ void BatteryIcon(int percent)
     const auto& fonts = CurrentFonts();
     const ImVec2 pos = ImGui::GetCursorScreenPos();
     const ImVec2 body{Dp(26), Dp(13)};
-    const ImVec4 tint = percent > 50 ? color::accent : percent >= 20 ? color::warning : color::danger;
+    const ImVec4 tint = percent > 50 ? color::success : percent >= 20 ? color::warning : color::danger;
     auto* draw = ImGui::GetWindowDrawList();
     const ImVec2 top{pos.x, pos.y + Dp(6)};
     draw->AddRect(top, Add(top, body), Col(color::muted), Dp(3), 0, Dp(1.5f));

@@ -2,22 +2,36 @@
 
 ## Header
 
-`header.png` is the original, unmodified 1920 x 620 PNG selected for the launcher
-header. Preserve its aspect ratio when displaying it.
+`header.png` is the 1920 x 620 PNG selected for the launcher header, recoloured
+to match the logo: the fire and the gold of the ball became electric blue, and
+Mario keeps his colours. `tools/launcher_art.py header ORIGINAL.png` makes it
+from the original. Preserve its aspect ratio when displaying it.
 
 - Source: [SteamGridDB hero 8926](https://www.steamgriddb.com/hero/8926).
 - Uploaded by [Jiquita](https://www.steamgriddb.com/profile/76561198074965726).
 - Image: [original PNG](https://cdn2.steamgriddb.com/hero/82b04cd5aa016d979fe048f3ddf0e8d3.png).
 - Downloaded: 2026-10-01.
-- SHA-256: `d1451de5493ffecd9a50541456a823e5e464edb6cae39e6a99e615afdae92617`.
+- SHA-256 of the original: `d1451de5493ffecd9a50541456a823e5e464edb6cae39e6a99e615afdae92617`.
+- Recoloured: 2026-10-25.
 
-This third-party artwork is outside the project's CC0 dedication. The source
-metadata does not specify a redistribution license; rights remain with the
-respective owners.
+This third-party artwork and its recoloured version are outside the project's
+CC0 dedication. The source metadata does not specify a redistribution license;
+rights remain with the respective owners.
 
 CMake copies the image into `assets/launcher/header.png` beside the `recharged`
 executable. The launcher preserves its proportions and crops vertically to fit
-the available header space. The source file is unchanged.
+the available header space.
+
+## Logo
+
+`logo.png` is the Recharged logo, cropped to its visible pixels and scaled to
+1280 pixels wide from the 2732 x 2048 original (SHA-256
+`61ce9890e904f4af3840482091c1504e49045f815300197e20529196e4f1ad5d`, added
+2026-10-25) by `tools/launcher_art.py logo ORIGINAL.png`. The launcher shows it
+in the sidebar, on the Play page and on the About page; for the smaller sizes it
+draws halved copies it makes at start. Its colours set the launcher's palette.
+
+The logo is outside the project's CC0 dedication; rights remain with its creator.
 
 ## Application icon
 

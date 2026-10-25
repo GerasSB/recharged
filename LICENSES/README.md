@@ -70,14 +70,15 @@ Portions of this software are copyright © 2026 The FreeType Project
 
 ## Application artwork
 
-The launcher header (`assets/launcher/header.png`) comes from
+The launcher header (`assets/launcher/header.png`) is a recoloured version of
 [SteamGridDB hero 8926, uploaded by Jiquita](https://www.steamgriddb.com/hero/8926).
 The application icon (`assets/launcher/icon.png` and its Windows `.ico`
 conversion) comes from
 [SteamGridDB icon 103028, uploaded by roryypc](https://www.steamgriddb.com/icon/103028).
 Both are third-party artwork outside the CC0 dedication; their source metadata
-does not specify a redistribution license. The screenshot
-`docs/images/launcher.png` shows the launcher with this header artwork. See
+does not specify a redistribution license. The Recharged logo
+(`assets/launcher/logo.png`) is outside the CC0 dedication too. The screenshot
+`docs/images/launcher.png` shows the launcher with this header and the logo. See
 [artwork provenance](../assets/launcher/README.md).
 
 The launcher's Roboto Medium font comes from the pinned Dear ImGui font bundle
