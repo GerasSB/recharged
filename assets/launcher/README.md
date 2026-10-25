@@ -2,25 +2,27 @@
 
 ## Header
 
-`header.png` is the 1920 x 620 PNG selected for the launcher header, recoloured
-to match the logo: the fire and the gold of the ball became electric blue, and
-Mario keeps his colours. `tools/launcher_art.py header ORIGINAL.png` makes it
-from the original. Preserve its aspect ratio when displaying it.
+`header.png` is made from the key art of Mario Strikers Charged, the picture on
+its Japanese and European covers (`MSC_Scene.jpg`, 3500 x 4700): its upper part,
+Bowser and his claws in the storm over the stadium, mirrored so that he roars
+beside the launcher's logo instead of behind it, scaled to 1920 x 960 and given
+a little more light and colour by `tools/launcher_art.py header MSC_Scene.jpg`.
+Preserve its aspect ratio when displaying it.
 
-- Source: [SteamGridDB hero 8926](https://www.steamgriddb.com/hero/8926).
-- Uploaded by [Jiquita](https://www.steamgriddb.com/profile/76561198074965726).
-- Image: [original PNG](https://cdn2.steamgriddb.com/hero/82b04cd5aa016d979fe048f3ddf0e8d3.png).
-- Downloaded: 2026-10-01.
-- SHA-256 of the original: `d1451de5493ffecd9a50541456a823e5e464edb6cae39e6a99e615afdae92617`.
-- Recoloured: 2026-10-25.
+- Source: [File:MSC_Scene.jpg](https://www.mariowiki.com/File:MSC_Scene.jpg) on the Super Mario Wiki.
+- Image: [original JPEG](https://www.mariowiki.com/images/2/29/MSC_Scene.jpg).
+- Downloaded: 2026-10-25.
+- SHA-256 of the original: `7c961f3e3d5cadab2fe68e69f0a02e355f5e082d2ccbecd17ee279f0b16edad0`.
 
-This third-party artwork and its recoloured version are outside the project's
-CC0 dedication. The source metadata does not specify a redistribution license;
-rights remain with the respective owners.
+This artwork is Nintendo's and outside the project's CC0 dedication. The wiki
+publishes it as fair-use artwork; no license for redistribution is given, and
+rights remain with the respective owners. (Until 2026-10-25 the header was
+[SteamGridDB hero 8926](https://www.steamgriddb.com/hero/8926) by Jiquita, a
+crop of Mario from the same key art.)
 
 CMake copies the image into `assets/launcher/header.png` beside the `recharged`
-executable. The launcher preserves its proportions and crops vertically to fit
-the available header space.
+executable. The launcher preserves its proportions and crops it to fit the
+available header space.
 
 ## Logo
 
