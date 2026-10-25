@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 """Make the launcher's logo and header images in assets/launcher/ from their originals.
 
-    launcher_art.py logo ORIGINAL.png          # logo.png: the Recharged logo, trimmed, 1280 pixels wide
-    launcher_art.py header MarioStrikers2j.jpg # header.png: Mario's volley on night blue, 1920 x 960
+    launcher_art.py logo ORIGINAL.png      # logo.png: the Recharged logo, trimmed, 1280 pixels wide
+    launcher_art.py header MSC_Scene.jpg   # header.png: Mario from the game's key art, 1920 x 1067
 
-The header puts the game's artwork of Mario volleying the ball (3800 x 3500 on
-white) on a night-blue background, beside where the launcher draws its logo.
-The white page and the gaps in the brush stroke behind Mario are cut away, the
-stroke turns deep blue, the fire and the golden ball the logo's electric blue;
-Mario keeps his colours. Needs Pillow, numpy and scipy. assets/launcher/README.md
-lists the originals.
+The header is the lower part of the key art (3500 x 4700): Mario's volley with
+Boo and a Bob-omb, the art extended to the left (that side lies under the
+launcher's logo) so that Mario stands to the right. The fire and the golden ball
+turn the logo's electric blue (hot yellow to icy cyan, orange to sky blue, red
+to deep blue) and the grass blue; Mario's face and reds and Boo's tongue keep
+their colours, and the scene darkens towards night blue around Mario. Needs
+Pillow and numpy. assets/launcher/README.md lists the originals.
 """
 
 import sys
@@ -17,7 +18,6 @@ from pathlib import Path
 
 import numpy as np
 from PIL import Image
-from scipy import ndimage
 
 ASSETS = Path(__file__).resolve().parent.parent / "assets/launcher"
 LOGO_WIDTH = 1280
@@ -55,11 +55,15 @@ def to_rgb(hue, saturation, value):
 
 
 def make_header(source):
-    rgb = np.asarray(Image.open(source).convert("RGB")).astype(np.float32) / 255
+    image = Image.open(source).convert("RGB")
+    if image.size != (3500, 4700):
+        raise SystemExit(f"{source}: expected the 3500 x 4700 key art, found {image.width} x {image.height}")
+    left, top, right, bottom = -500, 1900, 3500, 4122  # black beyond the art's left edge
+    rgb = np.asarray(image.crop((left, top, right, bottom))).astype(np.float32) / 255
     height, width = rgb.shape[:2]
-    if (width, height) != (3800, 3500):
-        raise SystemExit(f"{source}: expected the 3800 x 3500 artwork, found {width} x {height}")
     ys, xs = np.mgrid[0:height, 0:width].astype(np.float32)
+    xs += left  # places below are in the key art's own pixels
+    ys += top
     high, low = rgb.max(2), rgb.min(2)
     r, g, b = rgb[..., 0], rgb[..., 1], rgb[..., 2]
     c = np.maximum(high - low, 1e-6)
@@ -68,61 +72,31 @@ def make_header(source):
     saturation = np.where(high > 0, (high - low) / np.maximum(high, 1e-6), 0)
     value = high
 
-    # The brush stroke behind Mario: warm, greyish, mid-bright.
-    stroke = (smooth(12, 24, hue) * (1 - smooth(58, 72, hue)) * smooth(0.04, 0.09, saturation)
-              * (1 - smooth(0.30, 0.42, saturation)) * smooth(0.28, 0.38, value) * (1 - smooth(0.74, 0.84, value)))
-    # White: the page and the gaps in the stroke are background, the white inside
-    # Mario's ink outlines (glove, eyes, the M) is not. Each white area is judged
-    # by what borders it: the stroke, or ink.
-    white = low > 0.84
-    labels, count = ndimage.label(white)
-    ring = ndimage.binary_dilation(white, iterations=3) & ~white
-    owners = ndimage.grey_dilation(labels, size=(7, 7))[ring]
-    border = np.bincount(owners, minlength=count + 1).astype(np.float64)
-    by_stroke = np.bincount(owners, weights=(stroke[ring] > 0.5).astype(np.float64), minlength=count + 1)
-    by_ink = np.bincount(owners, weights=(value[ring] < 0.30).astype(np.float64), minlength=count + 1)
-    page = np.zeros(count + 1, bool)
-    page[np.unique(np.concatenate([labels[0], labels[-1], labels[:, 0], labels[:, -1]]))] = True
-    cut = page | ((by_stroke / np.maximum(border, 1) > 0.35) & (by_ink / np.maximum(border, 1) < 0.25))
-    cut[0] = False
-    alpha = 1 - ndimage.gaussian_filter(cut[labels].astype(np.float32), 1.2)
-
-    # Recolour: the stroke to deep blue (its texture kept), the fire and the ball
-    # to electric blue (hot yellow to icy cyan, orange to sky blue, red to deep
-    # blue). Mario's face and, right of the ball, his reds stay.
     def ellipse(cx, cy, rx, ry, feather):
         distance = np.sqrt(((xs - cx) / rx) ** 2 + ((ys - cy) / ry) ** 2)
         return 1 - smooth(1 - feather, 1 + feather, distance)
 
-    face = np.maximum(ellipse(2560, 1440, 330, 270, 0.2), ellipse(2330, 1560, 170, 140, 0.25))
-    colourful = smooth(0.20, 0.38, saturation) * smooth(0.10, 0.22, value)
-    yellow = smooth(10, 20, hue) * (1 - smooth(70, 85, hue))
+    colourful = smooth(0.12, 0.30, saturation) * smooth(0.06, 0.18, value)
+    yellow = smooth(10, 20, hue) * (1 - smooth(70, 85, hue))  # orange, gold and yellow
     red = (1 - smooth(8, 18, hue)) * smooth(-40, -25, hue)
-    ball_side = 1 - smooth(1650, 1950, xs)
-    fire = np.clip(colourful * np.maximum(yellow * (1 - face), red * ball_side) * (1 - stroke), 0, 1)
-    fire_rgb = to_rgb(193 + (50 - np.clip(hue, -20, 75)) * 0.36, np.clip(saturation * 0.95, 0, 1), value)
-    luma = 0.299 * r + 0.587 * g + 0.114 * b
-    deep, steel = np.array([0.035, 0.075, 0.17]), np.array([0.13, 0.25, 0.48])
-    stroke_rgb = deep + (steel - deep) * np.clip((luma - 0.28) / 0.45, 0, 1)[..., None]
-    out = rgb * (1 - fire - stroke)[..., None] + fire_rgb * fire[..., None] + stroke_rgb * stroke[..., None]
-    art = Image.fromarray((np.dstack([np.clip(out, 0, 1), alpha[..., None]]) * 255).astype(np.uint8), "RGBA")
-
-    # Scaled so that the ball (at 980, 1920) lands beside the logo, Mario to its right.
-    scale, ball = 0.32, (1160, 470)
-    size = (round(width * scale), round(height * scale))
-    art = art.convert("RGBa").resize(size, Image.LANCZOS).convert("RGBA")
-    layer = Image.new("RGBA", (1920, 960))
-    layer.paste(art, (round(ball[0] - 980 * scale), round(ball[1] - 1920 * scale)))  # cut off at the edges
-
-    # The background: night blue, lighter at the top, a cyan glow behind the ball.
-    gy, gx = np.mgrid[0:960, 0:1920].astype(np.float32)
-    top, bottom = np.array([0.055, 0.10, 0.22]), np.array([0.02, 0.04, 0.09])
-    canvas = top + (bottom - top) * (gy / 960)[..., None]
-    glow = np.exp(-(((gx - ball[0]) / 520) ** 2 + ((gy - ball[1]) / 340) ** 2))
-    canvas = canvas + np.array([0.05, 0.20, 0.32]) * (glow * 0.55)[..., None]
-    base = Image.fromarray((np.clip(canvas, 0, 1) * 255 + 0.5).astype(np.uint8), "RGB").convert("RGBA")
-    Image.alpha_composite(base, layer).convert("RGB").save(ASSETS / "header.png", optimize=True)
-    return 1920, 960
+    green = smooth(75, 90, hue) * (1 - smooth(150, 170, hue))
+    flames = 1 - smooth(1167, 1422, xs)  # the red flames' side, left of Boo
+    face = np.maximum(ellipse(2402, 2861, 374, 292, 0.18), ellipse(2661, 2797, 109, 164, 0.25))  # skin and ear
+    tongue = ellipse(1549, 2450, 137, 128, 0.2)  # Boo's
+    glow = np.maximum(ellipse(3126, 2970, 210, 228, 0.25),  # the red glow behind the Bob-omb
+                      ellipse(2950, 3900, 380, 220, 0.25))  # the blast at the bottom right
+    fire = colourful * np.maximum(yellow * (1 - face), red * np.maximum(flames * (1 - tongue), glow))
+    grass = colourful * green
+    fire_rgb = to_rgb(193 + (50 - np.clip(hue, -20, 75)) * 0.36, np.clip(saturation * 0.92, 0, 1), value)
+    grass_rgb = to_rgb(np.full_like(hue, 205), saturation * 0.75, value * 0.9)
+    out = rgb * (1 - fire - grass)[..., None] + fire_rgb * fire[..., None] + grass_rgb * grass[..., None]
+    # Mario in the light: the rest darkens towards the launcher's night blue.
+    keep = 1 - 0.62 * smooth(0.45, 1.25, np.sqrt(((xs - 2450) / 1400) ** 2 + ((ys - 2950) / 1050) ** 2))
+    out = out * keep[..., None] + np.array([0.027, 0.047, 0.098]) * (1 - keep)[..., None]
+    header = Image.fromarray((np.clip(out, 0, 1) * 255 + 0.5).astype(np.uint8))
+    header = header.resize((1920, round(1920 * height / width)), Image.LANCZOS)
+    header.save(ASSETS / "header.png", optimize=True)
+    return header.width, header.height
 
 
 def main():

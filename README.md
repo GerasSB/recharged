@@ -159,7 +159,7 @@ and attach `logs/recharged.log` from the program folder.
 - [SDL](https://libsdl.org), [Dear ImGui](https://github.com/ocornut/imgui),
   [nod](https://github.com/encounter/nod) (reads the ISO/RVZ/WBFS image) and the
   other [libraries](extern/README.md) Recharged is built with.
-- Launcher artwork: the header from the game's artwork (Nintendo), the icon
+- Launcher artwork: the header from the game's key art (Nintendo), the icon
   from SteamGridDB by roryypc.
 - Everyone who tested Recharged and sent in logs.
 
