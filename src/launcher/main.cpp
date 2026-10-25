@@ -2739,38 +2739,51 @@ private:
         hero_ = {origin.x, origin.y, size.x, art};
         hero_visible_ = true;
         const ImVec2 art_max{origin.x + size.x, origin.y + art};
-        // The logo's side dark, easing into the artwork; the bottom fading into the
-        // page at the cards; a little shade under the update controls.
-        const float solid = origin.x + size.x * 0.26f, knee = origin.x + size.x * 0.40f;
-        const float clear = origin.x + size.x * 0.62f;
-        const ImU32 dark = Col(color::window, 0.92f), half = Col(color::window, 0.42f), none = Col(color::window, 0.0f);
-        draw->AddRectFilled(origin, {solid, art_max.y}, dark);
-        draw->AddRectFilledMultiColor({solid, origin.y}, {knee, art_max.y}, dark, half, half, dark);
-        draw->AddRectFilledMultiColor({knee, origin.y}, {clear, art_max.y}, half, none, none, half);
-        draw->AddRectFilledMultiColor({origin.x, origin.y + art * 0.62f}, art_max, none, none, Col(color::window, 1.0f),
-                                      Col(color::window, 1.0f));
-        draw->AddRectFilledMultiColor(origin, {art_max.x, origin.y + Dp(70)}, Col(color::window, 0.3f),
-                                      Col(color::window, 0.3f), none, none);
+        // Shades of the page colour over the artwork, eased in eight bands so that no
+        // edge shows: the logo's side dark, the lower part dissolving into the page
+        // before the cards, a little shade under the update controls.
+        const auto fade = [&](ImVec2 min, ImVec2 max, float from, float to, bool across) {
+            constexpr int bands = 8;
+            const auto ease = [](float t) { return t * t * (3.0f - 2.0f * t); };
+            for (int i = 0; i < bands; ++i)
+            {
+                const float t0 = float(i) / bands, t1 = float(i + 1) / bands;
+                const ImU32 a = Col(color::window, from + (to - from) * ease(t0));
+                const ImU32 b = Col(color::window, from + (to - from) * ease(t1));
+                if (across)
+                    draw->AddRectFilledMultiColor({min.x + (max.x - min.x) * t0, min.y},
+                                                  {min.x + (max.x - min.x) * t1, max.y}, a, b, b, a);
+                else
+                    draw->AddRectFilledMultiColor({min.x, min.y + (max.y - min.y) * t0},
+                                                  {max.x, min.y + (max.y - min.y) * t1}, a, a, b, b);
+            }
+        };
+        const float dark = origin.x + size.x * 0.18f;
+        draw->AddRectFilled(origin, {dark, art_max.y}, Col(color::window, 0.94f));
+        fade({dark, origin.y}, {origin.x + size.x * 0.66f, art_max.y}, 0.94f, 0.0f, true);
+        fade({origin.x, origin.y + art * 0.46f}, {art_max.x, art_max.y - Dp(8)}, 0.0f, 1.0f, false);
+        draw->AddRectFilled({origin.x, art_max.y - Dp(8)}, art_max, Col(color::window));
+        fade(origin, {art_max.x, origin.y + Dp(90)}, 0.35f, 0.0f, false);
 
         const float pad = Dp(44);
-        // The title: what it is in tracked capitals, the logo with its lightning
-        // reaching a little into the margin, and the subtitle, the game in white,
-        // the rest softer, on two lines in a narrow window. All centred between
-        // the top and the button.
+        // The title: the logo with its lightning reaching a little into the margin,
+        // and the subtitle under it, the game in white, the rest softer, on two
+        // lines in a narrow window. Both a little below the middle between the
+        // update controls and the button, beside Mario's head and shoulders.
         const char* game = "Mario Strikers Charged";
         const char* rest = ", rebuilt to run natively on your PC.";
         const float game_width = TextSize(fonts.heading, game).x;
         const bool one_line = game_width + TextSize(fonts.heading, rest).x <= size.x * 0.75f - pad;
-        const float logo = std::clamp(hero * 0.44f, Dp(110), Dp(190));
-        const float caption = FontSize(fonts.caption) + Dp(6);
+        const float logo = std::clamp(hero * 0.48f, Dp(110), Dp(210));
         const float subtitle = one_line ? FontSize(fonts.heading) : FontSize(fonts.heading) * 2 + Dp(2);
-        const float band = hero - Dp(30) - gap - Dp(24);
-        float y = origin.y + Dp(24) + std::max(0.0f, (band - caption - logo - Dp(8) - subtitle) * 0.5f);
-        DrawTracked(draw, fonts.caption, {origin.x + pad + Dp(6), y}, Col(color::text, 0.82f), "NATIVE PC PORT",
-                    Dp(4.2f));
-        y += caption;
+        const float top = origin.y + Dp(40), room = button_y - Dp(34) - top;
+        float y = top + std::max(0.0f, (room - logo - Dp(10) - subtitle) * 0.6f);
+        // A soft glow from the logo's lit ball, so that the logo sits in the scene.
+        const ImVec2 ball{origin.x + pad - Dp(8) + logo * logo_aspect_ * 0.86f, y + logo * 0.23f};
+        for (int i = 20; i >= 1; --i)
+            draw->AddCircleFilled(ball, logo * 0.055f * float(i), Col(color::accent, 0.006f), 48);
         DrawLogo(draw, {origin.x + pad - Dp(8), y}, logo);
-        y += logo + Dp(8);
+        y += logo + Dp(10);
         DrawLabelShadowed(draw, fonts.heading, {origin.x + pad, y}, IM_COL32_WHITE, game, 1.2f);
         if (one_line)
             DrawLabelShadowed(draw, fonts.heading, {origin.x + pad + game_width, y}, Col(color::text, 0.86f), rest, 1.2f);
