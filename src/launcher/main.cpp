@@ -2603,19 +2603,35 @@ private:
         draw->AddRectFilled({0, 0}, {width, height}, Col(color::sidebar));
         draw->AddLine({width - 1, 0}, {width - 1, height}, Col(color::border, 0.7f), 1.0f);
         const float pad = Dp(24);
-        // The logo, and the game it brings to the PC.
-        float y = Dp(18);
-        const float logo = Dp(72);
-        DrawLogo(draw, {pad - Dp(5), y}, logo);
-        y += logo + Dp(2);
+        // The name in plain text: the logo itself is on the Play and About pages.
+        float y = Dp(30);
+        DrawTracked(draw, fonts.caption, {pad, y}, Col(color::muted), "NATIVE PC PORT", Dp(2.4f));
+        y += FontSize(fonts.caption) + Dp(2);
+        DrawLabel(draw, fonts.title, {pad, y}, IM_COL32_WHITE, "RECHARGED");
+        y += FontSize(fonts.title) + Dp(4);
         DrawLabel(draw, fonts.caption, {pad, y}, Col(color::dim), "Mario Strikers Charged");
-        y += FontSize(fonts.caption) + Dp(20);
+        y += FontSize(fonts.caption) + Dp(28);
 
+        // Miis, Teams and Matches are the Online play group: its row opens the
+        // last of them shown, and their rows appear while one of them is.
+        const auto online = [](int page) { return page == PageMiis || page == PageTeams || page == PageMatches; };
+        if (online(page_)) online_page_ = page_;
         ImGui::SetCursorPos({Dp(12), y});
         for (int i = 0; i < PageCount; ++i)
         {
             ImGui::SetCursorPosX(Dp(12));
-            if (NavItem(page_names[i], page_icons[i], page_ == i, width - Dp(24))) page_ = i;
+            if (i == PageMiis)
+            {
+                if (NavGroup("Online play", Icon::Globe, online(page_), width - Dp(24))) page_ = online_page_;
+                ImGui::SetCursorPosY(ImGui::GetCursorPosY() - ImGui::GetStyle().ItemSpacing.y + Dp(4));
+                ImGui::SetCursorPosX(Dp(12));
+            }
+            if (online(i))
+            {
+                if (!online(page_)) continue;
+                if (NavSubItem(page_names[i], page_ == i, i == PageMatches, width - Dp(24))) page_ = i;
+            }
+            else if (NavItem(page_names[i], page_icons[i], page_ == i, width - Dp(24))) page_ = i;
             ImGui::SetCursorPosY(ImGui::GetCursorPosY() - ImGui::GetStyle().ItemSpacing.y + Dp(4));
         }
 
@@ -8411,6 +8427,7 @@ private:
     NoticeKind notice_kind_ = NoticeKind::Info;
     std::string notice_;
     int page_ = PagePlay;
+    int online_page_ = PageMiis; // the Online play page its row opens
     bool close_requested_ = false;
     bool pending_ = false;
     bool region_prompt_ = false;

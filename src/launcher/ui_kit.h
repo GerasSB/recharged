@@ -66,7 +66,7 @@ enum class Icon
 {
     None, Play, Disc, Display, Audio, Keyboard, Sliders, Info, Folder, Check, Warning, Error, Refresh, Mouse,
     Gamepad, Copy, Link, Target, Back, GitHub, Download, Flask, Tag, Trophy, Gear, Close, Up, Down, Archive, More,
-    Heart, Bug, Layers, Bulb, Code, Person, Pitch
+    Heart, Bug, Layers, Bulb, Code, Person, Pitch, Globe
 };
 void DrawIcon(ImDrawList* draw, Icon icon, ImVec2 center, float size, ImU32 color);
 
@@ -85,6 +85,10 @@ void FillGradient(ImDrawList* draw, ImVec2 min, ImVec2 max, ImU32 top_left, ImU3
                   float rounding, bool horizontal);
 
 bool NavItem(const char* label, Icon icon, bool selected, float width);
+// A sidebar row for a group of pages, open while one of them is shown; its
+// pages follow as NavSubItem rows, `last` ending the group's guide line.
+bool NavGroup(const char* label, Icon icon, bool open, float width);
+bool NavSubItem(const char* label, bool selected, bool last, float width);
 bool PrimaryButton(const char* id, const char* label, ImVec2 size, bool enabled, Icon icon = Icon::None,
                    bool glow = false);
 bool SecondaryButton(const char* id, const char* label, ImVec2 size, bool enabled = true,

@@ -541,6 +541,12 @@ void DrawIcon(ImDrawList* draw, Icon icon, ImVec2 c, float s, ImU32 color)
         draw->AddLine(p(0.08f, -0.40f), p(-0.08f, 0.40f), color, t * 1.3f);
         break;
     }
+    case Icon::Globe:
+        // A globe: its outline, a meridian and the equator.
+        draw->AddCircle(c, 0.44f * s, color, 0, t);
+        draw->AddEllipse(c, ImVec2{0.19f * s, 0.44f * s}, color, 0.0f, 0, t);
+        draw->AddLine(p(-0.44f, 0.0f), p(0.44f, 0.0f), color, t);
+        break;
     case Icon::Up:
     case Icon::Down:
     {
@@ -702,6 +708,53 @@ bool NavItem(const char* label, Icon icon, bool selected, float width)
     const auto& fonts = CurrentFonts();
     DrawLabel(draw, fonts.label, {pos.x + Dp(50), pos.y + (size.y - FontSize(fonts.label)) * 0.5f},
              Col(Mix(color::muted, color::text, std::max(hover, active))), label);
+    ImGui::PopID();
+    return pressed;
+}
+
+bool NavGroup(const char* label, Icon icon, bool open, float width)
+{
+    ImGui::PushID(label);
+    const ImVec2 pos = ImGui::GetCursorScreenPos();
+    const ImVec2 size{width, Dp(44)};
+    const bool pressed = ImGui::InvisibleButton("##nav", size);
+    const float hover = Animate(ImGui::GetID("##hover"), ImGui::IsItemHovered(), 12.0f);
+    const float active = Animate(ImGui::GetID("##active"), open, 12.0f);
+    auto* draw = ImGui::GetWindowDrawList();
+    if (hover > 0.0f) draw->AddRectFilled(pos, Add(pos, size), Col(color::field, hover), Dp(10));
+    const ImVec4 tint = Mix(color::muted, open ? color::accent : color::text, std::max(hover * 0.75f, active));
+    DrawIcon(draw, icon, {pos.x + Dp(28), pos.y + size.y * 0.5f}, Dp(19), Col(tint));
+    const auto& fonts = CurrentFonts();
+    DrawLabel(draw, fonts.label, {pos.x + Dp(50), pos.y + (size.y - FontSize(fonts.label)) * 0.5f},
+              Col(Mix(color::muted, color::text, std::max(hover, active))), label);
+    DrawIcon(draw, open ? Icon::Up : Icon::Down, {pos.x + size.x - Dp(20), pos.y + size.y * 0.5f}, Dp(13),
+             Col(Mix(color::dim, color::muted, std::max(hover, active))));
+    ImGui::PopID();
+    return pressed;
+}
+
+bool NavSubItem(const char* label, bool selected, bool last, float width)
+{
+    ImGui::PushID(label);
+    const ImVec2 pos = ImGui::GetCursorScreenPos();
+    const ImVec2 size{width, Dp(36)};
+    const bool pressed = ImGui::InvisibleButton("##nav", size);
+    const bool hovered = ImGui::IsItemHovered();
+    const float hover = Animate(ImGui::GetID("##hover"), hovered || selected, 12.0f);
+    const float active = Animate(ImGui::GetID("##active"), selected, 12.0f);
+    auto* draw = ImGui::GetWindowDrawList();
+    // The guide line runs down from the group's icon (a filled rectangle: thin
+    // lines break up in the software renderer); a dot marks the page shown.
+    const float guide = pos.x + Dp(28), middle = pos.y + size.y * 0.5f;
+    draw->AddRectFilled({guide - Dp(0.75f), pos.y - Dp(8)}, {guide + Dp(0.75f), last ? middle : pos.y + size.y},
+                        Col(color::border));
+    if (hover > 0.0f)
+        draw->AddRectFilled({pos.x + Dp(40), pos.y}, Add(pos, size),
+                            Col(selected ? Mix(color::field, color::accent, 0.10f) : color::field, hover), Dp(9));
+    if (active > 0.0f) draw->AddCircleFilled({guide, middle}, Dp(4), Col(color::accent, active));
+    const auto& fonts = CurrentFonts();
+    DrawLabel(draw, fonts.body, {pos.x + Dp(52), pos.y + (size.y - FontSize(fonts.body)) * 0.5f},
+              Col(Mix(color::muted, color::text, std::max(hover, active))), label);
     ImGui::PopID();
     return pressed;
 }
