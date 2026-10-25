@@ -92,8 +92,8 @@ struct NavPage
     bool selected;
 };
 // A sidebar group of pages, open while one of them is shown: its row, and a
-// raised panel with the pages on branches from its icon. Returns 0 for a click
-// on the group's row, 1 and up for one on a page, -1 for none.
+// raised panel with the pages under it. Returns 0 for a click on the group's
+// row, 1 and up for one on a page, -1 for none.
 int NavGroup(const char* label, Icon icon, bool open, std::initializer_list<NavPage> pages, float width);
 bool PrimaryButton(const char* id, const char* label, ImVec2 size, bool enabled, Icon icon = Icon::None,
                    bool glow = false);

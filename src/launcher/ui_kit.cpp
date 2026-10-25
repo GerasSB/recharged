@@ -759,57 +759,36 @@ int NavGroup(const char* label, Icon icon, bool open, std::initializer_list<NavP
         draw->AddPolyline(chevron, 3, Col(Mix(color::dim, color::muted, std::max(hover, shown))), 0, Dp(1.8f));
     }
 
-    // The pages, on branches from the badge; the way to the page shown is lit.
+    // The pages, indented under the group's name; the panel groups them.
     if (shown > 0.01f)
     {
         draw->PushClipRect(pos, max, true);
-        const float spine = badge.x, radius = Dp(9), thickness = Dp(1.5f);
-        const float spine_top = badge.y + half + Dp(4);
-        float lit = 0.0f; // where the lit spine ends
+        const float first = pos.y + row + top;
         int n = 0;
         for (const NavPage& page : pages)
         {
             ++n;
-            const float y = pos.y + row + top + step * float(n - 1), middle = y + page_row * 0.5f;
+            const float y = first + step * float(n - 1), middle = y + page_row * 0.5f;
             ImGui::SetCursorScreenPos({pos.x, y});
             ImGui::PushID(n);
             if (ImGui::InvisibleButton("##page", {width, page_row})) clicked = n;
             const float over = Animate(ImGui::GetID("##hover"), ImGui::IsItemHovered() || page.selected, 12.0f);
             const float active = Animate(ImGui::GetID("##active"), page.selected, 12.0f);
             ImGui::PopID();
-            // Its branch: a rounded elbow off the spine into the row.
-            const float end = pos.x + Dp(50);
-            draw->PathArcTo({spine + radius, middle - radius}, radius, 3.14159265f, 1.5707963f);
-            draw->PathLineTo({end, middle});
-            draw->PathStroke(Col(Mix(color::border, color::accent, active), shown), 0, thickness);
-            if (active > 0.0f)
-            {
-                lit = std::max(lit, middle - radius);
-                draw->AddCircleFilled({end, middle}, Dp(6), Col(color::accent, 0.18f * active * shown));
-                draw->AddCircleFilled({end, middle}, Dp(2.5f), Col(color::accent_hi, active * shown));
-            }
-            // A pill behind the row: an accent glow fading to the right for the page shown.
-            const ImVec2 pill{pos.x + Dp(58), y + Dp(2)}, pill_max{max.x - Dp(8), y + page_row - Dp(2)};
+            const ImVec2 pill{pos.x + Dp(44), y + Dp(2)}, pill_max{max.x - Dp(8), y + page_row - Dp(2)};
             if (over > 0.0f)
             {
                 if (page.selected)
-                    FillGradient(draw, pill, pill_max, Col(Mix(color::field, color::accent, 0.30f), over * shown),
-                                 Col(color::field, 0.25f * over * shown), Dp(9), true);
+                    FillGradient(draw, pill, pill_max, Col(Mix(color::field, color::accent, 0.26f), over * shown),
+                                 Col(color::field, 0.3f * over * shown), Dp(9), true);
                 else
                     draw->AddRectFilled(pill, pill_max, Col(color::field, over * shown), Dp(9));
             }
-            const ImU32 ink = Col(Mix(Mix(color::muted, color::text, over), ImVec4{1, 1, 1, 1}, active), shown);
-            DrawIcon(draw, page.icon, {pos.x + Dp(76), middle}, Dp(15),
+            DrawIcon(draw, page.icon, {pos.x + Dp(62), middle}, Dp(15),
                      Col(Mix(Mix(color::dim, color::muted, over), color::accent, active), shown));
-            DrawLabel(draw, fonts.body, {pos.x + Dp(94), middle - FontSize(fonts.body) * 0.5f}, ink, page.label);
+            DrawLabel(draw, fonts.body, {pos.x + Dp(80), middle - FontSize(fonts.body) * 0.5f},
+                      Col(Mix(Mix(color::muted, color::text, over), ImVec4{1, 1, 1, 1}, active), shown), page.label);
         }
-        // The spine, from the badge to the last elbow, lit down to the page shown.
-        const float last = pos.y + row + top + step * float(n - 1) + page_row * 0.5f - radius;
-        draw->AddRectFilled({spine - thickness * 0.5f, spine_top}, {spine + thickness * 0.5f, last},
-                            Col(color::border, shown));
-        if (lit > spine_top)
-            draw->AddRectFilled({spine - thickness * 0.5f, spine_top}, {spine + thickness * 0.5f, lit},
-                                Col(color::accent, shown));
         draw->PopClipRect();
     }
     ImGui::SetCursorScreenPos(pos);
