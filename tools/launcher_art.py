@@ -58,7 +58,8 @@ def make_header(source):
     image = Image.open(source).convert("RGB")
     if image.size != (3500, 4700):
         raise SystemExit(f"{source}: expected the 3500 x 4700 key art, found {image.width} x {image.height}")
-    left, top, right, bottom = -500, 1900, 3500, 4122  # black beyond the art's left edge
+    # Mario's face (2400, 2860) at 76 % across and 37 % down; black beyond the art's left edge.
+    left, top, right, bottom = -243, 2145, 3235, 4077
     rgb = np.asarray(image.crop((left, top, right, bottom))).astype(np.float32) / 255
     height, width = rgb.shape[:2]
     ys, xs = np.mgrid[0:height, 0:width].astype(np.float32)
