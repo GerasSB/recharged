@@ -2727,33 +2727,48 @@ private:
     {
         const auto& fonts = CurrentFonts();
         auto* draw = ImGui::GetWindowDrawList();
-        // From the bottom up: the summary cards a margin above the bottom bar, the
-        // Play button a gap above them, overlapping the artwork's last 30.
+        // From the bottom up: the summary cards a margin above the bottom bar (but at
+        // most 64 below the button once the title area has its full height), the
+        // Play button a gap above them. The artwork runs down behind the button and
+        // fades out at the cards.
         const float margin = Dp(42), gap = Dp(30), button = Dp(62), card = Dp(118);
         const float hero = std::clamp(size.y - margin - card - gap - (button - Dp(30)), Dp(250), Dp(440));
-        hero_ = {origin.x, origin.y, size.x, hero};
+        const float button_y = origin.y + hero - Dp(30), below = button_y + button;
+        const float cards_y = std::clamp(origin.y + size.y - margin - card, below + gap, below + Dp(64));
+        const float art = cards_y - origin.y;
+        hero_ = {origin.x, origin.y, size.x, art};
         hero_visible_ = true;
-        const ImVec2 hero_max{origin.x + size.x, origin.y + hero};
-        // Readability gradients over the artwork.
-        draw->AddRectFilledMultiColor(origin, {origin.x + size.x * 0.75f, hero_max.y}, Col(color::window, 0.94f),
-                                      Col(color::window, 0.0f), Col(color::window, 0.0f), Col(color::window, 0.94f));
-        draw->AddRectFilledMultiColor({origin.x, origin.y + hero * 0.45f}, hero_max, Col(color::window, 0.0f),
-                                      Col(color::window, 0.0f), Col(color::window, 1.0f), Col(color::window, 1.0f));
-        draw->AddRectFilledMultiColor(origin, {hero_max.x, origin.y + Dp(60)}, Col(color::window, 0.45f),
-                                      Col(color::window, 0.45f), Col(color::window, 0.0f), Col(color::window, 0.0f));
+        const ImVec2 art_max{origin.x + size.x, origin.y + art};
+        // The logo's side dark, easing into the artwork; the bottom fading into the
+        // page at the cards; a little shade under the update controls.
+        const float solid = origin.x + size.x * 0.26f, knee = origin.x + size.x * 0.40f;
+        const float clear = origin.x + size.x * 0.62f;
+        const ImU32 dark = Col(color::window, 0.92f), half = Col(color::window, 0.42f), none = Col(color::window, 0.0f);
+        draw->AddRectFilled(origin, {solid, art_max.y}, dark);
+        draw->AddRectFilledMultiColor({solid, origin.y}, {knee, art_max.y}, dark, half, half, dark);
+        draw->AddRectFilledMultiColor({knee, origin.y}, {clear, art_max.y}, half, none, none, half);
+        draw->AddRectFilledMultiColor({origin.x, origin.y + art * 0.62f}, art_max, none, none, Col(color::window, 1.0f),
+                                      Col(color::window, 1.0f));
+        draw->AddRectFilledMultiColor(origin, {art_max.x, origin.y + Dp(70)}, Col(color::window, 0.3f),
+                                      Col(color::window, 0.3f), none, none);
 
         const float pad = Dp(44);
-        // The title, the logo with its lightning reaching a little into the margin,
-        // and the subtitle under it: the game in white, the rest softer, on two
-        // lines in a narrow window. Both centred between the top and the button.
+        // The title: what it is in tracked capitals, the logo with its lightning
+        // reaching a little into the margin, and the subtitle, the game in white,
+        // the rest softer, on two lines in a narrow window. All centred between
+        // the top and the button.
         const char* game = "Mario Strikers Charged";
         const char* rest = ", rebuilt to run natively on your PC.";
         const float game_width = TextSize(fonts.heading, game).x;
         const bool one_line = game_width + TextSize(fonts.heading, rest).x <= size.x * 0.75f - pad;
         const float logo = std::clamp(hero * 0.44f, Dp(110), Dp(190));
+        const float caption = FontSize(fonts.caption) + Dp(6);
         const float subtitle = one_line ? FontSize(fonts.heading) : FontSize(fonts.heading) * 2 + Dp(2);
         const float band = hero - Dp(30) - gap - Dp(24);
-        float y = origin.y + Dp(24) + std::max(0.0f, (band - logo - Dp(8) - subtitle) * 0.5f);
+        float y = origin.y + Dp(24) + std::max(0.0f, (band - caption - logo - Dp(8) - subtitle) * 0.5f);
+        DrawTracked(draw, fonts.caption, {origin.x + pad + Dp(6), y}, Col(color::text, 0.82f), "NATIVE PC PORT",
+                    Dp(4.2f));
+        y += caption;
         DrawLogo(draw, {origin.x + pad - Dp(8), y}, logo);
         y += logo + Dp(8);
         DrawLabelShadowed(draw, fonts.heading, {origin.x + pad, y}, IM_COL32_WHITE, game, 1.2f);
@@ -2767,9 +2782,8 @@ private:
         }
         DrawUpdateBar(origin, size.x, pad);
 
-        // Play button and status, overlapping the bottom of the artwork.
+        // Play button and status, over the bottom of the artwork.
         const std::string blocker = PlayBlocker();
-        const float button_y = hero_max.y - Dp(30);
         ImGui::SetCursorScreenPos({origin.x + pad, button_y});
         const bool menu_open = ImGui::IsPopupOpen("play_options_menu");
         const auto play = SplitPrimaryButton("play", "PLAY", {Dp(230), button},
@@ -2782,10 +2796,7 @@ private:
         DrawPlayOptionsMenu({origin.x + pad + Dp(230), button_y});
         DrawPlayStatus(blocker, {origin.x + pad + Dp(230 + 58 + 24), button_y + Dp(31)});
 
-        // Summary cards: the margin above the bottom bar, but at most 64 below the
-        // button where the artwork has reached its full height.
-        const float below = button_y + button;
-        const float cards_y = std::clamp(origin.y + size.y - margin - card, below + gap, below + Dp(64));
+        // Summary cards.
         if (cards_y + card + margin <= origin.y + size.y)
         {
             const float gap = Dp(16);
