@@ -435,7 +435,8 @@ public:
         if (library_progress_) library_progress_->cancel = true;
         for (auto& [id, texture] : banners_)
             if (texture) SDL_DestroyTexture(texture);
-        if (header_) SDL_DestroyTexture(header_);
+        if (header_back_) SDL_DestroyTexture(header_back_);
+        if (header_front_) SDL_DestroyTexture(header_front_);
         for (const auto& level : logo_) SDL_DestroyTexture(level.texture);
         if (aurora_logo_) SDL_DestroyTexture(aurora_logo_);
         if (renderer_) SDL_DestroyRenderer(renderer_);
@@ -479,14 +480,19 @@ public:
         ApplyWindowMetrics(true);
 
         const auto resources = base_ / "assets/launcher";
-        auto surface = std::unique_ptr<SDL_Surface, decltype(&SDL_DestroySurface)>(
-            SDL_LoadPNG(PathUtf8(resources / "header.png").c_str()), SDL_DestroySurface);
-        Require(surface != nullptr, "Cannot load launcher header; rebuild to restore resources");
-        header_width_ = float(surface->w);
-        header_height_ = float(surface->h);
-        header_ = SDL_CreateTextureFromSurface(renderer_, surface.get());
-        Require(header_ != nullptr, "Cannot create header texture");
-        SDL_SetTextureScaleMode(header_, SDL_SCALEMODE_LINEAR);
+        // The header's two layers, the same size: the scene, and Mario with the ball over it.
+        for (const auto& [texture, name] :
+             {std::pair{&header_back_, "header_back.png"}, std::pair{&header_front_, "header_front.png"}})
+        {
+            SurfacePtr surface(SDL_LoadPNG(PathUtf8(resources / name).c_str()), SDL_DestroySurface);
+            Require(surface != nullptr, "Cannot load launcher header; rebuild to restore resources");
+            header_width_ = float(surface->w);
+            header_height_ = float(surface->h);
+            *texture = SDL_CreateTextureFromSurface(renderer_, surface.get());
+            Require(*texture != nullptr, "Cannot create header texture");
+            SDL_SetTextureScaleMode(*texture, SDL_SCALEMODE_LINEAR);
+        }
+        SDL_SetTextureBlendMode(header_front_, SDL_BLENDMODE_BLEND);
         // The Recharged logo, with halved copies down to 128 pixels wide for small sizes.
         SurfacePtr level(SDL_LoadPNG(PathUtf8(resources / "logo.png").c_str()), SDL_DestroySurface);
         if (level) level.reset(SDL_ConvertSurface(level.get(), SDL_PIXELFORMAT_RGBA32));
@@ -681,21 +687,61 @@ private:
     {
         // The artwork is drawn through SDL (also avoiding large textured
         // triangles in the software renderer), cropped like CSS "cover";
-        // ImGui then paints its gradients and text over it.
-        if (!hero_visible_ || hero_.w <= 0 || hero_.h <= 0) return;
-        SDL_FRect source{0, 0, header_width_, header_height_};
-        const float target_ratio = hero_.w / hero_.h;
-        if (header_width_ / header_height_ > target_ratio)
+        // ImGui then paints its gradients and text over it. Each time the
+        // Play page opens, the artwork makes an entrance, the shot coming in:
+        // it fades in from the page colour while its two layers glide from
+        // the top right towards the bottom left and grow about Mario's face,
+        // Mario and the ball further than the scene, slowing down until
+        // Mario rests in that crop. He starts smaller, so his layer starts
+        // shifted up and right at least as far as keeps its top and right
+        // edges, where the art cuts his raised hand and his fist, beyond the
+        // window's (its other edges are transparent). The scene, which must
+        // cover every edge, grows from a little closer than the crop instead.
+        if (!hero_visible_ || hero_.w <= 0 || hero_.h <= 0)
         {
-            source.w = header_height_ * target_ratio;
-            source.x = (header_width_ - source.w) * 0.5f;
+            hero_shown_ = false;
+            return;
         }
-        else
+        constexpr float glide_seconds = 8.125f, fade_seconds = 0.8f;
+        const float scale = std::max(hero_.w / header_width_, hero_.h / header_height_);
+        const float width = header_width_ * scale, height = header_height_ * scale;
+        const SDL_FRect art{hero_.x + (hero_.w - width) * 0.5f, hero_.y + (hero_.h - height) * 0.40f, width, height};
+        // The entrance's own clock: a slow frame (the first ones upload the
+        // fonts) holds it back rather than skipping part of it.
+        if (capture_) hero_time_ = glide_seconds;
+        else if (!hero_shown_) hero_time_ = 0;
+        else hero_time_ += std::min(ImGui::GetIO().DeltaTime, 1.0f / 30);
+        hero_shown_ = true;
+        // The part of the glide still to come, easing out (quintic) from 1 to 0.
+        const float rest = 1 - std::min(hero_time_ / glide_seconds, 1.0f);
+        const float remaining = rest * rest * rest * rest * rest;
+        // Mario's face, 76 % across and 37 % down the artwork.
+        const float cx = art.x + art.w * 0.76f, cy = art.y + art.h * 0.37f;
+        // A layer grown by `grow` about the face and shifted `dx` right (and 0.6 dx up).
+        const auto layer = [&](SDL_Texture* texture, float grow, float dx) {
+            const SDL_FRect target{cx + (art.x - cx) * grow + dx, cy + (art.y - cy) * grow - dx * 0.6f,
+                                   art.w * grow, art.h * grow};
+            SDL_RenderTexture(renderer_, texture, nullptr, &target);
+        };
+        constexpr float front_zoom = 0.08f;
+        const float lift = std::max({0.025f * hero_.w, front_zoom * (art.x + art.w - cx),
+                                     front_zoom * (cy - art.y) / 0.6f});
+        const SDL_Rect clip{int(std::floor(hero_.x)), int(std::floor(hero_.y)), int(std::ceil(hero_.w)),
+                            int(std::ceil(hero_.h))};
+        SDL_SetRenderClipRect(renderer_, &clip);
+        layer(header_back_, 1.025f + 0.04f * (1 - remaining), 0.010f * hero_.w * remaining);
+        layer(header_front_, 1 - front_zoom * remaining, lift * remaining);
+        // The fade: the page colour over the whole picture, not each layer
+        // faded on its own, which would show the scene through Mario.
+        const float shown = std::min(hero_time_ / fade_seconds, 1.0f);
+        if (shown < 1)
         {
-            source.h = header_width_ / target_ratio;
-            source.y = (header_height_ - source.h) * 0.40f;
+            SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_BLEND);
+            SDL_SetRenderDrawColorFloat(renderer_, color::window.x, color::window.y, color::window.z,
+                                        1 - shown * shown * (3 - 2 * shown));
+            SDL_RenderFillRect(renderer_, &hero_);
         }
-        SDL_RenderTexture(renderer_, header_, &source, &hero_);
+        SDL_SetRenderClipRect(renderer_, nullptr);
     }
 
     // The logo with its top left corner at `pos`, `height` tall; returns its width.
@@ -8391,7 +8437,8 @@ private:
     std::optional<ResolvedLaunch> frontend_launch_;
     SDL_Window* window_ = nullptr;
     SDL_Renderer* renderer_ = nullptr;
-    SDL_Texture* header_ = nullptr;
+    SDL_Texture* header_back_ = nullptr;
+    SDL_Texture* header_front_ = nullptr;
     // The Recharged logo, largest copy first, each half the one before.
     struct LogoLevel
     {
@@ -8448,6 +8495,8 @@ private:
     float header_height_ = 620;
     SDL_FRect hero_{};
     bool hero_visible_ = false;
+    float hero_time_ = 0; // seconds into the header's entrance
+    bool hero_shown_ = false; // drawn in the frame before
     bool window_ui_ready_ = false;
     bool renderer_ui_ready_ = false;
     ConfigFile file_;
