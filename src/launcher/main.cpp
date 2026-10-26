@@ -175,12 +175,12 @@ void Callout(const std::string& text, const ImVec4& tint, Icon icon)
     ImGui::Dummy({width, height});
 }
 
-enum Page { PagePlay, PageGame, PageMiis, PageTeams, PageMatches, PageDisplay, PageAudio, PageControls, PageGameplay,
+enum Page { PagePlay, PageGame, PageMiis, PageSidekicks, PageRules, PageDisplay, PageAudio, PageControls, PageGameplay,
             PageAdvanced, PageAbout, PageCount };
-constexpr const char* page_names[] = {"Play", "Game", "Miis", "Teams", "Matches", "Display", "Audio", "Controls", "Gameplay",
-                                      "Advanced", "About"};
-constexpr const char* page_ids[] = {"play", "game", "miis", "teams", "matches", "display", "audio", "controls", "gameplay",
-                                    "advanced", "about"};
+constexpr const char* page_names[] = {"Play", "Game", "Miis", "Sidekicks", "Match rules", "Display", "Audio",
+                                      "Controls", "Gameplay", "Advanced", "About"};
+constexpr const char* page_ids[] = {"play", "game", "miis", "sidekicks", "rules", "display", "audio", "controls",
+                                    "gameplay", "advanced", "about"};
 constexpr Icon page_icons[] = {Icon::Play, Icon::Disc, Icon::Person, Icon::Pitch, Icon::Trophy, Icon::Display, Icon::Audio,
                                Icon::Keyboard, Icon::Target, Icon::Sliders, Icon::Info};
 static_assert(std::size(page_names) == PageCount && std::size(page_ids) == PageCount
@@ -2612,23 +2612,22 @@ private:
         DrawLabel(draw, fonts.caption, {pad, y}, Col(color::dim), "Mario Strikers Charged");
         y += FontSize(fonts.caption) + Dp(28);
 
-        // Miis, Teams and Matches are the Online play group: its row opens the
-        // last of them shown, and it shows their rows while one of them is open.
-        const auto online = [](int page) { return page == PageMiis || page == PageTeams || page == PageMatches; };
-        if (online(page_)) online_page_ = page_;
+        // Miis, Sidekicks and Match rules are the Match setup group: its row
+        // opens the last of them shown, and it shows their rows while one of
+        // them is open.
+        const auto setup = [](int page) { return page == PageMiis || page == PageSidekicks || page == PageRules; };
+        if (setup(page_)) setup_page_ = page_;
         ImGui::SetCursorPos({Dp(12), y});
         for (int i = 0; i < PageCount; ++i)
         {
             ImGui::SetCursorPosX(Dp(12));
-            if (online(i))
+            if (setup(i))
             {
                 if (i != PageMiis) continue;
-                const int clicked = NavGroup("Online play", Icon::Globe, online(page_),
-                                             {{page_names[PageMiis], page_icons[PageMiis], page_ == PageMiis},
-                                              {page_names[PageTeams], page_icons[PageTeams], page_ == PageTeams},
-                                              {page_names[PageMatches], page_icons[PageMatches], page_ == PageMatches}},
-                                             width - Dp(24));
-                if (clicked == 0) page_ = online_page_;
+                const auto row = [&](int page) { return NavPage{page_names[page], page_icons[page], page_ == page}; };
+                const int clicked = NavGroup("Match setup", Icon::Clipboard, setup(page_),
+                                             {row(PageMiis), row(PageSidekicks), row(PageRules)}, width - Dp(24));
+                if (clicked == 0) page_ = setup_page_;
                 if (clicked > 0) page_ = PageMiis + clicked - 1;
             }
             else if (NavItem(page_names[i], page_icons[i], page_ == i, width - Dp(24))) page_ = i;
@@ -2705,8 +2704,8 @@ private:
             {
             case PageGame: GamePage(); break;
             case PageMiis: MiiPage(); break;
-            case PageTeams: TeamsPage(); break;
-            case PageMatches: MatchesPage(); break;
+            case PageSidekicks: SidekicksPage(); break;
+            case PageRules: MatchRulesPage(); break;
             case PageDisplay: DisplayPage(); break;
             case PageAudio: AudioPage(); break;
             case PageControls: ControlsPage(); break;
@@ -3563,10 +3562,10 @@ private:
     // The sidekicks each captain starts with, in the game save of the save
     // folder in use: the game's sidekick screen shows them, and what is
     // chosen there comes back here.
-    void TeamsPage()
+    void SidekicksPage()
     {
-        PageHeader("Teams", "The sidekicks each captain starts with. The game's sidekick screen shows them, and what you "
-                            "choose there shows here: both live in your game save.");
+        PageHeader("Sidekicks", "The sidekicks each captain starts with. The game's sidekick screen shows them, and "
+                                "what you choose there shows here: both live in your game save.");
         using mscharged::platform::GameSaveState;
         const auto& save = InstalledLineups();
         GameSaveCallout(save.state, save.error, "its lineups");
@@ -3872,10 +3871,10 @@ private:
     // Match presets: named match settings and cheats, each in a file of the
     // presets folder, written into the game save for matches on this computer
     // or online with friends. Default and Competitive are built in.
-    void MatchesPage()
+    void MatchRulesPage()
     {
-        PageHeader("Matches", "Presets of the match settings and cheats: choose one for your matches on this computer, "
-                              "or online with friends. Ranked matches keep their own rules.");
+        PageHeader("Match rules", "Presets of the match settings and cheats: choose one for your matches on this "
+                                  "computer, or online with friends. Ranked matches keep their own rules.");
         using mscharged::platform::GameSaveState;
         using mscharged::platform::MatchMode;
         const auto& save = InstalledMatch();
@@ -8459,7 +8458,7 @@ private:
     NoticeKind notice_kind_ = NoticeKind::Info;
     std::string notice_;
     int page_ = PagePlay;
-    int online_page_ = PageMiis; // the Online play page its row opens
+    int setup_page_ = PageMiis; // the Match setup page its row opens
     bool close_requested_ = false;
     bool pending_ = false;
     bool region_prompt_ = false;
