@@ -2612,9 +2612,9 @@ private:
         DrawLabel(draw, fonts.caption, {pad, y}, Col(color::dim), "Mario Strikers Charged");
         y += FontSize(fonts.caption) + Dp(28);
 
-        // Miis, Sidekicks and Match rules are the Match setup group: its row
-        // opens the last of them shown, and it shows their rows while one of
-        // them is open.
+        // Miis, Sidekicks and Match rules are the Online/Match setup group: its
+        // row opens the last of them shown, and it shows their rows while one
+        // of them is open.
         const auto setup = [](int page) { return page == PageMiis || page == PageSidekicks || page == PageRules; };
         if (setup(page_)) setup_page_ = page_;
         ImGui::SetCursorPos({Dp(12), y});
@@ -2625,7 +2625,7 @@ private:
             {
                 if (i != PageMiis) continue;
                 const auto row = [&](int page) { return NavPage{page_names[page], page_icons[page], page_ == page}; };
-                const int clicked = NavGroup("Match setup", Icon::Clipboard, setup(page_),
+                const int clicked = NavGroup("Online/Match setup", Icon::Clipboard, setup(page_),
                                              {row(PageMiis), row(PageSidekicks), row(PageRules)}, width - Dp(24));
                 if (clicked == 0) page_ = setup_page_;
                 if (clicked > 0) page_ = PageMiis + clicked - 1;
@@ -8458,7 +8458,7 @@ private:
     NoticeKind notice_kind_ = NoticeKind::Info;
     std::string notice_;
     int page_ = PagePlay;
-    int setup_page_ = PageMiis; // the Match setup page its row opens
+    int setup_page_ = PageMiis; // the Online/Match setup page its row opens
     bool close_requested_ = false;
     bool pending_ = false;
     bool region_prompt_ = false;
