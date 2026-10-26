@@ -85,6 +85,9 @@
 #include <SDL3/SDL_hints.h>
 #include <SDL3/SDL_filesystem.h>
 #include "platform/native_module_loader.h"
+#if defined(MSCHARGED_AUTOPILOT)
+#include "platform/bank_cue.h"
+#endif
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -105,15 +108,20 @@ namespace {
 constexpr std::uint32_t kFifoDrainBytes=64u<<20;
 #if defined(MSCHARGED_AUTOPILOT)
 // Test builds' autopilot (src/platform/autopilot.cpp): C, P and U held
-// together hand the first player to a bot and back. Unannounced: no log line.
+// together hand the first player to a bot and back. Unannounced: no log line,
+// only the title screen's unlock-all sound when it takes over (played here:
+// the game unloads that bank for matches).
 std::atomic<int(*)(int)> sSetAutopilot{nullptr};
 std::atomic<bool> sAutopilotOn{false};
+mscharged::platform::BankCuePlayer sAutopilotSound;
+std::atomic<float> sAutopilotSoundGain{1.0f};
 void SwitchAutopilot() {
     const auto set=sSetAutopilot.load();
     if(!set) return;
     const bool on=!sAutopilotOn.load();
     sAutopilotOn=on;
     set(on ? 1 : 0);
+    if(on) sAutopilotSound.Play(sAutopilotSoundGain);
 }
 #endif
 void Check(bool value, const char* reason) { if (!value) throw std::runtime_error(reason); }
@@ -824,6 +832,12 @@ int mscharged::RunOriginalGame(int argc, char** argv,
                setAutopilot && setAutopilot(0)==1) {
                 sSetAutopilot=setAutopilot;
                 mscharged::platform::SetAutopilotChord(SwitchAutopilot);
+                // The unlock-all cue of the title screen (SHTitleScreen.cpp), in
+                // the menus' bank, as loud as the game's menu sounds.
+                sAutopilotSound.Load(launch.disc_path, "FE_GEN_Sfx",
+                    std::strncmp(release->game_id, "R4QK", 4) == 0 ? 0xF0AFD586u : 0xCF37DAC7u);
+                sAutopilotSoundGain = launch.settings.mute ? 0.0f : float(launch.settings.master_volume) / 100.0f
+                    * float(launch.settings.sound_volumes[std::size_t(mscharged::SoundGroup::Menus)]) / 100.0f;
             }
 #endif
             // display.wider_view: the module tells when the match's stadium is
