@@ -3109,7 +3109,8 @@ private:
     // A summary card's icon takes the accent, or amber or red for a problem.
     struct Summary { std::string value; std::string detail; ImVec4 tint; };
 
-    // The pinned image: its region and revision first.
+    // The pinned image: its region and revision first, in the status colours
+    // (green when it is ready to play).
     Summary DiscSummary() const
     {
         if (searching_) return {"Looking...", "Searching for your game image", color::accent};
@@ -3126,7 +3127,7 @@ private:
         {
             const auto& info = *check_.info;
             return {RegionRevision(info), info.game_id + "  \xC2\xB7  " + info.format + "  \xC2\xB7  " + name,
-                    SupportedRelease(info) ? color::accent : color::warning};
+                    SupportedRelease(info) ? color::success : color::warning};
         }
         if (!check_.error.empty()) return {"Image problem", check_.error, color::danger};
         return {name, "Not checked yet", color::accent};
