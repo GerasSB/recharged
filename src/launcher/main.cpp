@@ -6878,7 +6878,7 @@ private:
             }
             ImGui::PopStyleVar();
             TextWrappedColored(CurrentFonts().caption, color::muted,
-                               "In menus A selects, B goes back, START pauses and the C-stick points. Defending a "
+                               "In menus A selects, L and R turn pages, the C-stick points and START pauses. Defending a "
                                "Mega Strike needs a Wii Remote's pointer; No Mega Strikes (Gameplay) turns them off.");
         }
         EndCard();
