@@ -754,9 +754,10 @@ int mscharged::RunOriginalGame(int argc, char** argv,
                 reinterpret_cast<void(*)()>(mscharged::platform::FindNativeModuleSymbol(module,"charged_cycle_debug_layer")));
         }
         // [gameplay] tweaks: the enabled set, before original main, with
-        // the No HUD bit of [hotkeys] show_hud = false.
+        // the tweaks another one needs and the No HUD bit of [hotkeys]
+        // show_hud = false.
         {
-            const unsigned tweaks=launch.settings.GameTweakMask();
+            const unsigned tweaks=launch.settings.ModuleTweakMask();
             auto* configureTweaks=reinterpret_cast<void(*)(unsigned)>(
                 mscharged::platform::FindNativeModuleSymbol(module,"charged_configure_tweaks"));
             if(configureTweaks) configureTweaks(launch.settings.ModuleTweakMask());
@@ -874,6 +875,11 @@ int mscharged::RunOriginalGame(int argc, char** argv,
             configureGameCube(mscharged::platform::ReadDesktopGameCubePad);
         else
             mscharged::platform::SessionLogLine("GameCube controls: off (this build's game module has none)");
+        // Controller menus: the module reads the gamepad players' second
+        // stick and triggers as it moves them through the menus.
+        if(auto* configureMenus=reinterpret_cast<void(*)(ChargedMenuPadReader)>(
+               mscharged::platform::FindNativeModuleSymbol(module,"charged_configure_controller_menus")))
+            configureMenus(mscharged::platform::ReadDesktopMenuPad);
         // [audio] sound levels: like the master volume a host setting,
         // whatever the tweak set; the game module's hooks apply them.
         {

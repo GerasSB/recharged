@@ -149,6 +149,13 @@ The launcher's **Gameplay** page (or `[gameplay]` in `recharged.ini`) turns them
   screens after a match (matches, movies and credits unchanged).
 - **No Mega Strikes** for both teams, the usual competitive rule. Skillshots
   stay, and Strikers 101 lessons keep their own rules.
+- **Controller menus**: a gamepad moves between a menu's buttons with the
+  D-pad or a stick instead of pointing, as in Strikers WiiCompiled. A selects,
+  B goes back (on the pause menu: back to the match) and the triggers turn
+  pages. A menu opens on its first button, or on the one you last chose there,
+  and on the main menu's ring the stick picks the button it points at. It is
+  made for playing without a pointer, which defending a Mega Strike needs, so
+  No Mega Strikes is on with it. Wii Remotes and the mouse still point.
 - **Unlock everything**: all characters, stadiums and cheats, through the
   game's own unlock switch; the save is not changed.
 - **CPU vs CPU**: in Domination, press Done on Choose Sides without picking a

@@ -247,10 +247,14 @@ struct Settings
             if (tweaks[n]) mask |= GameTweakBit(kGameTweaks[n].tweak);
         return mask;
     }
-    // What the game module receives: the tweaks and the HUD's start state.
+    // What the game module receives: the tweaks, those another tweak needs
+    // (GameTweakForced) and the HUD's start state.
     unsigned ModuleTweakMask() const
     {
-        return GameTweakMask() | (show_hud ? 0u : GameTweakBit(GameTweak::NoHud));
+        unsigned mask = GameTweakMask() | (show_hud ? 0u : GameTweakBit(GameTweak::NoHud));
+        for (std::size_t n = 0; n < tweaks.size(); ++n)
+            if (GameTweakForced(kGameTweaks[n].tweak, tweaks)) mask |= GameTweakBit(kGameTweaks[n].tweak);
+        return mask;
     }
 };
 
