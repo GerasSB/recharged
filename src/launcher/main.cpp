@@ -3100,7 +3100,7 @@ private:
             std::string names;
             int count = 0;
             for (std::size_t n = 0; n < kGameTweaks.size(); ++n)
-                if (draft_.tweaks[n])
+                if (draft_.tweaks[n] || GameTweakForced(kGameTweaks[n].tweak, draft_.tweaks))
                 {
                     names += std::string("\n\xE2\x80\xA2 ") + kGameTweaks[n].name;
                     ++count;
@@ -6878,8 +6878,10 @@ private:
             }
             ImGui::PopStyleVar();
             TextWrappedColored(CurrentFonts().caption, color::muted,
-                               "In menus A selects, L and R turn pages, the C-stick points and START pauses. Defending a "
-                               "Mega Strike needs a Wii Remote's pointer; No Mega Strikes (Gameplay) turns them off.");
+                               "In menus A selects, L and R turn pages, the C-stick points and START pauses. With "
+                               "Controller menus (Gameplay) the D-pad and sticks move between buttons and B goes back. "
+                               "Defending a Mega Strike needs a Wii Remote's pointer; No Mega Strikes (Gameplay) "
+                               "turns them off.");
         }
         EndCard();
     }
@@ -7609,9 +7611,17 @@ private:
     {
         const auto index = GameTweakIndex(tweak);
         const auto& info = kGameTweaks[index];
-        Row(info.name, info.description);
+        // A tweak another one needs shows on and cannot be turned off; its own
+        // setting comes back when that one is off.
+        const bool forced = GameTweakForced(tweak, draft_.tweaks);
+        const std::string description = forced ? std::string(info.description) + " Controller menus keep it on."
+                                               : std::string(info.description);
+        Row(info.name, description.c_str());
         const std::string id = std::string("##tweak_") + info.key;
-        if (Toggle(id.c_str(), &draft_.tweaks[index])) dirty_ = true;
+        bool on = true;
+        ImGui::BeginDisabled(forced);
+        if (Toggle(id.c_str(), forced ? &on : &draft_.tweaks[index]) && !forced) dirty_ = true;
+        ImGui::EndDisabled();
     }
 
     void GameplayPage()
@@ -7641,6 +7651,7 @@ private:
         {
             TweakRow(GameTweak::SkipIntro);
             TweakRow(GameTweak::FastMenus);
+            TweakRow(GameTweak::ControllerMenus);
             EndRows();
         }
         EndCard();

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "platform/controller_menus.h"
 #include "platform/gamecube_controls.h"
 #include "platform/gamepad_bindings.h"
 #include "platform/key_bindings.h"
@@ -90,4 +91,9 @@ void ShutdownDesktopWpad();
 // window has no focus); false for any other player. A ChargedGameCubePadReader
 // for the game module: any thread.
 bool ReadDesktopGameCubePad(int channel, ChargedGameCubePad* pad);
+// Controller menus: the second stick and triggers of the gamepad player on
+// WPAD channel `channel`, as of the last service (released while the window
+// has no focus); false for any other player and while the mouse points for
+// that one. A ChargedMenuPadReader for the game module: any thread.
+bool ReadDesktopMenuPad(int channel, ChargedMenuPad* pad);
 } // namespace mscharged::platform

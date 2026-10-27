@@ -212,6 +212,8 @@ function(mscharged_add_original_frontend_diagnostic target version suffix)
     endif()
     # Robot goalies: the disc's unused robot goalie texture on Charged's goalie (tweak patch 0025).
     target_sources(${target} PRIVATE src/platform/robot_goalie.cpp src/platform/robot_goalie_hook.cpp)
+    # Controller menus: the D-pad and sticks move between menu buttons (tweak patch 0047).
+    target_sources(${target} PRIVATE src/platform/controller_menus.cpp)
     # Super Team: robot captains and sidekicks from the GameCube robot (tweak patch 0026).
     target_sources(${target} PRIVATE src/platform/super_team.cpp src/platform/super_team_hook.cpp)
     # The logo reads RECHARGED (issue #63, tweak patch 0022, always on).
