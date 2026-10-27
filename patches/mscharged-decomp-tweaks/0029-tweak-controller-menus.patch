@@ -119,10 +119,10 @@ index 4e8de4b..6339dec 100644
  
  /**
 diff --git a/src/Game/FE/feDPD.cpp b/src/Game/FE/feDPD.cpp
-index 2aabf51..7f000e9 100644
+index 2aabf51..93cd883 100644
 --- a/src/Game/FE/feDPD.cpp
 +++ b/src/Game/FE/feDPD.cpp
-@@ -20,6 +20,16 @@
+@@ -20,6 +20,17 @@
  #include "NL/plat/DPDData.h"
  #include "decomp.h"
  #include "Game/SharedStaticStorage.h"
@@ -133,13 +133,14 @@ index 2aabf51..7f000e9 100644
 +#include "Game/FE/fePointer.h"
 +#include "Game/FE/tlComponentInstance.h"
 +#include "Game/GameSceneManager.h"
++#include "Game/Task/GameTaskState.h"
 +#include "Game/SH/SHChooseCaptains.h"
 +#include "Game/SH/SHChooseSidekicks.h"
 +#endif
  
  TLComponentInstance* gFEPointerInstances[4];
  nlVector2 gFEPointerPositions[4];
-@@ -167,3 +177,207 @@ bool IsFreeStylePad(int index)
+@@ -167,3 +178,220 @@ bool IsFreeStylePad(int index)
      int type = device->GetClassID();
      return type == gWiiFreestylePadClassID;
  }
@@ -260,7 +261,12 @@ index 2aabf51..7f000e9 100644
 +{
 +    if (channel < 0 || channel >= 4)
 +        return;
-+    if (!mscharged_tweak_controller_menus(channel) || g_pFEPointerManager == 0)
++    // The HOME Button Menu points with this same reading; the menu below it
++    // keeps its selection for when it closes.
++    nlTaskManager* tasks = nlTaskManager::m_pInstance;
++    const bool home = tasks != 0
++        && (tasks->mCurrentState == TASK_HOME_BUTTON_MENU || tasks->mPendingState == TASK_HOME_BUTTON_MENU);
++    if (home || !mscharged_tweak_controller_menus(channel) || g_pFEPointerManager == 0)
 +    {
 +        SetHandVisible(channel, true);
 +        return;
@@ -275,6 +281,14 @@ index 2aabf51..7f000e9 100644
 +    {
 +        frame.scene = scene;
 +        frame.scene_type = manager->m_sceneStack[manager->mCurrentStackDepth - 1];
++    }
++    frame.overlay = 0;
++    frame.overlay_type = SCENE_INVALID;
++    BaseSceneHandler* overlay = g_pOverlayManager != 0 ? g_pOverlayManager->GetCurrentScene() : 0;
++    if (overlay != 0)
++    {
++        frame.overlay = overlay;
++        frame.overlay_type = g_pOverlayManager->m_sceneStack[g_pOverlayManager->mCurrentStackDepth - 1];
 +    }
 +    gl_ScreenInfo* screenInfo = glGetScreenInfo();
 +    frame.half_width = (IsWidescreen() ? 854 : screenInfo->ScreenWidth) * 0.5f;

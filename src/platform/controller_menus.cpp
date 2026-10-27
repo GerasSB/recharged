@@ -22,6 +22,7 @@
 #include <chrono>
 #include <cmath>
 #include <map>
+#include <utility>
 
 namespace {
 using Clock = std::chrono::steady_clock;
@@ -78,8 +79,9 @@ struct State {
     Clock::time_point hide_hand_until{};
     int page_frames = 0, page_dir = 0, held_page = 0;
     int pause_frames = 0;           // tapping the pause button (B on an in-match overlay)
-    const void* scene = nullptr;    // top scene last frame, to spot screen changes
-    int memory_key = 0;             // this screen's key in the remembered selections
+    const void* scene = nullptr;    // top scene and overlay last frame, to spot screen changes
+    const void* overlay_scene = nullptr;
+    std::pair<int, int> memory_key; // this screen's key in the remembered selections
     bool had_buttons = false;       // buttons last frame (false: a menu or overlay just appeared)
     bool overlay = false;           // this menu appeared over an unchanged scene (the pause menu)
     const void* scene_when_empty = nullptr;
@@ -92,9 +94,9 @@ std::array<State, 4> sStates;
 // controller, so an idle one does not snap its pointer around in menus
 // player 1 is driving.
 std::array<bool, 4> sEngaged{true, false, false, false};
-// Where each player last was on each screen, so coming back to a screen or
-// closing a pop-up returns to that button.
-std::array<std::map<int, Point>, 4> sRemembered;
+// Where each player last was on each screen (scene and overlay type), so
+// coming back to a screen or closing a pop-up returns to that button.
+std::array<std::map<std::pair<int, int>, Point>, 4> sRemembered;
 
 Buttons CollectButtons(const mscharged_menu_frame& frame) {
     Buttons out;
@@ -279,15 +281,17 @@ void Navigate(int channel, const mscharged_menu_frame& frame, mscharged_menu_res
         r.hide_hand = now < st.hide_hand_until;
     };
 
-    // A new screen (another scene on top, or buttons appearing after none)
-    // starts on its default selection, or the one remembered for it,
-    // wherever the pointer was left.
-    if (frame.scene != st.scene || !st.had_buttons) {
-        // In-match overlays (the pause menu) appear without a scene change.
-        st.overlay = !st.had_buttons && frame.scene == st.scene_when_empty;
+    // A new screen (another scene or overlay on top, or buttons appearing
+    // after none) starts on its default selection, or the one remembered for
+    // it, wherever the pointer was left.
+    if (frame.scene != st.scene || frame.overlay != st.overlay_scene || !st.had_buttons) {
+        // In-match overlays (the pause menu) appear without a scene change,
+        // and their pages (the pause menu's options) stay one.
+        st.overlay = st.had_buttons ? frame.scene == st.scene && st.overlay : frame.scene == st.scene_when_empty;
         st.scene = frame.scene;
+        st.overlay_scene = frame.overlay;
         st.had_buttons = true;
-        st.memory_key = frame.scene_type * 2 + (st.overlay ? 1 : 0);
+        st.memory_key = {frame.scene_type, frame.overlay_type};
         Point start = PickDefault(buttons, half, stage_select);
         const auto remembered = sRemembered[std::size_t(channel)].find(st.memory_key);
         if (remembered != sRemembered[std::size_t(channel)].end() && buttons.At(remembered->second))
@@ -344,6 +348,8 @@ void Navigate(int channel, const mscharged_menu_frame& frame, mscharged_menu_res
         r.press |= kWpadA;
         return;
     }
+    // On its way to the back button, the pointer stays there for the press.
+    if (st.back_frames > 0) return;
     // Ring menus: a stick or D-pad direction selects the button at that
     // angle around the ring's middle, following the stick as it turns.
     std::array<const Button*, kMaxButtons> ring{};
