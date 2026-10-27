@@ -13,10 +13,10 @@ Add include/mscharged_tweaks.h, the hooks' interface to the port
 
 diff --git a/include/mscharged_tweaks.h b/include/mscharged_tweaks.h
 new file mode 100644
-index 0000000..ee136cd
+index 0000000..38ce572
 --- /dev/null
 +++ b/include/mscharged_tweaks.h
-@@ -0,0 +1,215 @@
+@@ -0,0 +1,228 @@
 +#ifndef MSCHARGED_TWEAKS_H
 +#define MSCHARGED_TWEAKS_H
 +
@@ -225,6 +225,19 @@ index 0000000..ee136cd
 +unsigned long mscharged_tweak_super_team_pool_room(int pool);
 +int mscharged_tweak_super_team_fits(unsigned long size);
 +void mscharged_tweak_super_team_spent(unsigned long header, unsigned long data);
++
++// GameCube controls (a GameCube controller's gamepad profile, a host setting
++// outside the tweak mask): the controller of WPAD channel `channel` as
++// PADStatus would report it, its buttons (PAD_BUTTON_* bits), analog L and R
++// (0-255) and C-stick (-1 to 1, y up); false when that channel's player does
++// not play with GameCube controls.
++struct mscharged_gamecube_pad
++{
++    unsigned short buttons;
++    unsigned char trigger_left, trigger_right;
++    float substick_x, substick_y;
++};
++bool mscharged_tweak_gamecube_pad(int channel, struct mscharged_gamecube_pad* pad);
 +
 +#ifdef __cplusplus
 +}

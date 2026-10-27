@@ -681,7 +681,7 @@ int mscharged::RunOriginalGame(int argc, char** argv,
             desktop.gamepad_profiles[pad] = {mscharged::platform::ParseGamepadBindings(profile.inputs),
                                              profile.swap_sticks, launch.settings.PadProfileIndex(pad) < 0,
                                              profile.inner_deadzone, profile.outer_deadzone, profile.trigger_press,
-                                             profile.gyro_pointer, profile.gyro_speed};
+                                             profile.gyro_pointer, profile.gyro_speed, profile.gamecube_controls};
         }
         mscharged::platform::WpadSDLSettings wpad{static_cast<std::uint8_t>(launch.settings.sensor_bar=="top"?1:0),
             static_cast<std::uint8_t>(launch.settings.ir_sensitivity),true,launch.settings.rumble};
@@ -867,6 +867,13 @@ int mscharged::RunOriginalGame(int argc, char** argv,
             mscharged::platform::SessionLogLine(line.c_str());
             std::fprintf(stderr,"%s\n",line.c_str());
         }
+        // GameCube controls: the module reads the controllers of the GameCube
+        // players whose profile plays with them as each match takes its input.
+        if(auto* configureGameCube=reinterpret_cast<void(*)(ChargedGameCubePadReader)>(
+               mscharged::platform::FindNativeModuleSymbol(module,"charged_configure_gamecube_controls")))
+            configureGameCube(mscharged::platform::ReadDesktopGameCubePad);
+        else
+            mscharged::platform::SessionLogLine("GameCube controls: off (this build's game module has none)");
         // [audio] sound levels: like the master volume a host setting,
         // whatever the tweak set; the game module's hooks apply them.
         {

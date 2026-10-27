@@ -1,5 +1,6 @@
 #pragma once
 
+#include "platform/gamecube_controls.h"
 #include "platform/gamepad_bindings.h"
 #include "platform/key_bindings.h"
 
@@ -43,6 +44,9 @@ struct DesktopWpadSettings {
     std::array<int, 4> gamepad_channels{-1, -1, -1, -1};
     // Buttons and sticks of the n-th gamepad (its profile, controls.gamepadN_profile).
     // With gyro_pointer a pad that has a gyro points with it instead of the stick.
+    // With gamecube_controls a GameCube controller keeps GameCube's default
+    // Wii buttons and plays matches with GameCube controls
+    // (ReadDesktopGameCubePad).
     std::array<GamepadProfile, 4> gamepad_profiles{
         GamepadProfile{DefaultGamepadBindings()}, GamepadProfile{DefaultGamepadBindings()},
         GamepadProfile{DefaultGamepadBindings()}, GamepadProfile{DefaultGamepadBindings()}};
@@ -81,4 +85,9 @@ struct DesktopWpadSettings {
 void InitializeDesktopWpad(SDL_Window* window, DesktopWpadSettings settings);
 void ServiceDesktopWpad();
 void ShutdownDesktopWpad();
+// GameCube controls: the controller of the gamepad player on WPAD channel
+// `channel` who plays with them, as of the last service (released while the
+// window has no focus); false for any other player. A ChargedGameCubePadReader
+// for the game module: any thread.
+bool ReadDesktopGameCubePad(int channel, ChargedGameCubePad* pad);
 } // namespace mscharged::platform
