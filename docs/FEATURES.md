@@ -53,6 +53,13 @@ come from the reconstructed source, unchanged.
   profile belongs to one kind of controller (Xbox and PlayStation share
   profiles), so each gamepad is offered the profiles that fit it; they are
   kept for the next session.
+- **GameCube controls**: a GameCube controller in the official adapter
+  (WUP-028) plays with Super Mario Strikers' controls by default. The adapter
+  needs the same one-time driver setup as for Dolphin and Slippi. What a button does depends on what you are doing: B shoots with the
+  ball and slide-tackles without it, Y dekes with the ball and big-hits without
+  it, the C-stick dekes that way, R is the special move and Z cycles items.
+  Turn **Play with GameCube controls** off on the GameCube profile page to
+  choose the buttons yourself.
 - **Real Wii Remotes with Nunchuk**, paired over **Bluetooth** or through a
   **Mayflash DolphinBar** (mode 4): pointer, rumble, the Remote speaker and
   battery level, with the sensor bar above or below the screen and the Wii's
