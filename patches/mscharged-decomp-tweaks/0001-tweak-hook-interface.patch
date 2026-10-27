@@ -13,10 +13,10 @@ Add include/mscharged_tweaks.h, the hooks' interface to the port
 
 diff --git a/include/mscharged_tweaks.h b/include/mscharged_tweaks.h
 new file mode 100644
-index 0000000..db5dea3
+index 0000000..4b1a1e9
 --- /dev/null
 +++ b/include/mscharged_tweaks.h
-@@ -0,0 +1,280 @@
+@@ -0,0 +1,283 @@
 +#ifndef MSCHARGED_TWEAKS_H
 +#define MSCHARGED_TWEAKS_H
 +
@@ -257,14 +257,17 @@ index 0000000..db5dea3
 +    bool back, pointed;
 +    const void* id;
 +};
-+// One frame of a navigating channel, from the front end: the top scene (its
-+// handler and SceneList value, or none), the pointer's screen (half its width
-+// and height), the channel's pointer, the remote's buttons (WPAD_BUTTON_*),
-+// the Nunchuk stick (-1 to 1, y up) and the menu's live buttons.
++// One frame of a navigating channel, from the front end: the top scene and
++// the top overlay (the pause menu and its pages, pop-ups; each its handler and
++// SceneList value, or none), the pointer's screen (half its width and
++// height), the channel's pointer, the remote's buttons (WPAD_BUTTON_*), the
++// Nunchuk stick (-1 to 1, y up) and the menu's live buttons.
 +struct mscharged_menu_frame
 +{
 +    const void* scene;
 +    int scene_type;
++    const void* overlay;
++    int overlay_type;
 +    float half_width, half_height;
 +    float pointer_x, pointer_y;
 +    unsigned short buttons;
