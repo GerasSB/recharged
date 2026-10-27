@@ -306,7 +306,7 @@ cards below it are greyed out. Turn it off to choose the buttons yourself.
 | L | Lob modifier | |
 | D-pad | Charged's D-pad moves | Charged's D-pad moves |
 
-In menus A selects, B goes back, START pauses and the C-stick points.
+In menus A selects, L and R turn pages, the C-stick points and START pauses.
 Defending a Mega Strike needs a Wii Remote's pointer, so a match of GameCube
 players plays best with **No Mega Strikes** (Gameplay). A GameCube profile
 saved by an older version, without `gamecube_controls`, keeps its own buttons.
